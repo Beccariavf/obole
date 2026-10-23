@@ -52,7 +52,9 @@ _UNSET = object()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     observability.configure_logging()
-    print("  Obole pret sur http://127.0.0.1:8000", flush=True)
+    # Pas de message « prêt » ici : il annoncerait un host/port devinés (l'app ne
+    # connaît pas son bind) et s'afficherait même quand le bind échoue. C'est
+    # `__main__._serve` qui l'émet, une fois le serveur réellement à l'écoute.
     yield
 
 

@@ -73,7 +73,8 @@ def configure_logging(log_file: Path | None = None, level: int | None = None) ->
     """Configure la journalisation et renvoie le logger racine. Idempotente.
 
     Console sur **stderr** : stdout reste réservé au message de démarrage
-    (« Obole pret sur … »), que le harnais de lancement attend sur stdout.
+    (« Obole prêt sur … », émis par `__main__._serve` une fois le bind réussi),
+    que le harnais de lancement attend sur stdout.
     Un fichier de log inaccessible (droits, disque plein) dégrade vers la
     console seule plutôt que de faire échouer le démarrage.
     """
