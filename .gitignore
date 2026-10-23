@@ -1,0 +1,66 @@
+# Environnement Python local
+.venv/
+__pycache__/
+*.pyc
+
+# Artefacts de build Python (générés par pip/setuptools, jamais versionnés)
+*.egg-info/
+build/
+dist/
+
+# Cache SQLite (prix / comptes / recherche picklés) + sidecars WAL/SHM
+cache.sqlite
+cache.sqlite-wal
+cache.sqlite-shm
+# Copie de sécurité automatique (écriture pilotée par le MCP) : données
+# utilisateur, jamais versionnée.
+cache.sqlite.bak
+
+# Caches de développement
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Lockfile uv (le projet installe via requirements.txt, pas uv)
+uv.lock
+
+# Journaux applicatifs (console + fichier à rotation)
+logs/
+
+# Images insérées dans les thèses (#21) — données utilisateur, hors dépôt
+thesis_assets/
+
+# Tests front (Node) : dépendances et artefacts Playwright
+web-tests/node_modules/
+web-tests/test-results/
+web-tests/playwright-report/
+web-tests/blob-report/
+web-tests/.vitest/
+# Base de cache jetable des tests e2e (jamais la base réelle de l'utilisateur).
+web-tests/.tmp-cache/
+# Configs Playwright jetables (contournement d'un port occupé, débogage local) :
+# le port est paramétrable via OBOLE_E2E_PORT (cf. web-tests/playwright.config.js),
+# donc un fichier de config en double n'a plus de raison d'être — et ne doit pas
+# se retrouver dans un commit.
+web-tests/*.tmp.config.js
+web-tests/pw.tmp*.config.js
+
+# Documents tiers (fiches d'un outil commercial) — non redistribuables, hors dépôt
+exemple/
+
+# Dossier de cadrage et références de la refonte fiche (PDF tiers + captures)
+# — non redistribuables, hors dépôt. Les prototypes HTML y vivent sans être commités.
+amélioration/
+
+# Artefacts de débogage navigateur (playwright-cli)
+.playwright-cli/
+.playwright/
+
+# macOS artifacts
+.DS_Store
+
+# Configuration outillage locale (chemins absolus, préférences personnelles).
+# Les modèles `*.example` restent versionnés : ils documentent la structure.
+.claude/launch.json
+.openfox/dev.json
+.openfox/commands/

@@ -1,0 +1,2801 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Obole — analyse boursière</title>
+  <link rel="stylesheet" href="/static/vendor/inter/inter.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="/static/vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <!-- Rendu markdown de la thèse (#21) : vendorisés, exposés en global avant le
+       module `markdown.js` qui les consomme. Aucun CDN (front sans build). -->
+  <script src="/static/vendor/marked.min.js" charset="utf-8"></script>
+  <script src="/static/vendor/dompurify.min.js" charset="utf-8"></script>
+  <script type="module" src="/static/app.js"></script>
+  <script defer src="/static/vendor/alpine-3.14.1.min.js"></script>
+</head>
+<body>
+<div class="wrap" x-data="obole" x-init="init()">
+
+  <!-- Recherche -->
+  <div class="searchbar">
+    <div class="logo">Ob<span>ole</span></div>
+    <div class="search-wrap">
+      <input class="search-input" type="text" placeholder="Ticker ou nom (ex. Total, Pernod, AAPL)"
+             x-model="query" @input="onSearchInput()" @keydown.enter="pickFirstOrLoad()"
+             @keydown.escape="suggestions = []" autocomplete="off" />
+      <div class="suggestions" x-show="suggestions.length" @click.outside="suggestions = []">
+        <template x-for="s in suggestions" :key="s.symbol">
+          <div class="suggestion-item" @click="pick(s)">
+            <span class="s-name" x-text="s.name"></span>
+            <span class="s-meta"><span class="s-symbol" x-text="s.symbol"></span><span x-show="s.exchange" x-text="' · ' + s.exchange"></span></span>
+          </div>
+        </template>
+      </div>
+    </div>
+    <button class="btn" @click="backTo = null; load()">Analyser</button>
+    <button class="btn ghost" @click="refresh()" x-show="data" title="Rafraîchir les données">↻</button>
+    <button class="btn ghost" x-show="backTo" @click="backToIndex()"
+            :title="'Revenir à « ' + (backTo?.name || '') + ' »'">
+      <span x-text="'← Retour à « ' + (backTo?.name || '') + ' »'"></span>
+    </button>
+    <button class="btn ghost" @click="openIndices()" title="Indices personnalisés : crée tes propres paniers d'actions">Mes indices</button>
+    <button class="btn ghost" @click="openScreener()" title="Screener : sélectionne des actions selon des critères (droite de régression, rentabilité, valorisation)">Screener</button>
+    <button class="btn ghost" @click="openPortfolio()" title="Portefeuille : saisis tes achats/ventes/dividendes et suis tes positions">Portefeuille</button>
+    <button class="btn ghost" @click="openSettings()" title="Paramètres : réglage des moyennes mobiles et autres mesures techniques">⚙ Paramètres</button>
+  </div>
+
+  <!-- États -->
+  <div class="empty" x-show="!data && !loading && !error">
+    Tape un ticker pour afficher sa fiche : droite de régression, valorisation, potentiel.
+  </div>
+  <div class="loading" x-show="loading">Analyse en cours…</div>
+  <div class="error" x-show="error" x-text="error"></div>
+
+  <!-- Fiche -->
+  <template x-if="data && !loading">
+    <div class="fiche-layout">
+      <!-- Rail vertical : une entrée par section (icône + libellé au survol).
+           La fiche n'affiche qu'une section à la fois ; l'entrée active est
+           marquée par `.active`. -->
+      <aside class="rail" aria-label="Sections de l'analyse">
+        <nav class="rail-nav">
+          <template x-for="s in sections" :key="s.id">
+            <button type="button" class="rail-btn"
+                    :data-section="s.id"
+                    :class="{ active: activeSection === s.id, disabled: !_sectionUsable(s.id) }"
+                    :aria-current="activeSection === s.id ? 'true' : 'false'"
+                    :aria-disabled="_sectionUsable(s.id) ? 'false' : 'true'"
+                    :disabled="!_sectionUsable(s.id)"
+                    :title="sectionTitle(s.id)"
+                    @click="setSection(s.id)">
+              <span class="rail-ico" x-html="s.svg"></span>
+              <!-- Pastille : une thèse existe pour ce titre (#21). L'état vient du
+                   payload `/api/stock` (`has_thesis`), donc sans appel réseau. -->
+              <span class="rail-dot" x-show="s.id === 'these' && thesisExists()"
+                    aria-hidden="true"></span>
+              <span class="rail-tip" x-text="s.label"></span>
+            </button>
+          </template>
+        </nav>
+      </aside>
+
+      <div class="fiche-main">
+      <!-- Header -->
+      <div class="header">
+        <div class="name" x-text="data.identity.name || data.identity.ticker"></div>
+        <div class="price">
+          <span x-text="fmt(data.identity.last_price)"></span><span class="ccy" x-text="data.identity.currency"></span>
+        </div>
+        <div class="meta">
+          <span class="chip" x-show="isRatio()" style="color:var(--accent);border-color:var(--accent)">Ratio</span>
+          <span class="chip" x-show="isBasket()" style="color:var(--accent);border-color:var(--accent)">Indice</span>
+          <span class="chip" x-text="data.identity.ticker"></span>
+          <span class="chip" x-show="data.identity.sector" x-text="data.identity.sector"></span>
+          <span class="chip" x-show="data.identity.country" x-text="data.identity.country"></span>
+          <span class="chip" x-show="data.identity.market_cap" x-text="'Capi ' + fmtCap(data.identity.market_cap)"></span>
+          <template x-for="w in data.warnings"><span class="chip warn" x-text="w"></span></template>
+        </div>
+      </div>
+
+      <!-- Membres de l'indice : stats « coup d'œil » affichées dans la section
+           « Composition » sous le graphe héro (cf. plus bas). -->
+
+      <!-- Graphe héro (section Résumé uniquement) -->
+      <div class="card hero section" style="margin-top:6px" x-show="activeSection === 'resume'">
+        <div class="chart-stack"><div id="chart"></div></div>
+
+        <!-- Slider de période à deux poignées (style référence) -->
+        <div class="period" tabindex="0" @keydown="onPeriodKey($event)"
+           @focus="periodFocused = true" @blur="periodFocused = false">
+          <div class="period-label">
+            Période : <span x-text="rangeLabel()"></span>
+            <span class="period-hint" x-show="winLocked && periodFocused" title="Utilise les flèches du clavier pour déplacer la fenêtre de régression dans le temps">· ← → pour déplacer</span>
+          </div>
+          <div class="dual-slider">
+            <div class="ds-track"></div>
+            <div class="ds-fill" :style="`left:${pctStart()}%; right:${100 - pctEnd()}%`"></div>
+            <input type="range" class="ds-input ds-min" min="0" :max="maxIdx()" x-model.number="rangeStart"
+                   @input="clampHandles('start')" @change="onSliderRelease()" />
+            <input type="range" class="ds-input ds-max" min="0" :max="maxIdx()" x-model.number="rangeEnd"
+                   @input="clampHandles('end')" @change="onSliderRelease()" />
+          </div>
+        </div>
+
+        <div class="toggles">
+          <label x-show="!isRatio() && !isBasket()" :class="{ disabled: !syncRegression }"
+                 :title="!syncRegression ? 'Dividendes inclus d\'office en mode régression figée (règle Obole)' : ''">
+            <input type="checkbox" x-model="withDividends" :disabled="!syncRegression"
+                   @change="$nextTick(() => drawChart())" /> Dividendes réinvestis</label>
+          <label><input type="checkbox" x-model="syncRegression" :disabled="winLocked" @change="$nextTick(() => onSyncToggle())" /> Synchroniser la régression avec la période</label>
+          <label>
+            <input type="checkbox" x-model="winLocked" @change="$nextTick(() => onWinToggle())" /> Fenêtre fixe
+            <select x-show="winLocked" x-model.number="winYears" @change="$nextTick(() => onWinSizeChange())"
+                    :title="'Taille de la fenêtre de régression'">
+              <option :value="2">2 ans</option>
+              <option :value="5">5 ans</option>
+              <option :value="10">10 ans</option>
+              <option :value="15">15 ans</option>
+              <option :value="20">20 ans</option>
+            </select>
+          </label>
+          <label><input type="checkbox" x-model="showMA" @change="$nextTick(() => drawChart())" /> Moyennes mobiles (MM<span x-text="_maShort"></span>/MM<span x-text="_maLong"></span>)</label>
+          <label><input type="checkbox" x-model="logScale" @change="$nextTick(() => drawChart())" /> Échelle log</label>
+          <label><input type="checkbox" x-model="showEvents" :disabled="!events().length" @change="$nextTick(() => drawChart())" /> Événements</label>
+          <label><input type="checkbox" x-model="showTx" :disabled="isRatio() || isBasket()"
+                        @change="onToggleTx()" /> Transactions</label>
+          <button class="btn small ghost export-btn" @click="openExport()" title="Exporter les données de la droite de régression ou une simulation en CSV">⤓ Export CSV</button>
+          <button class="btn small ghost" @click="openEvents()" title="Annoter des dates importantes sur le graphe (OPA, crise, changement de PDG…)">⚑ Événements<span x-show="events().length" x-text="' (' + events().length + ')'"></span></button>
+        </div>
+      </div>
+
+      <!-- Composition de l'indice : stats « coup d'œil » de chaque membre,
+           tableau sous le graphe héro. Clic = ouvre la fiche du membre. -->
+      <div class="section" x-show="isBasket() && data.identity.members?.length && activeSection === 'resume'">
+        <h2 x-text="'Composition (' + (data.identity.members?.length || 0) + ')'"></h2>
+        <div class="card mini">
+          <table class="cell-table">
+            <thead>
+              <tr>
+                <th>Entreprise</th>
+                <th>Position σ</th>
+                <th>Pente</th>
+                <th>Tendance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="m in data.identity.members" :key="m.ticker">
+                <tr class="member-row" @click="openMember(m)">
+                  <td>
+                    <div class="cell-name" x-text="m.name || m.ticker"></div>
+                    <div class="cell-ticker" x-text="m.ticker"></div>
+                  </td>
+                  <td>
+                    <div class="cell">
+                      <span class="cell-val" x-text="m.distance_sigma?.value != null ? fmt(m.distance_sigma.value) + ' σ' : '—'"></span>
+                      <span class="cell-label" :class="'cell-label ' + polarity(m.distance_sigma?.good)" x-text="m.distance_sigma?.label || ''"></span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="cell">
+                      <span class="cell-val" x-text="m.pente?.value != null ? fmt(m.pente.value) + ' %' : '—'"></span>
+                      <span class="cell-label" :class="'cell-label ' + polarity(m.pente?.good)" x-text="m.pente?.label || ''"></span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="cell-label" :class="'cell-label ' + polarity(m.trend?.good)" x-text="m.trend?.label || '—'"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Indicateurs : carte vedette Valorisation + jauge, puis les autres -->
+      <div class="section" x-show="activeSection === 'resume'">
+        <h2>Indicateurs</h2>
+        <div class="kpi-layout">
+          <!-- Carte vedette : valorisation avec jauge -->
+          <div class="card kpi feature">
+            <div class="k-title">Valorisation — distance à la droite (σ)</div>
+            <div class="feature-row">
+              <div>
+                <div class="k-value big" x-text="ind('distance_sigma').value ?? '—'"></div>
+                <span class="k-label" :class="polarity(ind('distance_sigma').good)"
+                      x-text="ind('distance_sigma').label || '—'"></span>
+              </div>
+              <div class="gauge">
+                <div class="gauge-track">
+                  <span class="gauge-zone gauge-good"></span>
+                  <span class="gauge-zone gauge-bad"></span>
+                  <span class="gauge-needle" :style="`left:${gaugePos()}%`"></span>
+                </div>
+                <div class="gauge-scale"><span>−2σ décoté</span><span>0</span><span>+2σ cher</span></div>
+              </div>
+            </div>
+          </div>
+          <!-- Autres indicateurs -->
+          <div class="kpis">
+            <template x-for="kpi in kpiList()" :key="kpi.key">
+              <div class="card kpi">
+                <div class="k-title" x-text="kpi.title"></div>
+                <div class="k-value" x-text="kpi.display"></div>
+                <span class="k-label" :class="polarity(kpi.sv.good)" x-text="kpi.sv.label || '—'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Synthèse fondamentale : grille de lecture rapide (valeurs seules, non
+           interactive). Aucun graphe, aucun clic — vue d'ensemble de la société. -->
+      <div class="section" x-show="activeSection === 'resume' && summaryCards().length">
+        <h2>Synthèse</h2>
+        <div class="summary-grid">
+          <template x-for="card in summaryCards()" :key="card.id">
+            <div class="card mini summary-card" :data-card="card.id">
+              <h3 x-text="card.title"></h3>
+              <!-- Carte MATRICE (Croissance) : en-tête de colonnes + lignes CA/EPS -->
+              <template x-if="summaryColumns(card).length">
+                <table class="summary-matrix">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <template x-for="col in summaryColumns(card)" :key="col">
+                        <th x-text="col"></th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in card.rows" :key="row.key">
+                      <tr>
+                        <th scope="row" class="s-label" x-text="row.label"></th>
+                        <template x-for="(cell, i) in row.cells" :key="i">
+                          <td class="s-value" :class="summaryCellClass(row, i)" x-text="summaryCell(row, cell)"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </template>
+              <div class="summary-rows" x-show="!summaryColumns(card).length">
+                <template x-for="row in card.rows" :key="row.key">
+                  <div class="summary-row">
+                    <span class="s-label" x-text="row.label"></span>
+                    <span class="s-value" :class="summaryClass(row)">
+                      <template x-if="row.key === 'cap_category'">
+                        <span x-text="summaryCapLabel(row) || '--'"></span>
+                      </template>
+                      <template x-if="row.key === 'website' && row.text">
+                        <a :href="row.text" target="_blank" rel="noopener noreferrer" x-text="row.text.replace(/^https?:\/\//, '').replace(/\/$/, '')"></a>
+                      </template>
+                      <template x-if="row.key !== 'cap_category' && !(row.key === 'website' && row.text)">
+                        <span x-text="summaryValue(row)"></span>
+                      </template>
+                      <span class="s-zone" x-show="summaryZone(row)" x-text="summaryZone(row)"></span>
+                      <span class="s-note" x-show="!summaryZone(row) && summaryNote(row)" x-text="summaryNote(row)"></span>
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Sections analytiques : blocs de la section ACTIVE uniquement -->
+      <!-- Badge de fiabilité de la section Dividende : rendu UNE fois au niveau
+           de la section (hors de la boucle des groupes, sinon répété). -->
+      <div class="div-warnings" x-show="activeSection === 'dividende' && dividendWarnings().length">
+        <template x-for="w in dividendWarnings()" :key="w">
+          <span class="reliability-badge" x-text="w"></span>
+        </template>
+      </div>
+      <template x-for="grp in sectionGroups()" :key="grp.title">
+        <div class="section" x-show="grp.cards.length">
+          <h2 x-text="grp.title"></h2>
+          <div class="charts-grid">
+            <template x-for="c in grp.cards" :key="c.id">
+              <div class="card mini" :class="{ wide: isWideCard(c) }">
+                <h3>
+                  <span x-text="c.title"></span>
+                  <!-- Puce de couverture : dit la VÉRITÉ sur l'axe (une série de
+                       4 ans ne doit pas se lire comme 17 ans). Masquée sur les
+                       cartes sans axe temporel (CAGR, KPI). -->
+                  <span class="card-span" x-show="cardSpanOf(c) > 1"
+                        x-text="cardSpanOf(c) + ' ans'"
+                        :title="'Données disponibles : ' + cardSpanOf(c) + ' exercice(s)'"></span>
+                  <span class="info-btn" @click.stop="toggleInfo(c.id)" x-text="showInfo[c.id] ? '✕' : 'ⓘ'"></span>
+                  <!-- Zoom plein écran : les cartes à graphe seulement (une carte
+                       KPI n'a rien à agrandir). -->
+                  <button type="button" class="expand-btn" x-show="isChartCard(c)"
+                          @click.stop="openChartDetail(c)"
+                          title="Agrandir" aria-label="Agrandir le graphique">⤢</button>
+                </h3>
+
+                <!-- Info-bulle cliquable -->
+                <div class="info-panel" x-show="showInfo[c.id]" x-text="infoText(c.id)"></div>
+
+                <!-- CAGR : bandeau de chiffres -->
+                <template x-if="c.type === 'cagr'">
+                  <div class="cagr-row">
+                    <template x-for="g in cagrItems()" :key="g.label">
+                      <div class="cagr-item">
+                        <div class="cagr-label" x-text="g.label"></div>
+                        <div class="cagr-value" :class="polarity(g.good)" x-text="g.display"></div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Dividende : Métriques clés (bandeau de chiffres) -->
+                <template x-if="c.type === 'kpi'">
+                  <div class="cagr-row">
+                    <template x-for="k in dividendKeyMetrics()" :key="k.title">
+                      <div class="cagr-item">
+                        <div class="cagr-label" x-text="k.title"></div>
+                        <div class="cagr-value" :class="polarity(k.good)" x-text="k.display"></div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Graphes : tout le reste. Si la donnée est trop courte
+                     (< 2 points), on affiche un état vide explicite plutôt
+                     qu'un cadre de graphe nu. Hauteur pilotée par le CSS
+                     (variables alignées sur config.CHART_HEIGHT_* via /api/meta) :
+                     les conteneurs et le layout Plotly coïncident. -->
+                <template x-if="isChartCard(c) && !cardEmptyOf(c)">
+                  <div class="mini-chart" :id="'mc-' + c.id"></div>
+                </template>
+                <p class="na" x-show="isChartCard(c) && cardEmptyOf(c)">
+                  Pas assez de données pour tracer ce graphique (2 ans minimum).
+                </p>
+                <!-- Pastilles de dernière valeur (lecture rapide sous le graphe). -->
+                <div class="card-pills" x-show="cardPillsOf(c).length">
+                  <template x-for="p in cardPillsOf(c)" :key="p.label">
+                    <span class="pill" :class="polarity(p.good)">
+                      <b x-text="p.label + ' : '"></b><span x-text="p.display"></span>
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Comparateur : en bas de la section Quantitatif. Superpose jusqu'à 3
+           métriques (rebasées à 100) pour observer comment elles évoluent
+           ensemble. Aucun calcul métier : réutilise les séries des comptes. -->
+      <div class="section" x-show="activeSection === 'quantitatif' && data.fundamentals">
+        <h2>Comparateur de métriques</h2>
+        <div class="card mini">
+          <h3>
+            <span>Comparateur</span>
+            <span class="card-hint">Choisis 2 ou 3 métriques (base 100)</span>
+            <span class="info-btn" @click.stop="toggleInfo('Comparateur-de-m-triques')"
+                  x-text="showInfo['Comparateur-de-m-triques'] ? '✕' : 'ⓘ'"></span>
+          </h3>
+          <div class="info-panel" x-show="showInfo['Comparateur-de-m-triques']"
+               x-text="infoText('Comparateur-de-m-triques')"></div>
+          <div class="compare-picker">
+            <template x-for="o in compareOptions()" :key="o.key">
+              <button type="button" class="compare-chip"
+                      :class="{ active: compareKeys.includes(o.key) }"
+                      :disabled="compareFull() && !compareKeys.includes(o.key)"
+                      :title="compareFull() && !compareKeys.includes(o.key) ? 'Maximum 3 métriques' : ''"
+                      @click="toggleCompare(o.key)" x-text="o.label"></button>
+            </template>
+          </div>
+          <div class="mini-chart" id="compare-chart" x-show="compareKeys.length"></div>
+          <p class="idx-hint" x-show="!compareKeys.length">
+            Sélectionne au moins une métrique ci-dessus pour la tracer (base 100 = première année).
+          </p>
+          <p class="idx-hint" x-show="compareFull()">
+            Maximum 3 métriques : décoche une pastille pour en choisir une autre.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================ VALORISATION ============================ -->
+      <!-- Partie 1 : calculatrice de prix juste (pleine largeur) + partie 2 :
+           courbes continues (croissance, multiples). Le calcul est fait côté
+           client (miroir de engine/valuation_calc.py) : aucun aller-retour. -->
+      <div class="section section-breakout" x-show="activeSection === 'valorisation' && valuationAvailable()">
+        <div class="val-head">
+          <h2>Calculatrice de prix juste</h2>
+        </div>
+
+        <!-- KPI de résultat -->
+        <div class="val-kpis">
+          <div class="val-kpi">
+            <div class="val-kpi-label" x-text="'Prix juste (objectif ' + fmt(valTarget) + ' %/an)'"></div>
+            <div class="val-kpi-value accent" x-text="fmt(valFairPrice()) + ' ' + (data.identity.currency || '')"></div>
+          </div>
+          <div class="val-kpi">
+            <div class="val-kpi-label">Rendement estimé</div>
+            <div class="val-kpi-value" :class="polarity(valBeatsTarget())"
+                 x-text="valEstimatedReturn() == null ? '—' : fmt(valEstimatedReturn()) + '%/an'"></div>
+          </div>
+          <div class="val-kpi">
+            <div class="val-kpi-label">Marge de sécurité</div>
+            <div class="val-kpi-value" :class="polarity(valSafetyMargin() == null ? null : valSafetyMargin() >= 0)"
+                 x-text="valSafetyMargin() == null ? '—' : fmt(valSafetyMargin()) + '%'"></div>
+          </div>
+        </div>
+
+        <div class="val-layout">
+          <!-- Zone de données : toggle Graphique/Matrice en tête, sans emoji -->
+          <div class="val-view-head">
+            <div class="seg-control">
+              <button type="button" class="seg-btn" :class="{ on: valView === 'graph' }"
+                      @click="valView = 'graph'; $nextTick(() => drawValuationChart())">Graphique</button>
+              <button type="button" class="seg-btn" :class="{ on: valView === 'matrix' }"
+                      @click="valView = 'matrix'">Matrice</button>
+            </div>
+          </div>
+          <div class="val-main">
+            <!-- Vue Graphique -->
+            <div class="card" x-show="valView === 'graph'">
+              <div class="mini-chart" id="val-chart" style="height:var(--chart-h-val-hero)"></div>
+              <!-- Légende CAGR : croissance annualisée des séries tracées. -->
+              <div class="val-cagr-legend" x-show="valuationCagrLegend().length">
+                <template x-for="l in valuationCagrLegend()" :key="l.label">
+                  <span class="val-cagr-item">
+                    <b x-text="l.label"></b>
+                    <span x-text="'(CAGR: ' + fmt(l.cagr) + '%)'"></span>
+                  </span>
+                </template>
+              </div>
+            </div>
+            <!-- Vue Matrice -->
+            <div class="card val-matrix-wrap" x-show="valView === 'matrix'">
+              <div class="val-matrix-scroll">
+                <table class="val-matrix" x-show="valMatrix()">
+                  <thead>
+                    <tr>
+                      <th class="val-corner">Croiss. \ Mult.</th>
+                      <template x-for="m in (valMatrix()?.multiples || [])" :key="m">
+                        <th :class="{ 'val-active-col': valMatrix()?.activeMultiple === m }" x-text="valNum1(m)"></th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in (valMatrix()?.rows || [])" :key="row.growth">
+                      <tr>
+                        <th class="val-row-head" :class="{ 'val-active-row': valMatrix()?.activeGrowth === row.growth }"
+                            x-text="valNum1(row.growth) + '%'"></th>
+                        <template x-for="cell in row.cells" :key="cell.multiple">
+                          <td :class="valCellClass(row.growth, cell)"
+                              x-text="cell.value == null ? '—' : valNum1(cell.value) + '%'"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barre Paramètres compacte (Option A) -->
+          <aside class="card val-params">
+            <div class="val-bar">
+              <label class="val-cell">
+                <span>Données</span>
+                <select class="search-input" x-model="valMetric" @change="$nextTick(() => valOnBase())">
+                  <template x-for="m in valuationMetrics()" :key="m.key">
+                    <option :value="m.key" x-text="m.label"></option>
+                  </template>
+                </select>
+              </label>
+              <label class="val-cell">
+                <span>Période</span>
+                <select class="search-input" x-model.number="valPeriod" @change="$nextTick(() => valOnBase())">
+                  <template x-for="p in valPeriods()" :key="p">
+                    <option :value="p" x-text="p + ' ans'"></option>
+                  </template>
+                </select>
+              </label>
+              <label class="val-cell">
+                <span>Croissance %/an</span>
+                <input type="number" step="0.01" class="search-input" x-model.number="valGrowth"
+                       @input="$nextTick(() => valOnParam())" />
+              </label>
+              <label class="val-cell">
+                <span>Multiple final</span>
+                <input type="number" step="0.01" class="search-input" x-model.number="valMultiple"
+                       @input="$nextTick(() => valOnParam())" />
+              </label>
+              <label class="val-cell">
+                <span>Rendement cible %/an</span>
+                <input type="number" step="0.5" class="search-input" x-model.number="valTarget"
+                       @input="$nextTick(() => valOnParam())" />
+              </label>
+              <label class="val-cell val-cell-check">
+                <span>&nbsp;</span>
+                <span class="val-check-inline">
+                  <input type="checkbox" x-model="valIncludeDividends" @change="$nextTick(() => valOnParam())" />
+                  Dividendes
+                </span>
+              </label>
+            </div>
+            <div class="val-bar-foot">
+              <div class="val-hints">
+                <span x-show="valForecast() != null">
+                  Prévisions : <b class="val-forecast" x-text="fmt(valForecast()) + '%'"></b>
+                </span>
+                <span x-show="valMedian() != null">
+                  <span x-text="'multiple médian ' + valPeriod + 'A : '"></span><b class="val-median" x-text="fmt(valMedian())"></b>
+                </span>
+                <span x-show="valMedianValue() != null">
+                  <span x-text="'Valeur médiane ' + valPeriod + 'A : '"></span><b class="val-median" x-text="fmt(valMedianValue()) + ' ' + (data.identity.currency || '')"></b>
+                </span>
+              </div>
+              <div class="val-bar-actions">
+                <button class="btn btn-icon" :disabled="valSaving || !canSaveValuation()"
+                        :title="canSaveValuation() ? 'Enregistrer le prix juste' : 'Prix juste non calculable — ajuste les paramètres'"
+                        aria-label="Enregistrer" @click="saveValuation()">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <path d="M17 21v-8H7v8M7 3v5h8"/>
+                  </svg>
+                </button>
+                <button class="btn ghost btn-icon" title="Télécharger (CSV)" aria-label="Télécharger"
+                        @click="downloadValuation()">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <path d="M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                </button>
+                <button class="btn ghost btn-icon" :disabled="valSaving" title="Réinitialiser le prix juste enregistré"
+                        aria-label="Réinitialiser" @click="resetValuation()">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p class="val-error" x-show="valError" x-text="valError"></p>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Partie 2 : courbes continues (croissance par action + multiples) -->
+      <template x-for="grp in (activeSection === 'valorisation' ? valuationGroups() : [])" :key="grp.title">
+        <div class="section">
+          <h2 x-text="grp.title"></h2>
+          <div class="charts-grid">
+            <template x-for="c in grp.cards" :key="c.id">
+              <div class="card mini">
+                <h3>
+                  <span x-text="c.title"></span>
+                  <span class="info-btn" @click.stop="toggleInfo(c.id)" x-text="showInfo[c.id] ? '✕' : 'ⓘ'"></span>
+                  <button type="button" class="expand-btn" @click.stop="openChartDetail(c)"
+                          title="Agrandir" aria-label="Agrandir le graphique">⤢</button>
+                </h3>
+                <div class="info-panel" x-show="showInfo[c.id]" x-text="infoText(c.id)"></div>
+                <template x-if="!cardEmptyOf(c)">
+                  <div class="mini-chart" :id="'mc-' + c.id"></div>
+                </template>
+                <p class="na" x-show="cardEmptyOf(c)">Pas assez de données pour tracer ce graphique.</p>
+                <div class="card-pills" x-show="cardPillsOf(c).length">
+                  <template x-for="p in cardPillsOf(c)" :key="p.label">
+                    <span class="pill" :class="polarity(p.good)">
+                      <b x-text="p.label + ' : '"></b><span x-text="p.display"></span>
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <div class="section" x-show="data.fundamentals && activeSection === 'finance'">
+        <h2>Données complémentaires</h2>
+        <div class="card mini" style="padding:16px 20px">
+          <div class="manual-bar">
+            <div>
+              <template x-if="data.fundamentals?.manual_years?.length">
+                <span class="chip manual-chip">
+                  <span x-text="data.fundamentals.manual_years.length + ' an(s) saisi(s) : ' + data.fundamentals.manual_years.join(', ')"></span>
+                </span>
+              </template>
+              <template x-if="!data.fundamentals?.manual_years?.length">
+                <span class="chip" style="color:var(--text-soft)">Aucune donnée manuelle</span>
+              </template>
+              <span class="manual-desc">Étends l'historique des comptes au-delà des ~4-5 ans de yfinance. Le CSV couvre toutes les métriques de la fiche : postes saisissables (éditables) et ratios calculés (recalculés automatiquement après import).</span>
+            </div>
+            <div class="manual-actions">
+              <a class="btn small" :href="'/api/manual/' + data.identity.ticker + '/template'" target="_blank">📥 Template CSV</a>
+              <button class="btn small ghost" @click="openImport()">📤 Importer CSV</button>
+              <button class="btn small ghost" @click="openDrafts()" title="Imports proposés par l'IA (MCP) ou par collage, en attente de ta validation">
+                Imports à valider<span x-show="draftCount" x-text="' (' + draftCount + ')'"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Brouillons d'import en attente (#23) : un import proposé (IA via
+               MCP, ou collage) n'est appliqué que sur validation explicite. -->
+          <div class="import-drafts" x-show="draftsOpen" data-testid="import-drafts">
+            <p class="na" x-show="!importDrafts.length">Aucun import en attente de validation.</p>
+            <template x-for="d in importDrafts" :key="d.id">
+              <div class="import-draft" :data-draft-id="d.id">
+                <div class="import-draft-head">
+                  <b x-text="d.ref"></b>
+                  <span class="chip" x-text="drainSummary(d)"></span>
+                  <span class="import-draft-actions">
+                    <button class="btn small" @click="openDraftDetail(d.id)">Voir le détail</button>
+                    <button class="btn small" @click="applyDraft(d.id)" :disabled="draftsBusy">Appliquer</button>
+                    <button class="btn small ghost" @click="rejectDraft(d.id)" :disabled="draftsBusy">Rejeter</button>
+                  </span>
+                </div>
+                <p class="import-draft-error" x-show="draftError" x-text="draftError"></p>
+                <div class="import-table-wrap" x-show="draftDetail && draftDetail.id === d.id">
+                  <table class="import-table">
+                    <thead><tr><th>Année</th><th>Métrique</th><th>Valeur</th></tr></thead>
+                    <tbody>
+                      <template x-for="(row, i) in (draftDetail?.entries || []).slice(0, 100)" :key="i">
+                        <tr>
+                          <td x-text="row.year"></td>
+                          <td x-text="row.metric"></td>
+                          <td x-text="fmt(row.value)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modale d'import CSV -->
+      <div class="modal-overlay" x-show="showImportModal" @click.self="showImportModal = false">
+        <div class="modal">
+          <h3>Importer des données manuelles</h3>
+          <template x-if="!importPreview">
+            <div>
+              <p style="font-size:13px;color:var(--text-soft);margin:8px 0 14px">
+                Sélectionne un fichier CSV <strong>ou colle son contenu</strong>. Le délimiteur (<code>,</code> <code>;</code> tabulation) et les nombres (virgule décimale, séparateurs de milliers, devise) sont détectés automatiquement — un export Excel FR ou un copier-coller de tableau passe tel quel. Le plus simple reste de partir du template.
+              </p>
+              <input type="file" accept=".csv" @change="onFileSelect" style="margin-bottom:12px" />
+              <textarea class="import-paste" x-model="importPasteText" rows="5"
+                placeholder="…ou colle ici le contenu CSV (délimiteur détecté : ; , tabulation)" style="margin-bottom:12px"></textarea>
+              <div x-show="importError" class="import-error" x-text="importError" style="margin-bottom:12px"></div>
+              <div class="modal-actions">
+                <button class="btn small ghost" @click="showImportModal = false">Annuler</button>
+                <button class="btn small" @click="onPastePreview()">Analyser le texte collé</button>
+              </div>
+            </div>
+          </template>
+          <template x-if="importPreview">
+            <div>
+              <p style="font-size:13px;color:var(--text-soft);margin:8px 0 14px">
+                <span x-text="importPreview.years.length + ' année(s) · ' + importPreview.entries.length + ' valeur(s)'"></span>
+                <span class="chip warn" x-show="importPreview.overrideCount" x-text="importPreview.overrideCount + ' écrasement(s)'"></span>
+                <span class="chip warn" x-show="importPreview.rejected.length" x-text="importPreview.rejected.length + ' rejet(s)'"></span>
+              </p>
+              <p style="font-size:12px;color:var(--text-soft);margin:-6px 0 10px"
+                 x-show="importPreview.unknownColumns.length || importPreview.derivedColumns.length">
+                <span x-show="importPreview.derivedColumns.length"
+                  x-text="'Ratios calculés ignorés : ' + importPreview.derivedColumns.join(', ')"></span>
+                <span x-show="importPreview.unknownColumns.length"
+                  x-text="' / Colonnes inconnues : ' + importPreview.unknownColumns.join(', ')"></span>
+              </p>
+              <div class="import-table-wrap">
+                <table class="import-table">
+                  <thead><tr><th>Année</th><th>Métrique</th><th>Valeur</th><th>Action</th></tr></thead>
+                  <tbody>
+                    <template x-for="row in importPreview.rows" :key="row.year + '-' + row.metric">
+                      <tr :class="{ override: row.override }">
+                        <td x-text="row.year"></td>
+                        <td x-text="row.metric"></td>
+                        <td x-text="fmt(row.value)"></td>
+                        <td><span x-text="row.override ? 'écrasement' : 'ajout'" style="font-size:11px;color:var(--text-soft)"></span></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="import-table-wrap" x-show="importPreview.rejected.length" style="margin-top:10px">
+                <p style="font-size:12px;color:var(--text-soft);margin:0 0 6px">
+                  Valeurs écartées (elles ne seront PAS importées)<span
+                    x-show="importPreview.rejectedTotal > importPreview.rejected.length"
+                    x-text="' — ' + importPreview.rejected.length + ' sur ' + importPreview.rejectedTotal + ' affichées'"></span> :
+                </p>
+                <table class="import-table">
+                  <thead><tr><th>Année</th><th>Métrique</th><th>Cellule</th><th>Raison</th></tr></thead>
+                  <tbody>
+                    <template x-for="(row, i) in importPreview.rejected.slice(0, 50)" :key="i">
+                      <tr class="rejected">
+                        <td x-text="row.year ?? '—'"></td>
+                        <td x-text="row.metric || '—'"></td>
+                        <td x-text="row.raw || '—'"></td>
+                        <td x-text="rejectReason(row.reason)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-actions">
+                <button class="btn small ghost" @click="cancelImport()">Annuler</button>
+                <button class="btn small" @click="confirmImport()" :disabled="importing || !importPreview.entries.length">Confirmer l'import</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ====================== THÈSE & SOCIÉTÉ (#21) ====================== -->
+      <!-- Deux zones : profil société (lecture, dérivé de /api/stock) puis le
+           document markdown de la thèse. Le sommaire et le plan sont DÉRIVÉS du
+           document : rien de ce qui est affiché ici n'est persisté en plus du
+           texte (CA-TOC11). -->
+      <div class="section" id="these-section" x-show="activeSection === 'these'">
+        <h2>Profil société</h2>
+        <div class="card mini profile-card">
+          <!-- Grille UNIQUE fluide (#21.4) : faits et agenda s'enchaînent dans la
+               même grille `auto-fit`. L'ancienne disposition en deux colonnes
+               fixes (`1.1fr 1fr`) réservait la moitié de la largeur à l'agenda,
+               qui ne porte souvent QU'UNE échéance : les 4/5 de la colonne
+               restaient vides. Le libellé de chaque ligne se décrit lui-même. -->
+          <div class="profile-grid">
+            <template x-if="!profileFacts().length && !profileAgenda().length">
+              <p class="idx-hint">Aucune information société disponible pour ce titre.</p>
+            </template>
+            <template x-for="f in profileFacts()" :key="f.label">
+              <div class="profile-row">
+                <span class="profile-label" x-text="f.label"></span>
+                <span class="profile-value">
+                  <a x-show="f.href" :href="f.href" target="_blank" rel="noopener" x-text="f.value"></a>
+                  <span x-show="!f.href" x-text="f.value"></span>
+                  <span class="profile-note" x-show="f.note" x-text="f.note"></span>
+                </span>
+              </div>
+            </template>
+            <template x-for="a in profileAgenda()" :key="a.label">
+              <div class="profile-row">
+                <span class="profile-label" x-text="a.label"></span>
+                <span class="profile-value">
+                  <span x-text="a.date"></span>
+                  <span class="agenda-rel" x-show="a.relative" x-text="'· ' + a.relative"></span>
+                  <span class="agenda-rel" x-show="a.after" x-text="'· ' + a.after"></span>
+                  <span class="chip warn" x-show="a.estimated">estimé</span>
+                </span>
+              </div>
+            </template>
+          </div>
+          <!-- Description d'activité : repliée par défaut (elle ne doit pas
+               dominer la lecture de la thèse). -->
+          <template x-if="data.profile?.summary">
+            <div class="profile-summary">
+              <button type="button" class="profile-toggle"
+                      @click="showInfo['profile-summary'] = !showInfo['profile-summary']">
+                <span x-text="showInfo['profile-summary'] ? '▾' : '▸'"></span>
+                <span>Description de l'activité</span>
+              </button>
+              <p class="profile-summary-text" x-show="showInfo['profile-summary']"
+                 x-text="data.profile.summary"></p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Bande « Suivi » (#21) : la date du prochain résultat et la liste des
+             points de contrôle suivis. Deux informations qu'on consulte avant de
+             lire, donc AVANT le document. L'échéance ne vient pas du profil
+             (une seule occurrence par fiche) et les points de contrôle sont
+             persistés par ticker, indépendamment du markdown de la thèse. -->
+        <div class="card suivi-card" x-show="cpVisible()">
+          <div class="suivi-head">
+            <span class="suivi-title">Suivi</span>
+          </div>
+
+          <!-- UNE SEULE ligne de tête (#21.4) : l'échéance à gauche, le compteur
+               des points de contrôle à droite. Le libellé « Points de contrôle »
+               a été retiré — le compteur seul suffit, et son intitulé accessible
+               le dit au lecteur d'écran. -->
+          <div class="suivi-topline" x-show="cpEarnings() || cpTotal()">
+            <div class="suivi-earnings" x-show="cpEarnings()">
+              <span class="suivi-label">Prochain résultat</span>
+              <span class="suivi-earnings-value">
+                <span x-text="cpEarnings()?.date"></span>
+                <span class="suivi-rel" x-show="cpEarnings()?.relative"
+                      x-text="'· ' + cpEarnings()?.relative"></span>
+                <span class="suivi-rel" x-show="cpEarnings()?.after"
+                      x-text="'· ' + cpEarnings()?.after"></span>
+                <span class="chip warn" x-show="cpEarnings()?.estimated">estimé</span>
+              </span>
+            </div>
+            <!-- Compteur « 0/1 » seul. Neutre à 0 coché, accent dès le premier.
+                 Le chiffre visible est décoratif (`aria-hidden`) : son sens est
+                 porté par un nœud `.sr-only`, seul procédé réellement exposé aux
+                 technologies d'assistance (un `aria-label` sur un `<span>` sans
+                 rôle est ignoré — il ne suffit pas de poser l'attribut). -->
+            <span class="suivi-count" x-show="cpTotal() && cpListVisible()"
+                  :class="{ done: cpHasDone() }" :title="cpLabelTitle()">
+              <span aria-hidden="true" x-text="cpLabel()"></span>
+              <span class="sr-only" x-text="cpLabelTitle()"></span>
+            </span>
+          </div>
+
+          <div class="suivi-checkpoints" x-show="cpListVisible()">
+            <!-- Barre de progression : seulement à partir de 2 points suivis
+                 (à 1, une barre vide se lit comme un filet sans information). -->
+            <div class="suivi-bar" x-show="cpBarVisible()" role="progressbar"
+                 :aria-valuenow="cpProgress()" aria-valuemin="0" aria-valuemax="100">
+              <span class="suivi-bar-fill" :style="'width:' + cpProgress() + '%'"></span>
+            </div>
+
+            <p class="idx-hint" x-show="cpLoaded && !cpTotal()">
+              Aucun point de contrôle suivi pour ce titre.
+            </p>
+            <ul class="suivi-cp-list" x-show="cpTotal()">
+              <template x-for="cp in cpItems" :key="cp.id">
+                <li class="suivi-cp" :class="{ done: cp.done }">
+                  <input type="checkbox" :checked="cp.done" :id="'cp-' + cp.id"
+                         :disabled="cpBusy" @change="cpToggle(cp, $event.target.checked)" />
+                  <label :for="'cp-' + cp.id" x-text="cp.label"></label>
+                  <button type="button" class="suivi-cp-remove" title="Supprimer ce point"
+                          :disabled="cpBusy" @click="cpRemove(cp)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                         stroke-linecap="round" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18"/>
+                    </svg>
+                  </button>
+                </li>
+              </template>
+            </ul>
+
+            <form class="suivi-add" @submit="cpSubmit($event)">
+              <input type="text" class="search-input" x-model="cpDraft"
+                     :maxlength="cpLabelMax()" :disabled="cpBusy"
+                     placeholder="Ajouter un point de contrôle…"
+                     aria-label="Ajouter un point de contrôle" />
+              <button type="submit" class="btn small ghost" :disabled="cpBusy || !cpDraft.trim()">
+                Ajouter
+              </button>
+            </form>
+            <p class="suivi-error" x-show="cpError" x-text="cpError"></p>
+          </div>
+        </div>
+
+        <!-- Thèse : une CARTE (en-tête / corps / pied). L'action primaire vit dans
+             l'objet qu'elle commande — comme la calculatrice de prix juste et la
+             bande de données manuelles — au lieu de flotter sur le fond de page. -->
+        <div class="card thesis-card" id="thesis-card">
+          <div class="thesis-card-head">
+            <span class="thesis-card-title">Thèse</span>
+            <span class="spacer"></span>
+            <!-- Statut d'auto-save : jamais silencieux en cas d'échec. -->
+            <span class="save-status" :class="thesisStatus" x-show="thesisStatus !== 'idle'">
+              <span x-show="thesisStatus === 'saving'">Enregistrement…</span>
+              <span x-show="thesisStatus === 'saved'" x-text="'Enregistré' + (thesisSavedAt ? ' à ' + thesisSavedAt : '')"></span>
+              <span x-show="thesisStatus === 'dirty'">Modifications…</span>
+              <span x-show="thesisStatus === 'error'" x-text="'Échec — ' + thesisError"></span>
+            </span>
+            <button class="btn small ghost" x-show="thesisStatus === 'error'" @click="saveThesisNow()">Réessayer</button>
+            <button class="btn small" x-show="!thesisEditing" @click="startThesisEdit()"
+                    x-text="thesisHasContent() ? 'Éditer' : 'Écrire'"></button>
+            <button class="btn small ghost" x-show="thesisEditing" @click="stopThesisEdit()"
+                    title="Quitter l'édition (⌘S enregistre, Échap ferme)">Terminé</button>
+          </div>
+
+        <!-- Bandeau « modifiée ailleurs » (écriture par l'IA via MCP) -->
+        <div class="thesis-conflict" x-show="thesisConflict">
+          <span>Cette thèse a été modifiée ailleurs.</span>
+          <button class="btn small ghost" @click="reloadThesisFromServer()">Recharger</button>
+          <button class="btn small ghost" @click="keepLocalThesis()">Garder ma version</button>
+        </div>
+
+        <div class="thesis-flow" :class="{ 'plan-closed': !thesisPlanVisible() }">
+          <!-- Poignée de bord (#21.3). L'ancien bouton vivait dans l'en-tête : une
+               fois la fiche parcourue, il sortait du champ, donc impossible
+               d'OUVRIR au milieu de la lecture et impossible de REFERMER une fois
+               le plan affiché. Le contrôle vit désormais dans la bande morte du
+               bord droit de la carte : le curseur y entre, l'onglet apparaît.
+               Un SEUL contrôle pour les deux gestes — même emplacement, même
+               clic —, et il suit le défilement (bande pleine hauteur + onglet
+               `sticky`). -->
+          <div class="thesis-edge" x-show="thesisPlanAvailable()">
+            <!-- Un BOUTON natif, pas un input caché : `aria-expanded` est le
+                 patron ARIA attendu pour un dépliement, et l'état visuel passe
+                 par une classe sur le bouton — donc plus aucun sélecteur
+                 dépendant de la position de l'input dans l'arbre. -->
+            <button type="button" class="thesis-pin" :class="{ open: thesisPlanOpen }"
+                    :aria-expanded="thesisPlanOpen ? 'true' : 'false'"
+                    aria-controls="thesis-plan"
+                    :title="thesisPlanOpen ? 'Masquer le plan' : 'Afficher le plan'"
+                    @click="toggleThesisPlan()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6"/>
+              </svg>
+              <span class="thesis-pin-lbl" x-text="thesisPlanOpen ? 'Masquer' : 'Plan'"></span>
+            </button>
+          </div>
+          <div class="thesis-main">
+        <!-- Un SEUL point d'écoute pour les clics du document (cases à cocher
+             et ancres internes) : le déléguer aussi sur un ancêtre provoquerait
+             un double traitement du même clic (bascule annulée). -->
+        <div class="thesis-body" :class="{ editing: thesisEditing, 'drag-over': thesisDragOver }"
+             @dragover.prevent="thesisDragOver = true"
+             @dragleave.prevent="thesisDragOver = false"
+             @drop.prevent="thesisDrop($event)">
+          <p class="thesis-loading" x-show="thesisLoading">Chargement de la thèse…</p>
+
+          <!-- ÉTAT VIDE : les trois chemins réels (prompt / écrire / importer),
+               plus le chemin MCP mis en avant — c'est le différenciateur. -->
+          <div class="thesis-empty" x-show="thesisLoaded && !thesisHasContent() && !thesisEditing">
+            <h3>Aucune thèse pour <span x-text="data.identity.name || data.identity.ticker"></span></h3>
+            <p>Une thèse relie les chiffres à ton raisonnement : ce que tu crois, pourquoi, et ce qui l'invaliderait.</p>
+            <div class="thesis-empty-actions">
+              <button class="btn small" @click="copyThesisPrompt()">Copier le prompt</button>
+              <button class="btn small ghost" @click="startThesisEdit()">Écrire</button>
+              <button class="btn small ghost" @click="insertSkeleton(); startThesisEdit()">Insérer une structure</button>
+              <label class="btn small ghost thesis-file">
+                Importer un .md
+                <input type="file" accept=".md,.markdown,.txt" @change="thesisPickFile($event)" />
+              </label>
+            </div>
+            <div class="thesis-mcp">
+              <b>Via ton IA connectée (MCP)</b>
+              <span>Demande-lui : « écris la thèse de <span x-text="data.identity.ticker"></span> dans Obole » — elle lit les données et enregistre la thèse ici.</span>
+            </div>
+          </div>
+
+          <!-- ÉDITION : textarea + toolbar. Le rendu suit le texte au fil de la
+               frappe (`thesisPreview` bascule sur l'aperçu). -->
+          <div class="thesis-editor-wrap" x-show="thesisEditing">
+            <div class="md-toolbar">
+              <button type="button" title="Titre de niveau 1" @click="insertHeading(1)">H1</button>
+              <button type="button" title="Titre de niveau 2" @click="insertHeading(2)">H2</button>
+              <button type="button" title="Titre de niveau 3" @click="insertHeading(3)">H3</button>
+              <span class="md-sep"></span>
+              <button type="button" title="Gras (⌘B)" @click="insertBold()"><b>B</b></button>
+              <button type="button" title="Italique (⌘I)" @click="insertItalic()"><i>I</i></button>
+              <span class="md-sep"></span>
+              <button type="button" title="Liste à puces" @click="insertBullet()">•</button>
+              <button type="button" title="Liste de tâches" @click="insertTask()">☑</button>
+              <button type="button" title="Lien" @click="insertLink()">⇢</button>
+              <label class="md-file" title="Insérer une image (ou colle une capture)">
+                ▤
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+                       @change="thesisPickImage($event)" />
+              </label>
+              <span class="md-sep"></span>
+              <button type="button" title="Plan et structure" @click="thesisOutlineOpen = !thesisOutlineOpen">☰</button>
+              <label class="md-file" title="Importer un fichier markdown">
+                ⤒
+                <input type="file" accept=".md,.markdown,.txt" @change="thesisPickFile($event)" />
+              </label>
+              <span class="spacer"></span>
+              <button type="button" class="md-preview-toggle" :class="{ active: thesisPreview }"
+                      @click="thesisPreview = !thesisPreview"
+                      x-text="thesisPreview ? 'Éditer' : 'Aperçu'"></button>
+            </div>
+            <div class="md-outline" x-show="thesisOutlineOpen">
+              <template x-if="!thesisView.toc.length">
+                <button type="button" class="md-outline-item" @click="insertSkeleton()">
+                  Insérer une structure de thèse
+                </button>
+              </template>
+              <template x-for="t in thesisView.toc" :key="t.slug">
+                <button type="button" class="md-outline-item" :class="{ lvl2: t.level > 1 }"
+                        @click="thesisMenuGoTo(t.slug)" x-text="t.text"></button>
+              </template>
+            </div>
+            <textarea id="thesis-editor" x-show="!thesisPreview" x-model="thesisContent"
+                      @input="onThesisInput()" @keydown="onThesisKeydown($event)"
+                      @paste="onThesisPaste($event)"
+                      placeholder="## Pitch&#10;&#10;Ton idée d'investissement…&#10;&#10;## Points de contrôle&#10;&#10;- [ ] Résultats FY26 — marge > 28 %"></textarea>
+            <!-- Aperçu : `x-if` et non `x-show` — deux `.md-body` simultanés
+                 dupliqueraient les `id` des titres (un `id` doit être unique
+                 dans le document, sinon les ancres visent le mauvais bloc). -->
+            <template x-if="thesisPreview">
+              <article class="md-body" id="thesis-preview-body" x-html="thesisView.html"
+                       @click="onThesisBodyClick($event)"></article>
+            </template>
+          </div>
+
+          <!-- LECTURE : sommaire intégré (dérivé) + corps rendu. -->
+          <template x-if="!thesisEditing && thesisHasContent()">
+            <div class="thesis-read">
+              <nav class="md-toc" x-show="thesisTocVisible()" aria-label="Sommaire de la thèse">
+                <div class="md-toc-head">Sommaire</div>
+                <template x-for="t in thesisView.tocMain" :key="t.slug">
+                  <button type="button" class="md-toc-item" :class="{ lvl2: t.level > 1 }"
+                          @click="thesisMenuGoTo(t.slug)">
+                    <span class="md-toc-num" x-text="t.index + '.'"></span>
+                    <span x-text="t.text"></span>
+                  </button>
+                </template>
+              </nav>
+              <article class="md-body" id="thesis-body" x-html="thesisView.html"
+                       @click="onThesisBodyClick($event)"></article>
+              <p class="idx-hint" x-show="!thesisTocVisible()">
+                Ajoute des titres (lignes <code>#</code> ou <code>##</code>) pour créer un sommaire.
+              </p>
+            </div>
+          </template>
+
+          <p class="thesis-notice" x-show="thesisNotice" x-text="thesisNotice"></p>
+        </div>
+          </div>
+          <aside class="thesis-plan" id="thesis-plan" x-show="thesisPlanVisible()">
+            <div class="thesis-plan-head">Plan</div>
+            <template x-for="t in thesisView.toc" :key="t.slug">
+              <button type="button" class="thesis-plan-item"
+                      :class="{ lvl2: t.level > 1, active: thesisActiveHeading === t.slug }"
+                      @click="thesisMenuGoTo(t.slug)" x-text="t.text"></button>
+            </template>
+          </aside>
+        </div>
+
+        <div class="thesis-actions" x-show="thesisHasContent() && !thesisEditing">
+          <button class="btn small ghost" @click="exportThesis()">Exporter .md</button>
+          <label class="btn small ghost thesis-file">
+            Importer .md
+            <input type="file" accept=".md,.markdown,.txt" @change="thesisPickFile($event)" />
+          </label>
+          <span class="spacer"></span>
+          <button class="btn small ghost danger" @click="deleteThesisNow()">Supprimer la thèse</button>
+        </div>
+        </div><!-- /thesis-card -->
+      </div>
+      </div><!-- /fiche-main -->
+    </div>
+  </template>
+
+  <!-- Modale indices personnalisés -->
+  <div class="modal-overlay" x-show="indicesOpen" @click.self="closeIndices()">
+    <div class="modal modal-indices">
+      <div class="idx-head">
+        <h3>Mes indices personnalisés</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="refreshIndicesSummary(null)" :disabled="summariesLoading"
+                  title="Recalculer les stats de tous les indices">Tout rafraîchir</button>
+          <button class="btn small ghost" @click="closeIndices()">✕</button>
+        </div>
+      </div>
+      <div class="idx-body">
+      <p class="idx-hint">Crée tes propres indices (paniers d'actions equal-weight, dividendes réinvestis) et analyse-les comme un ETF : droite de régression, rendement, écart-type, position σ.</p>
+      <p class="idx-hint" x-show="summariesLoading" style="color:var(--accent)">Calcul des indicateurs en cours…</p>
+      <p class="idx-hint" x-show="summaryError" style="color:var(--bad)" x-text="summaryError"></p>
+
+      <!-- Liste des catégories : stats « coup d'œil » par indice -->
+      <div class="idx-list" x-show="indicesData.length">
+        <template x-for="cat in indicesData" :key="cat.id">
+          <div class="idx-cat">
+            <div class="idx-cat-head">
+              <b x-text="cat.name"></b>
+              <span class="idx-cat-count" x-text="cat.indices.length + ' indice(s)'"></span>
+              <button class="btn small ghost" @click="refreshIndicesSummary(cat.id)" :disabled="summariesLoading"
+                      title="Recalculer les stats de cette catégorie">↻</button>
+              <button class="btn small ghost" @click="deleteCategory(cat)">Supprimer</button>
+            </div>
+            <table class="cell-table">
+              <thead>
+                <tr>
+                  <th>Indice</th>
+                  <th>Position σ</th>
+                  <th>Pente</th>
+                  <th>Tendance</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="ix in cat.indices" :key="ix.id">
+                  <tr>
+                    <td>
+                      <span class="idx-name" @click="openIndex(ix)" x-text="ix.name"></span>
+                      <span class="idx-tickers" x-text="ix.tickers.join(', ')"></span>
+                      <span class="chip warn idx-err" x-show="sumError(ix)" :title="sumError(ix)" x-text="'⚠'"></span>
+                    </td>
+                    <td>
+                      <template x-if="statSv(ix, 'distance_sigma')">
+                        <div class="cell">
+                          <span class="cell-val" x-text="statDisplay(ix, 'distance_sigma')"></span>
+                          <span class="cell-label" :class="'cell-label ' + polarity(statSv(ix, 'distance_sigma').good)"
+                                x-text="statSv(ix, 'distance_sigma').label || ''"></span>
+                        </div>
+                      </template>
+                      <span class="cell-val muted" x-show="!statSv(ix, 'distance_sigma')" x-text="sumError(ix) ? '—' : '…'"></span>
+                    </td>
+                    <td>
+                      <template x-if="statSv(ix, 'pente')">
+                        <div class="cell">
+                          <span class="cell-val" x-text="statDisplay(ix, 'pente')"></span>
+                          <span class="cell-label" :class="'cell-label ' + polarity(statSv(ix, 'pente').good)"
+                                x-text="statSv(ix, 'pente').label || ''"></span>
+                        </div>
+                      </template>
+                      <span class="cell-val muted" x-show="!statSv(ix, 'pente')" x-text="sumError(ix) ? '—' : '…'"></span>
+                    </td>
+                    <td>
+                      <template x-if="statSv(ix, 'trend')">
+                        <span class="cell-label" :class="'cell-label ' + polarity(statSv(ix, 'trend').good)"
+                              x-text="statSv(ix, 'trend').label || '—'"></span>
+                      </template>
+                      <span class="cell-val muted" x-show="!statSv(ix, 'trend')" x-text="sumError(ix) ? '—' : '…'"></span>
+                    </td>
+                    <td class="idx-actions">
+                      <button class="btn small ghost" @click="startEdit(ix, cat)" title="Modifier">✎</button>
+                      <button class="btn small ghost" @click="deleteIndex(ix)" title="Supprimer">🗑</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
+      <div class="idx-hint" x-show="!indicesData.length">Aucun indice pour l'instant. Crée ta première catégorie et ton premier indice ci-dessous.</div>
+
+      <!-- Formulaire de création / édition -->
+      <div class="idx-form">
+        <div class="idx-form-row">
+          <label>Nom de l'indice</label>
+          <input class="search-input" type="text" x-model="edt.name" placeholder="Ex. CAC Tech" />
+        </div>
+        <div class="idx-form-row">
+          <label>Catégorie</label>
+          <select class="search-input" x-model="edt.category_id">
+            <option value="">— nouvelle catégorie —</option>
+            <template x-for="cat in indicesData" :key="cat.id">
+              <option :value="cat.id" x-text="cat.name"></option>
+            </template>
+          </select>
+          <input class="search-input" type="text" x-model="edt.newCategory" x-show="!edt.category_id"
+                 placeholder="Nom de la nouvelle catégorie (ex. France)" />
+        </div>
+        <div class="idx-form-row">
+          <label>Membres (2 minimum)</label>
+          <div class="idx-chips">
+            <template x-for="t in edt.tickers" :key="t">
+              <span class="chip member-chip" @click="removeMember(t)" :title="'Retirer ' + t" x-text="t + ' ✕'"></span>
+            </template>
+            <div class="search-wrap idx-search-wrap">
+              <input class="search-input" type="text" x-model="edt.query"
+                     @input="onIdxSearch()" @focus="scrollIdxInput()" @keydown.enter="addFirstSuggestion()"
+                     placeholder="Rechercher une action / ETF…" />
+              <div class="suggestions" x-show="edt.suggestions.length">
+                <template x-for="s in edt.suggestions" :key="s.symbol">
+                  <div class="suggestion-item" @click="addMember(s)">
+                    <span class="s-name" x-text="s.name"></span>
+                    <span class="s-meta"><span class="s-symbol" x-text="s.symbol"></span></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="idx-error" x-show="idxError" x-text="idxError"></div>
+        <div class="modal-actions">
+          <button class="btn small ghost" @click="resetEditor()">Annuler</button>
+          <button class="btn small" @click="saveIndex()" :disabled="savingIndex"
+                  x-text="edt.id ? 'Enregistrer' : 'Créer l’indice'"></button>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zoom plein écran d'un mini-chart (modale, zéro requête réseau : tout est
+       déjà dans le payload). La plage est PARTAGÉE avec le graphe héro
+       (`rangeStart`/`rangeEnd`) : le sélecteur de période écrit la même source. -->
+  <div class="modal-overlay" x-show="detailCard" @click.self="closeChartDetail()"
+       @keydown.escape.window="closeChartDetail()">
+    <div class="modal modal-detail" id="chart-detail-modal" role="dialog" aria-modal="true"
+         tabindex="-1" x-show="detailCard" x-transition.opacity
+         @keydown="detailKeydown($event)">
+      <div class="idx-head">
+        <h3 x-text="detailCard ? detailCard.title : ''"></h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeChartDetail()" aria-label="Fermer">✕</button>
+        </div>
+      </div>
+      <div class="detail-toolbar">
+        <div class="period-presets">
+          <button type="button" class="period-chip" @click="detailPreset('ytd')">YTD</button>
+          <button type="button" class="period-chip" @click="detailPreset(1)">1A</button>
+          <button type="button" class="period-chip" @click="detailPreset(5)">5A</button>
+          <button type="button" class="period-chip" @click="detailPreset(10)">10A</button>
+          <button type="button" class="period-chip" @click="detailPreset('max')">MAX</button>
+        </div>
+        <div class="detail-toolbar-right">
+          <span class="detail-range" x-text="detailRangeLabel()"></span>
+          <!-- CAGR de la fenêtre visible — uniquement pour les courbes « par
+               action » (groupe Croissance). Alimente la valorisation : on peut
+               étendre la vue au maximum et lire la croissance annualisée. -->
+          <span class="detail-cagr" x-show="detailCagr() != null">
+            Croissance <b :class="'detail-cagr-val ' + polarity(detailCagr() >= 0)"
+               x-text="fmt(detailCagr()) + ' %/an'"></b>
+          </span>
+        </div>
+      </div>
+      <div class="mini-chart detail-chart" id="chart-detail-plot"></div>
+      <p class="na" x-show="detailCard && isDividendCard(detailCard) && dividendCardEmpty(detailCard)">
+        Pas assez de données pour tracer ce graphique (2 ans minimum).
+      </p>
+      <!-- Curseur à deux poignées, IDENTIQUE au graphe héro et sur la MÊME plage
+           (rangeStart/rangeEnd partagés) : les presets ci-dessus positionnent le
+           curseur, et bouger une poignée redessine la modale ET le héro. Placé
+           SOUS le graphe (l'œil lit d'abord la courbe, puis ajuste la période). -->
+      <div class="period period-detail">
+        <div class="dual-slider">
+          <div class="ds-track"></div>
+          <div class="ds-fill" :style="`left:${pctStart()}%; right:${100 - pctEnd()}%`"></div>
+          <input type="range" class="ds-input ds-min" min="0" :max="maxIdx()" x-model.number="rangeStart"
+                 @input="clampHandles('start'); onDetailSliderInput()" />
+          <input type="range" class="ds-input ds-max" min="0" :max="maxIdx()" x-model.number="rangeEnd"
+                 @input="clampHandles('end'); onDetailSliderInput()" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale screener (J4 : filtres + tableau triable ; UX #13 : plein écran,
+       filtres repliables, colonne Entreprise gelée, accueil à presets). -->
+  <div class="modal-overlay" x-show="screenerOpen" @click.self="closeScreener()">
+    <div class="modal modal-screen">
+      <div class="idx-head">
+        <h3>Screener</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="screenerBackHome()" x-show="screenerSearched"
+                  title="Revenir à l'accueil (presets)">← Accueil</button>
+          <button class="btn small ghost" @click="screenerToggleFilters()"
+                  :title="screenerFiltersOpen ? 'Masquer les filtres' : 'Afficher les filtres'">
+            <span x-text="screenerFiltersOpen ? 'Filtres ▴' : 'Filtres ▾'"></span>
+          </button>
+          <button class="btn small" @click="searchScreener()" :disabled="screenerLoading"
+                  title="Lancer le scan avec les filtres">Rechercher</button>
+          <button class="btn small ghost" @click="closeScreener()">✕</button>
+        </div>
+      </div>
+
+      <!-- Récapitulatif des filtres actifs (visible quand le panneau est replié). -->
+      <div class="screen-chips" x-show="!screenerFiltersOpen && screenerActiveFilters().length">
+        <template x-for="f in screenerActiveFilters()" :key="f.key">
+          <span class="screen-chip" x-text="f.text"></span>
+        </template>
+        <button class="btn small ghost screen-chip-clear" @click="clearScreenerFilters()"
+                title="Effacer tous les filtres">✕ tout</button>
+      </div>
+
+      <p class="idx-hint" x-show="screenerError" style="color:var(--bad)" x-text="screenerError"></p>
+      <p class="idx-hint" x-show="screenerLoading" style="color:var(--accent)">
+        <span x-text="screenerRows.length ? 'Tri / filtrage…' : 'Calcul du scan en cours…'"></span>
+      </p>
+
+      <!-- Panneau de filtres (repliable). Filtres globaux (fenêtre) et
+           pré-filtres par critère. Libellés dérivés de _screenCols() (source
+           unique) ; aucune valeur en dur. -->
+      <div class="screen-filters-panel" x-show="screenerFiltersOpen">
+        <div class="idx-form-row">
+          <label class="idx-lbl">Fenêtre droite d'Obole (ans)</label>
+          <select class="search-input" x-model="screenerFilters.regression_window">
+            <option value="">Complète</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+          </select>
+        </div>
+
+        <!-- Design A : filtres groupés par thème, chaque groupe repliable, avec
+             badge du nombre de filtres actifs (visible même replié). Le mapping
+             critère -> groupe vient de `_screenFilterGroups()` (source unique) ;
+             les libellés de `_screenCols()`. La capitalisation n'existe qu'ici :
+             sa borne min restreint aussi l'univers scanné (passe 1). -->
+        <div class="screen-filters">
+          <div class="screen-groups">
+            <template x-for="g in _screenFilterGroups()" :key="g.id">
+              <div class="screen-group">
+                <button class="screen-group-head" @click="screenerToggleGroup(g.id)"
+                        :title="screenerGroupsOpen[g.id] ? 'Replier' : 'Déplier'">
+                  <span class="screen-group-caret" x-text="screenerGroupsOpen[g.id] ? '▾' : '▸'"></span>
+                  <span class="screen-group-name" x-text="g.label"></span>
+                  <span class="screen-group-badge" x-show="screenerGroupCount(g.id)"
+                        x-text="screenerGroupCount(g.id)"></span>
+                </button>
+                <div class="screen-group-body" x-show="screenerGroupsOpen[g.id]">
+                  <div class="screen-filter-grid">
+                    <template x-for="c in screenerGroupCols(g.id)" :key="c.key">
+                      <div class="screen-filter-col">
+                        <label class="idx-lbl" x-text="c.label + (c.unit ? ' (' + c.unit + ')' : '')"></label>
+                        <div class="screen-filter-pair">
+                          <div class="screen-filter-field">
+                            <input class="search-input" type="number"
+                                   x-model="screenerRanges[c.key].min" />
+                            <span class="screen-filter-suffix">min</span>
+                          </div>
+                          <div class="screen-filter-field">
+                            <input class="search-input" type="number"
+                                   x-model="screenerRanges[c.key].max" />
+                            <span class="screen-filter-suffix">max</span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <button class="btn small ghost" @click="resetScreenerRanges()" x-show="screenerRows.length"
+                  title="Vider tous les pré-filtres">↺ filtres</button>
+        </div>
+        <p class="idx-hint screen-filters-msg" x-show="screenerRangesError"
+           style="color:var(--bad)" x-text="screenerRangesError"></p>
+      </div>
+
+      <!-- Tableau triable : clic en-tête = critère principal/secondaire, clic ligne = fiche.
+           La 1re colonne « Entreprise » est gelée au scroll horizontal. -->
+      <div class="screen-sort-bar" x-show="screenerSortLabel()">
+        <span class="screen-sort-label" x-text="'Tri : ' + screenerSortLabel()"></span>
+        <!-- #14 : bascule Compromis (score) / Cascade. Le score n'apparaît qu'à
+             partir de 2 critères ; en deçà, la cascade est le seul mode. -->
+        <div class="screen-mode-toggle" x-show="screenerScoreActive()">
+          <button :class="{ active: screenerMode === 'compromis' }" @click="setScreenerMode('compromis')"
+                  title="Classement par compromis : tous les critères agissent simultanément (score)">
+            Compromis
+          </button>
+          <button :class="{ active: screenerMode === 'cascade' }" @click="setScreenerMode('cascade')"
+                  title="Tri lexicographique : le 2e critère ne départage que les égalités du 1er">
+            Cascade
+          </button>
+        </div>
+        <span class="screen-sort-hint" x-show="!screenerScoreActive()"
+              title="Le 2e critère ne départage que les égalités du 1er">cascade</span>
+        <button class="btn small ghost" @click="resetSort()" title="Réinitialiser le tri">↺</button>
+      </div>
+      <div class="idx-list" x-show="screenerRows.length">
+        <div class="screen-table-wrap">
+        <table class="cell-table screen-table">
+          <thead>
+            <tr>
+              <th class="screen-col-anchor" title="Entreprise">Entreprise</th>
+              <template x-for="c in _screenTailCols()" :key="c.key">
+                <!-- La colonne Score n'est pas triable au clic : elle résulte des
+                     critères choisis (basculer Compromis/Cascade est le geste). -->
+                <th x-show="c.key !== 'score' || screenerScoreColumnVisible()"
+                    :class="_sortClass(c.key)"
+                    :title="c.key === 'score' ? 'Score de compromis (calculé sur les critères de tri)' : 'Trier par ' + c.label"
+                    @click="c.key !== 'score' && toggleSortHeader(c.key)">
+                  <span class="screen-th-rank" x-show="screenerSortRank(c.key)"
+                        x-text="screenerSortRank(c.key)"></span><span
+                        x-text="c.label + (_sortClass(c.key) && screenerSortIsCascade() ? ' ' + (_sortClass(c.key) === 'sort-asc' ? '▲' : '▼') : '')"></span>
+                </th>
+              </template>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in screenerRows" :key="r.ticker">
+              <tr @click="selectRow(r.ticker)" :class="{ 'row-error': r.error }">
+                <td class="cell-val screen-col-anchor">
+                  <span class="screen-ticker" x-text="r.ticker"></span>
+                  <span class="screen-name" x-text="r.name || '—'"></span>
+                </td>
+                <td class="cell-val" x-text="_cellDisplay(r, 'market_cap')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'z')" x-text="_cellDisplay(r, 'z')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'pente_pct')" x-text="_cellDisplay(r, 'pente_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'ecart_type_pct')" x-text="_cellDisplay(r, 'ecart_type_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'pot_5y_pct')" x-text="_cellDisplay(r, 'pot_5y_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'pot_10y_pct')" x-text="_cellDisplay(r, 'pot_10y_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'trend_bullish')" x-text="_cellDisplay(r, 'trend_bullish')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'roe_pct')" x-text="_cellDisplay(r, 'roe_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'per')" x-text="_cellDisplay(r, 'per')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'p_b')" x-text="_cellDisplay(r, 'p_b')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'p_fcf')" x-text="_cellDisplay(r, 'p_fcf')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'fcf_yield_pct')" x-text="_cellDisplay(r, 'fcf_yield_pct')"></td>
+                <td class="cell-val" :class="_cellPolarity(r, 'quality_score')" x-text="_cellDisplay(r, 'quality_score')"></td>
+                <td class="cell-val cell-score" x-show="screenerScoreColumnVisible()" x-text="_cellDisplay(r, 'score')"></td>
+                <td class="idx-actions">
+                  <span class="chip warn" x-show="r.error" :title="r.error" x-text="'⚠'"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        </div>
+        <p class="idx-hint screen-table-foot" x-text="screenerRows.length + ' valeur(s) sur ' + (screenerSource ? 'source ' + screenerSource : '')"></p>
+      </div>
+
+      <!-- Accueil du screener (aucun scan lancé) : méthode + presets cliquables. -->
+      <div class="screen-home" x-show="!screenerRows.length && !screenerLoading && !screenerSearched">
+        <h4>La droite d'Obole, appliquée à l'univers français</h4>
+        <p class="screen-home-lead">
+          Obole régresse <code>ln(cours)</code> sur le temps pour situer chaque action
+          sous sa tendance de long terme. Le screener croise cette <b>décote</b> avec la
+          <b>tendance</b>, la <b>rentabilité</b> et la <b>valorisation</b>.
+        </p>
+        <div class="screen-presets">
+          <template x-for="p in screenerPresets()" :key="p.id">
+            <button class="screen-preset" @click="applyScreenerPreset(p)">
+              <b x-text="p.label"></b>
+              <small x-text="p.desc"></small>
+            </button>
+          </template>
+        </div>
+        <button class="btn screen-home-cta" @click="searchScreener()" :disabled="screenerLoading">
+          Scanner l'univers FR
+        </button>
+        <p class="idx-hint" x-show="!screenerPresets().length" style="color:var(--text-soft)">
+          Règle tes filtres puis « Rechercher » pour scanner l'univers.
+        </p>
+      </div>
+      <div class="idx-hint" x-show="!screenerRows.length && !screenerLoading && screenerSearched">
+        Aucun résultat pour ces critères.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Paramètres : mesures techniques (moyennes mobiles configurables) -->
+  <div class="modal-overlay" x-show="settingsOpen" @click.self="closeSettings()">
+    <div class="modal">
+      <div class="idx-head">
+        <h3>Paramètres</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeSettings()">✕</button>
+        </div>
+      </div>
+
+      <section class="idx-cat" x-show="hasGroup('technique')">
+        <div class="idx-cat-head"><b>Mesure technique</b></div>
+        <p class="idx-hint">Moyennes mobiles utilisées dans les graphiques et pour la tendance boursière (Haussière si MM courte &gt; MM longue).</p>
+        <!-- Généré dynamiquement depuis settingDefs (extensible : ajouter un
+             réglage dans config.SETTING_DEFS suffit, plus de HTML à éditer). -->
+        <template x-for="(spec, key) in groupDefs('technique')" :key="key">
+          <div class="settings-field">
+            <label x-text="spec.label"></label>
+            <input type="number" :min="spec.min" :max="spec.max"
+                   x-model.number="settingsForm[key]" />
+            <span class="settings-preview" x-text="'MM' + settingsForm[key]"></span>
+          </div>
+        </template>
+        <p class="idx-hint" x-show="settingsError" style="color:var(--bad)" x-text="settingsError"></p>
+        <div class="idx-head-actions">
+          <button class="btn small" @click="saveSettings()" :disabled="settingsSaving">
+            <span x-text="settingsSaving ? 'Enregistrement…' : 'Enregistrer'"></span>
+          </button>
+          <button class="btn small ghost" @click="resetSettings()">Rétablir les défauts</button>
+        </div>
+      </section>
+
+      <!-- Données : sauvegarde / restauration + purge du cache technique -->
+      <section class="idx-cat" style="margin-top: 12px">
+        <div class="idx-cat-head"><b>Données</b></div>
+        <p class="idx-hint">
+          Sauvegarde dans un fichier JSON lisible vos données saisies : comptes manuels,
+          catégories et indices personnalisés, événements, thèses, points de contrôle et réglages.
+          La restauration <b>remplace</b> ces données par celles de l'archive — les cours
+          ne sont pas concernés, mais les comptes et paniers recalculés à partir d'elles le sont
+          (ils seront rechargés au prochain affichage).
+        </p>
+        <p class="idx-hint">
+          <b>Images des thèses non incluses</b> : elles vivent dans <code>thesis_assets/</code>,
+          à copier séparément en même temps que <code>cache.sqlite</code> (une archive restaurée
+          laisserait leurs liens morts).
+        </p>
+        <div class="idx-head-actions">
+          <button class="btn small" @click="downloadBackup()" :disabled="backupBusy">
+            <span x-text="backupBusy ? 'En cours…' : 'Sauvegarder'"></span>
+          </button>
+          <button class="btn small ghost" @click="pickBackupFile()" :disabled="backupBusy">
+            Restaurer…
+          </button>
+          <input type="file" accept="application/json,.json" x-ref="restoreInput"
+                 style="display: none" @change="restoreBackup($event)" />
+          <button class="btn small ghost" @click="purgeCache()" :disabled="backupBusy">
+            Vider le cache
+          </button>
+        </div>
+        <p class="idx-hint" x-show="backupError" style="color: var(--bad)" x-text="backupError"></p>
+        <p class="idx-hint" x-show="backupMessage" style="color: var(--good)" x-text="backupMessage"></p>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modale Export CSV : droite de régression ou simulation fenêtre glissante -->
+  <div class="modal-overlay" x-show="exportOpen" @click.self="closeExport()">
+    <div class="modal">
+      <div class="idx-head">
+        <h3>Export CSV</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeExport()">✕</button>
+        </div>
+      </div>
+
+      <!-- Choix du mode -->
+      <div class="export-modes">
+        <label class="export-mode" :class="{ active: exportForm.mode === 'regression' }">
+          <input type="radio" value="regression" x-model="exportForm.mode" @change="onExportModeChange()" />
+          <span>Droite de régression</span>
+          <small>Une ligne par point : cours, droite, bandes ±1σ ±2σ, distance σ.</small>
+        </label>
+        <label class="export-mode" :class="{ active: exportForm.mode === 'simulation' }">
+          <input type="radio" value="simulation" x-model="exportForm.mode" @change="onExportModeChange()" />
+          <span>Simulation fenêtre glissante</span>
+          <small>Pour chaque position : a, b, σ, perf, z, potentiels 5a/10a.</small>
+        </label>
+      </div>
+
+      <!-- Champs communs -->
+      <div class="export-fields">
+        <div class="settings-field">
+          <label>Date début</label>
+          <input type="date" x-model="exportForm.startDate" @change="onExportDateChange()" />
+        </div>
+        <div class="settings-field">
+          <label>Date fin</label>
+          <input type="date" x-model="exportForm.endDate" @change="onExportDateChange()" />
+        </div>
+        <div class="settings-field" x-show="!isRatio() && !isBasket()">
+          <label>Dividendes réinvestis</label>
+          <input type="checkbox" x-model="exportForm.dividends" />
+        </div>
+        <!-- Mode 2 : taille de fenêtre -->
+        <div class="settings-field" x-show="exportForm.mode === 'simulation'">
+          <label>Taille de fenêtre</label>
+          <select x-model.number="exportForm.windowYears">
+            <option :value="2">2 ans</option>
+            <option :value="5">5 ans</option>
+            <option :value="10">10 ans</option>
+            <option :value="15">15 ans</option>
+            <option :value="20">20 ans</option>
+          </select>
+        </div>
+        <p class="idx-hint" x-show="exportForm.mode === 'simulation'">
+          Pas natif (chaque point de la série disponible) — ≈ hebdo sur 5-10 ans.
+        </p>
+      </div>
+
+      <p class="idx-hint" x-show="exportError" style="color:var(--bad)" x-text="exportError"></p>
+
+      <div class="modal-actions">
+        <button class="btn small ghost" @click="closeExport()">Annuler</button>
+        <button class="btn small" @click="doExport()" :disabled="!exportReady()">Exporter</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modale Événements : annotations datées du graphe (ajout / édition / suppression) -->
+  <div class="modal-overlay" x-show="eventsOpen" @click.self="closeEvents()">
+    <div class="modal">
+      <div class="idx-head">
+        <h3>Événements</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeEvents()">✕</button>
+        </div>
+      </div>
+      <p class="idx-hint">Annote des dates importantes : elles apparaissent comme des repères verticaux sur le graphe (dans la période affichée uniquement).</p>
+
+      <!-- Formulaire : ajout (id null) ou édition (id renseigné) -->
+      <div class="idx-form">
+        <div class="event-form-row">
+          <div class="event-form-field">
+            <label>Date</label>
+            <input type="date" x-model="eventForm.date" />
+          </div>
+          <div class="event-form-field event-form-grow">
+            <label>Libellé (2 mots max conseillé)</label>
+            <input type="text" x-model="eventForm.label" maxlength="60"
+                   placeholder="Ex. OPA Nestlé, Crise COVID…" @keydown.enter="saveEvent()" />
+          </div>
+        </div>
+        <div class="event-form-field">
+          <label>Description (optionnelle, visible au survol)</label>
+          <textarea x-model="eventForm.description" maxlength="300" rows="2"
+                    placeholder="Contexte, chiffres, ce qui s'est passé…"></textarea>
+        </div>
+        <p class="idx-hint" x-show="eventError" style="color:var(--bad)" x-text="eventError"></p>
+        <div class="modal-actions">
+          <button class="btn small ghost" x-show="eventForm.id != null" @click="resetEventForm()">Annuler l'édition</button>
+          <button class="btn small" @click="saveEvent()" :disabled="eventSaving"
+                  x-text="eventForm.id != null ? 'Enregistrer' : '＋ Ajouter l’événement'"></button>
+        </div>
+      </div>
+
+      <!-- Liste des événements existants -->
+      <div class="event-list" x-show="events().length">
+        <template x-for="ev in events()" :key="ev.id">
+          <div class="event-item" :class="{ editing: eventForm.id === ev.id }">
+            <div class="event-item-main">
+              <span class="event-date" x-text="new Date(ev.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })"></span>
+              <b class="event-label" x-text="ev.label"></b>
+              <span class="event-desc" x-show="ev.description" x-text="ev.description" :title="ev.description"></span>
+            </div>
+            <div class="idx-actions">
+              <button class="btn small ghost" @click="startEditEvent(ev)" title="Modifier">✎</button>
+              <button class="btn small ghost" @click="deleteEvent(ev)" title="Supprimer">🗑</button>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="idx-hint" x-show="!events().length" style="color:var(--text-soft)">
+        Aucun événement pour l'instant. Ajoute ta première date importante ci-dessus.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Portefeuille (#17.0) : espace distinct à onglets horizontaux.
+       Sections livrées par jalon : Positions (J0). Résumé/Risque/Performance/
+       Dividende arrivent avec les jalons 01 à 05 (onglets « à venir », grisés).
+       Classe `modal-portfolio` (et non `modal-screen`) pour rester distinct du
+       sélecteur du Screener. -->
+  <div class="modal-overlay" x-show="portfolioOpen" @click.self="closePortfolio()">
+    <div class="modal modal-portfolio">
+      <div class="idx-head">
+        <h3>Portefeuille</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="loadPortfolio()" :disabled="portfolioLoading"
+                  title="Recharger">↻</button>
+          <button class="btn small ghost" @click="closePortfolio()">✕</button>
+        </div>
+      </div>
+
+      <!-- Onglets horizontaux (remplacent le rail vertical : libellés lisibles). -->
+      <nav class="pf-tabs" aria-label="Sections du portefeuille">
+        <template x-for="s in portfolioSections" :key="s.id">
+          <button type="button" class="pf-tab"
+                  :data-pf-section="s.id"
+                  :class="{ active: portfolioSection === s.id, disabled: !portfolioSectionUsable(s.id) }"
+                  :disabled="!portfolioSectionUsable(s.id)"
+                  :title="portfolioSectionTitle(s.id)"
+                  @click="setPortfolioSection(s.id)">
+            <span x-text="s.label"></span>
+            <span class="pf-tab-soon" x-show="!portfolioSectionUsable(s.id)">à venir</span>
+          </button>
+        </template>
+      </nav>
+
+      <!-- Bandeau de CONTEXTE unique (#17 : périmètre · période · benchmark).
+           SEUL endroit où vivent ces trois contrôles : les quatre bandeaux
+           d'onglet (Résumé/Risque/Performance/Dividende) et le périmètre de
+           l'en-tête ont été supprimés. Les groupes s'affichent selon les
+           CAPACITÉS de la section (`portfolioControls()`, registre
+           SECTIONS_CONTROLS) : un contrôle sans objet n'est pas rendu du tout
+           (pas de « — », pas de texte mort). -->
+      <div class="pf-context" :class="{ busy: pfContextBusy() }"
+           :aria-busy="pfContextBusy() ? 'true' : 'false'">
+        <div class="pf-context-group" x-show="portfolioControls().scope">
+          <span class="pf-context-label">Périmètre</span>
+          <div class="pf-context-row">
+            <select class="pf-ctl pf-account-select" x-model="portfolioAccountId"
+                    @change="setPortfolioAccount($event.target.value)"
+                    title="Compte du périmètre">
+              <option value="">Tous les comptes</option>
+              <template x-for="a in portfolioAccountsList" :key="a.id">
+                <option :value="a.id" x-text="a.name"></option>
+              </template>
+            </select>
+            <!-- Pas de `x-model` : Alpine met à jour `portfolioTag` AVANT
+                 `@change`, court-circuitant le garde-fou de `setPortfolioTag`. -->
+            <select class="pf-ctl pf-tag-select" x-show="portfolioTagsList.length"
+                    :value="portfolioTag"
+                    @change="setPortfolioTag($event.target.value)"
+                    title="Portefeuille virtuel (étiquette)">
+              <option value="">Toutes les étiquettes</option>
+              <template x-for="t in portfolioTagsList" :key="t">
+                <option :value="t" x-text="t"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <div class="pf-context-group" x-show="portfolioControls().period">
+          <span class="pf-context-label">Période</span>
+          <div class="pf-context-row">
+            <span class="period-presets pf-presets">
+              <template x-for="p in pfPeriods" :key="p">
+                <button type="button" class="period-chip"
+                        :class="{ active: pfPeriod === p }"
+                        :aria-pressed="pfPeriod === p"
+                        @click="setPfPeriod(p)" x-text="pfPeriodLabel(p)"></button>
+              </template>
+            </span>
+          </div>
+        </div>
+
+        <div class="pf-context-group pf-context-group--bench" x-show="portfolioControls().bench">
+          <label class="pf-context-label" for="pf-bench">Benchmark</label>
+          <div class="pf-context-row">
+            <!-- Même garde-fou : la valeur vient de `:value`, jamais de `x-model`. -->
+            <select id="pf-bench" class="pf-ctl pf-bench-select"
+                    :value="pfBenchmark"
+                    @change="setPfBenchmark($event.target.value)"
+                    title="Indice de référence">
+              <template x-for="b in pfBenchmarks" :key="b.ticker">
+                <option :value="b.ticker" x-text="b.label + ' (' + b.ticker + ')'"></option>
+              </template>
+              <template x-if="pfBenchmarks.length && !pfBenchmarks.some(b => b.ticker === pfBenchmark)">
+                <option :value="pfBenchmark" x-text="pfBenchmark"></option>
+              </template>
+            </select>
+            <!-- Popover ancré (pas de modale empilée) : un seul niveau de focus. -->
+            <div class="pf-bench-free-anchor">
+              <button type="button" class="pf-ctl pf-ctl-btn pf-bench-other"
+                      title="Saisir un ticker de benchmark libre"
+                      :aria-expanded="pfBenchFreeOpen"
+                      @click="pfBenchFreeOpen ? closePfBenchFree() : openPfBenchFree()">
+                Autre…
+              </button>
+              <div class="pf-bench-free-pop" x-show="pfBenchFreeOpen" x-transition.opacity
+                   @click.outside="closePfBenchFree()"
+                   @keydown.escape.window="pfBenchFreeOpen && closePfBenchFree()">
+                <input id="pf-bench-free-input" class="search-input" type="text"
+                       placeholder="Ticker (ex. MEUD.PA)"
+                       aria-label="Ticker de benchmark libre"
+                       x-model="pfBenchFree"
+                       @keydown.enter="applyPfBenchFree()" />
+                <button type="button" class="btn small" @click="applyPfBenchFree()"
+                        :disabled="!pfBenchFree.trim()">Valider</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-main">
+        <p class="idx-hint" x-show="portfolioError" style="color:var(--bad)" x-text="portfolioError"></p>
+        <p class="idx-hint" x-show="portfolioLoading" style="color:var(--accent)">Chargement…</p>
+
+        <!-- Section Positions (J0) -->
+        <div class="section" x-show="portfolioSection === 'positions'">
+          <!-- Carte « Saisir » : un seul formulaire, bascule Transaction/Dividende -->
+          <div class="idx-cat pf-saisie">
+            <div class="pf-seg">
+              <button type="button" :class="{ on: portfolioFormMode === 'tx' }"
+                      @click="setPortfolioFormMode('tx')">Transaction</button>
+              <button type="button" :class="{ on: portfolioFormMode === 'div' }"
+                      @click="setPortfolioFormMode('div')">Dividende</button>
+            </div>
+
+            <!-- Formulaire transaction -->
+            <div x-show="portfolioFormMode === 'tx'">
+              <p class="pf-edit-hint" x-show="txForm.id != null">Modification d'une transaction existante</p>
+              <div class="pf-form">
+                <div class="pf-field">
+                  <label>Compte</label>
+                  <select class="search-input" x-model.number="txForm.account_id">
+                    <option value="">— choisir —</option>
+                    <template x-for="a in portfolioAccountsList" :key="a.id">
+                      <option :value="a.id" x-text="a.name"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="pf-field">
+                  <label>Ticker</label>
+                  <input class="search-input" type="text" x-model="txForm.ticker" placeholder="RI.PA" />
+                </div>
+                <div class="pf-field">
+                  <label>Sens</label>
+                  <select class="search-input" x-model="txForm.side">
+                    <option value="buy">Achat</option>
+                    <option value="sell">Vente</option>
+                  </select>
+                </div>
+                <div class="pf-field">
+                  <label>Date</label>
+                  <input class="search-input" type="date" x-model="txForm.trade_date" />
+                </div>
+                <div class="pf-field">
+                  <label>Quantité</label>
+                  <input class="search-input" type="text" inputmode="decimal"
+                         x-model="txForm.quantity" placeholder="10" />
+                </div>
+                <div class="pf-field">
+                  <label>Prix (<span x-text="portfolioCurrency()"></span>)</label>
+                  <input class="search-input" type="text" inputmode="decimal"
+                         x-model="txForm.price" placeholder="60,50" />
+                </div>
+                <div class="pf-field">
+                  <label>Frais (<span x-text="portfolioCurrency()"></span>)</label>
+                  <input class="search-input" type="text" inputmode="decimal"
+                         x-model="txForm.fees" placeholder="0,00" />
+                </div>
+                <div class="pf-field">
+                  <label>Note (optionnel)</label>
+                  <input class="search-input" type="text" x-model="txForm.note" />
+                </div>
+                <div class="pf-field">
+                  <label>Étiquette (optionnel)</label>
+                  <input class="search-input" type="text" x-model="txForm.tag"
+                         list="pf-tag-options" :maxlength="pfTagMax()"
+                         placeholder="ex. Actions dividende" />
+                  <datalist id="pf-tag-options">
+                    <template x-for="t in pfTagOptions()" :key="t">
+                      <option :value="t"></option>
+                    </template>
+                  </datalist>
+                </div>
+              </div>
+              <div class="pf-actions">
+                <button class="btn small ghost" x-show="txForm.id != null" @click="resetTxForm()">Annuler</button>
+                <button class="btn small" @click="saveTransaction()" :disabled="_portfolioBusy"
+                        x-text="txForm.id != null ? 'Enregistrer la transaction' : '＋ Ajouter la transaction'"></button>
+              </div>
+            </div>
+
+            <!-- Formulaire dividende -->
+            <div x-show="portfolioFormMode === 'div'">
+              <p class="pf-edit-hint" x-show="divForm.id != null">Modification d'un dividende existant</p>
+              <div class="pf-form">
+                <div class="pf-field">
+                  <label>Compte</label>
+                  <select class="search-input" x-model.number="divForm.account_id">
+                    <option value="">— choisir —</option>
+                    <template x-for="a in portfolioAccountsList" :key="a.id">
+                      <option :value="a.id" x-text="a.name"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="pf-field">
+                  <label>Ticker</label>
+                  <input class="search-input" type="text" x-model="divForm.ticker" placeholder="RI.PA" />
+                </div>
+                <div class="pf-field">
+                  <label>Date de paiement</label>
+                  <input class="search-input" type="date" x-model="divForm.pay_date" />
+                </div>
+                <div class="pf-field">
+                  <label>Montant (<span x-text="portfolioCurrency()"></span>)</label>
+                  <input class="search-input" type="text" inputmode="decimal"
+                         x-model="divForm.amount" placeholder="42,00" />
+                </div>
+              </div>
+              <div class="pf-actions">
+                <button class="btn small ghost" x-show="divForm.id != null" @click="resetDivForm()">Annuler</button>
+                <button class="btn small" @click="saveDividend()" :disabled="_portfolioBusy"
+                        x-text="divForm.id != null ? 'Enregistrer le dividende' : '＋ Ajouter le dividende'"></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comptes (discret) -->
+          <div class="idx-cat">
+            <div class="idx-cat-head"><b>Comptes</b></div>
+            <div class="pf-account-chips" x-show="portfolioAccountsList.length">
+              <template x-for="a in portfolioAccountsList" :key="a.id">
+                <span class="chip pf-account-chip">
+                  <span x-text="a.name + ' (' + a.currency + ')'"></span>
+                  <button type="button" class="pf-chip-del" @click="deletePortfolioAccount(a)"
+                          :title="'Supprimer le compte « ' + a.name + ' »'"
+                          :aria-label="'Supprimer le compte « ' + a.name + ' »'">✕</button>
+                </span>
+              </template>
+            </div>
+            <div class="pf-account-row">
+              <input class="search-input" type="text" x-model="portfolioNewAccountName"
+                     placeholder="Nom du compte (ex. PEA, CTO…)"
+                     @keydown.enter="createPortfolioAccount()" />
+              <button class="btn small ghost" @click="createPortfolioAccount()">＋ Nouveau compte</button>
+            </div>
+            <p class="idx-hint" x-show="!portfolioAccountsList.length">
+              Aucun compte pour l'instant. Crée ton premier compte ci-dessus.
+            </p>
+          </div>
+
+          <!-- Positions (le résultat, carte vedette) -->
+          <div class="idx-cat pf-feature">
+            <div class="idx-cat-head"><b>Positions</b></div>
+            <div class="screen-table-wrap" x-show="portfolioPositions.length">
+              <table class="cell-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Quantité</th>
+                    <th x-text="'PRU (' + portfolioCurrency() + ')'"></th>
+                    <th x-text="'Coût (' + portfolioCurrency() + ')'"></th>
+                    <th x-text="'Réalisé (' + portfolioCurrency() + ')'"></th>
+                    <th>Étiquette</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="p in portfolioPositions" :key="p.ticker">
+                    <tr>
+                      <td class="cell-val" x-text="p.ticker"></td>
+                      <td class="cell-val" x-text="portfolioQty(p.quantity)"></td>
+                      <td class="cell-val" x-text="portfolioMoney(p.pru)"></td>
+                      <td class="cell-val" x-text="portfolioMoney(p.cost_basis)"></td>
+                      <td class="cell-val" x-text="portfolioMoney(p.realized)"></td>
+                      <td class="cell-val pf-tag-cell">
+                        <!-- Édition en ligne : un clic ouvre le champ, Entrée valide. -->
+                        <template x-if="pfTagEditing === p.ticker">
+                          <span class="pf-tag-edit">
+                            <input class="search-input pf-tag-input" type="text"
+                                   x-model="pfTagDraft" list="pf-tag-options"
+                                   :maxlength="pfTagMax()"
+                                   @keydown.enter="savePositionTag(p)"
+                                   @keydown.escape="cancelEditPositionTag()" />
+                            <button type="button" class="btn small ghost" @click="savePositionTag(p)"
+                                    :disabled="_portfolioBusy" title="Valider">✓</button>
+                            <button type="button" class="btn small ghost" @click="cancelEditPositionTag()"
+                                    title="Annuler">✕</button>
+                          </span>
+                        </template>
+                        <template x-if="pfTagEditing !== p.ticker">
+                          <span class="pf-tag-view" @click="startEditPositionTag(p)"
+                                :title="'Étiqueter ' + p.ticker">
+                            <template x-for="t in (p.tags || [])" :key="t">
+                              <span class="chip pf-tag-chip" x-text="t"></span>
+                            </template>
+                            <span class="pf-tag-empty" x-show="!(p.tags || []).length">+ étiquette</span>
+                          </span>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="idx-hint" x-show="!portfolioPositions.length">
+              Aucune position détenue pour ce périmètre.
+            </p>
+          </div>
+
+          <!-- Transactions saisies -->
+          <div class="idx-cat">
+            <div class="idx-cat-head"><b>Transactions</b></div>
+            <div class="screen-table-wrap" x-show="portfolioTransactions.length">
+              <table class="cell-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Compte</th>
+                    <th>Ticker</th>
+                    <th>Sens</th>
+                    <th>Quantité</th>
+                    <th x-text="'Prix (' + portfolioCurrency() + ')'"></th>
+                    <th x-text="'Frais (' + portfolioCurrency() + ')'"></th>
+                    <th>Étiquette</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="tx in portfolioTransactions" :key="tx.id">
+                    <tr :class="{ editing: txForm.id === tx.id }">
+                      <td class="cell-val" x-text="tx.trade_date"></td>
+                      <td class="cell-val" x-text="portfolioAccountName(tx.account_id)"></td>
+                      <td class="cell-val" x-text="tx.ticker"></td>
+                      <td class="cell-val" x-text="tx.side === 'buy' ? 'Achat' : 'Vente'"></td>
+                      <td class="cell-val" x-text="portfolioQty(tx.quantity)"></td>
+                      <td class="cell-val" x-text="portfolioMoney(tx.price)"></td>
+                      <td class="cell-val" x-text="portfolioMoney(tx.fees)"></td>
+                      <td class="cell-val">
+                        <span class="chip pf-tag-chip" x-show="tx.tag" x-text="tx.tag"></span>
+                      </td>
+                      <td class="idx-actions">
+                        <button class="btn small ghost" @click="startEditTransaction(tx)" title="Modifier">✎</button>
+                        <button class="btn small ghost" @click="deleteTransaction(tx)" title="Supprimer">🗑</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="idx-hint" x-show="!portfolioTransactions.length">
+              Aucune transaction pour ce périmètre.
+            </p>
+          </div>
+
+          <!-- Dividendes saisis -->
+          <div class="idx-cat">
+            <div class="idx-cat-head"><b>Dividendes</b></div>
+            <div class="screen-table-wrap" x-show="portfolioDividends.length">
+              <table class="cell-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Compte</th>
+                    <th>Ticker</th>
+                    <th x-text="'Montant (' + portfolioCurrency() + ')'"></th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="d in portfolioDividends" :key="d.id">
+                    <tr :class="{ editing: divForm.id === d.id }">
+                      <td class="cell-val" x-text="d.pay_date"></td>
+                      <td class="cell-val" x-text="portfolioAccountName(d.account_id)"></td>
+                      <td class="cell-val" x-text="d.ticker"></td>
+                      <td class="cell-val" x-text="portfolioMoney(d.amount)"></td>
+                      <td class="idx-actions">
+                        <button class="btn small ghost" @click="startEditDividend(d)" title="Modifier">✎</button>
+                        <button class="btn small ghost" @click="deleteDividend(d)" title="Supprimer">🗑</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="idx-hint" x-show="!portfolioDividends.length">
+              Aucun dividende saisi pour ce périmètre.
+            </p>
+          </div>
+        </div>
+
+        <!-- Section Résumé (#17.1) : KPI + courbe TWR vs benchmark + donut +
+             Top/Flop + bandeau compte. Design aligné sur les cartes existantes
+             (`.kpis`/`.kpi`, `.mini`), tokens CSS uniquement, aucune valeur en dur. -->
+        <div class="section" x-show="portfolioSection === 'resume'">
+          <p class="idx-hint" x-show="pfSummaryError" style="color:var(--bad)" x-text="pfSummaryError"></p>
+          <p class="idx-hint" x-show="pfSummaryLoading" style="color:var(--accent)">Calcul de la performance…</p>
+
+          <!-- 3 cartes KPI : Valeur totale · Total Return · Dividendes -->
+          <div class="pf-kpis">
+            <div class="card kpi">
+              <div class="k-title">Valeur totale</div>
+              <div class="k-value" x-text="pfKpis().total_value.value"></div>
+              <div class="pf-kpi-sub" x-text="pfKpis().total_value.sub"></div>
+              <span class="k-label" :class="polarity(pfKpis().total_value.good)"
+                    x-show="pfKpis().total_value.label"
+                    x-text="pfKpis().total_value.label + ' ' + pfKpis().total_value.sub2"></span>
+            </div>
+            <div class="card kpi">
+              <div class="k-title">Total Return</div>
+              <div class="k-value" x-text="pfKpis().total_return.value"></div>
+              <div class="pf-kpi-sub" x-text="pfKpis().total_return.sub"></div>
+              <span class="k-label" :class="polarity(pfKpis().total_return.good)"
+                    x-show="pfKpis().total_return.label"
+                    x-text="pfKpis().total_return.label + ' ' + pfKpis().total_return.sub2"></span>
+            </div>
+            <div class="card kpi">
+              <div class="k-title">Dividendes</div>
+              <div class="k-value" x-text="pfKpis().dividends.value"></div>
+              <div class="pf-kpi-sub" x-text="pfKpis().dividends.sub"></div>
+              <span class="k-label" :class="polarity(pfKpis().dividends.good)"
+                    x-show="pfKpis().dividends.label"
+                    x-text="pfKpis().dividends.label + ' ' + pfKpis().dividends.sub2"></span>
+            </div>
+          </div>
+
+          <!-- Grille : courbe de performance (vedette) + répartition des comptes -->
+          <div class="pf-summary-grid">
+            <div class="card mini pf-perf-card">
+              <h3>
+                <span>Performance (TWR)</span>
+                <span class="k-label pf-perf-badge" :class="polarity(pfPerfBadge().good)"
+                      x-text="pfPerfBadge().text"></span>
+                <button type="button" class="expand-btn" @click="openPfChartFull()"
+                        title="Agrandir" aria-label="Agrandir le graphique de performance"
+                        x-show="!pfChartEmpty()">⤢</button>
+              </h3>
+              <div class="mini-chart pf-chart" id="pf-summary-plot"></div>
+              <!-- Légende HORS du tracé : nom du portefeuille + benchmark avec
+                   leur perf de période (couleur de la série). Dans le graphe,
+                   elle se superposait aux courbes. -->
+              <ul class="pf-legend" x-show="!pfChartEmpty()">
+                <template x-for="s in pfSeriesLegend()" :key="s.key">
+                  <li class="pf-legend-item">
+                    <span class="pf-legend-dot" :style="'background:' + s.color"></span>
+                    <span class="pf-legend-name" x-text="s.label"></span>
+                    <span class="pf-legend-val" x-text="s.value"></span>
+                  </li>
+                </template>
+              </ul>
+              <p class="na" x-show="pfChartEmpty() && !pfSummaryLoading"
+                 x-text="pfNoDataHint('Pas encore de performance à tracer : saisis une transaction dans l\'onglet Positions.')"></p>
+              <template x-for="w in (pfSummary ? pfSummary.warnings : [])" :key="w">
+                <span class="reliability-badge" x-text="w"></span>
+              </template>
+            </div>
+
+            <div class="card mini pf-accounts-card" x-show="pfSummary && (pfSummary.accounts.length + pfSummary.holdings.length)">
+              <h3>
+                <span>Répartition</span>
+                <div class="pf-breakdown-pick">
+                  <button type="button" class="pf-breakdown-trigger" @click="togglePfBreakdownMenu()"
+                          :aria-expanded="pfBreakdownMenuOpen" title="Changer la dimension de la répartition">
+                    <span x-text="pfBreakdownLabel()"></span>
+                    <span class="pf-breakdown-caret">▾</span>
+                  </button>
+                  <div class="pf-breakdown-menu" x-show="pfBreakdownMenuOpen" @click.outside="pfBreakdownMenuOpen = false">
+                    <template x-for="opt in pfBreakdownOptions()" :key="opt.key">
+                      <button type="button" class="pf-breakdown-item"
+                              :class="{ on: pfBreakdown === opt.key }"
+                              @click="setPfBreakdown(opt.key)" x-text="opt.label"></button>
+                    </template>
+                  </div>
+                </div>
+              </h3>
+              <div class="mini-chart pf-donut" id="pf-summary-donut"></div>
+              <p class="na" x-show="pfBreakdownData().empty">Aucune position valorisable pour cette répartition.</p>
+            </div>
+          </div>
+
+          <!-- Top 5 / Flop 5 -->
+          <div class="pf-topflop">
+            <div class="card mini pf-rank">
+              <h3>
+                <span class="pf-rank-ic good" aria-hidden="true">↗</span>
+                <span x-text="'Top ' + pfTopN()"></span>
+              </h3>
+              <ol class="pf-rank-list">
+                <template x-for="(r, i) in (pfSummary ? pfSummary.top : [])" :key="r.ticker">
+                  <li class="pf-rank-row" @click="openPortfolioTicker(r.ticker)"
+                      :title="'Ouvrir la fiche ' + r.ticker">
+                    <span class="pf-rank-n" x-text="i + 1"></span>
+                    <span class="pf-rank-logo" x-text="pfInitials(r)"></span>
+                    <span class="pf-rank-main">
+                      <span class="pf-rank-name" x-text="r.name || r.ticker"></span>
+                      <span class="pf-rank-ticker" x-text="r.ticker"></span>
+                    </span>
+                    <span class="pf-rank-amount">
+                      <span class="pf-rank-perf" :class="polarity(r.perf >= 0)" x-text="pfPct(r.perf)"></span>
+                      <span class="pf-rank-gain" :class="polarity(r.perf >= 0)" x-text="pfSigned(r.gain)"></span>
+                    </span>
+                  </li>
+                </template>
+              </ol>
+              <p class="idx-hint" x-show="!(pfSummary ? pfSummary.top : []).length">Aucune position valorisable.</p>
+            </div>
+            <div class="card mini pf-rank" x-show="pfShowFlop()">
+              <h3>
+                <span class="pf-rank-ic bad" aria-hidden="true">↘</span>
+                <span x-text="'Flop ' + pfTopN()"></span>
+              </h3>
+              <ol class="pf-rank-list">
+                <template x-for="(r, i) in (pfSummary ? pfSummary.flop : [])" :key="r.ticker">
+                  <li class="pf-rank-row" @click="openPortfolioTicker(r.ticker)"
+                      :title="'Ouvrir la fiche ' + r.ticker">
+                    <span class="pf-rank-n" x-text="i + 1"></span>
+                    <span class="pf-rank-logo" x-text="pfInitials(r)"></span>
+                    <span class="pf-rank-main">
+                      <span class="pf-rank-name" x-text="r.name || r.ticker"></span>
+                      <span class="pf-rank-ticker" x-text="r.ticker"></span>
+                    </span>
+                    <span class="pf-rank-amount">
+                      <span class="pf-rank-perf" :class="polarity(r.perf >= 0)" x-text="pfPct(r.perf)"></span>
+                      <span class="pf-rank-gain" :class="polarity(r.perf >= 0)" x-text="pfSigned(r.gain)"></span>
+                    </span>
+                  </li>
+                </template>
+              </ol>
+              <p class="idx-hint" x-show="!(pfSummary ? pfSummary.flop : []).length">Aucune position valorisable.</p>
+            </div>
+          </div>
+
+          <!-- Bandeau du compte sélectionné (rappel des KPI en colonnes) -->
+          <div class="card pf-account-banner" x-show="portfolioAccountId != null">
+            <div class="pf-acc-head">
+              <div>
+                <b x-text="portfolioAccountName(portfolioAccountId)"></b>
+                <div class="pf-acc-sub">
+                  <span x-show="pfSummary?.account?.since" x-text="'Depuis le ' + pfSince()"></span>
+                  <span x-show="pfSummary?.account"
+                        x-text="' · Frais : ' + pfMoney(pfSummary?.account?.fees) + ' €'"></span>
+                  <span x-show="pfSummary?.account"
+                        x-text="' · Taxes : ' + pfMoney(pfSummary?.account?.taxes) + ' €'"></span>
+                  <span x-show="pfSummary?.account"
+                        x-text="' · Dividendes nets de frais : ' + pfMoney(pfSummary?.account?.balance) + ' €'"></span>
+                </div>
+              </div>
+            </div>
+            <div class="pf-acc-kpis">
+              <div class="pf-acc-kpi">
+                <div class="pf-acc-kpi-title">Valeur totale</div>
+                <div class="pf-acc-kpi-value" x-text="pfKpis().total_value.value"></div>
+                <div class="pf-kpi-sub" x-text="pfKpis().total_value.sub"></div>
+              </div>
+              <div class="pf-acc-kpi">
+                <div class="pf-acc-kpi-title">Total Return</div>
+                <div class="pf-acc-kpi-value" x-text="pfKpis().total_return.value"></div>
+                <div class="pf-kpi-sub" x-text="pfKpis().total_return.sub"></div>
+              </div>
+              <div class="pf-acc-kpi">
+                <div class="pf-acc-kpi-title">Dividendes</div>
+                <div class="pf-acc-kpi-value" x-text="pfKpis().dividends.value"></div>
+                <div class="pf-kpi-sub" x-text="pfKpis().dividends.sub"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Risque (#17.3) : drawdown (haut) + matrice de corrélation (bas) -->
+        <div class="section" x-show="portfolioSection === 'risque'">
+          <p class="idx-hint" x-show="pfRiskError" style="color:var(--bad)" x-text="pfRiskError"></p>
+          <p class="idx-hint" x-show="pfRiskLoading" style="color:var(--accent)">Calcul du risque…</p>
+
+          <p class="na" x-show="pfRiskEmpty() && !pfRiskLoading"
+             x-text="pfNoDataHint('Pas encore de risque à tracer : saisis une transaction dans l\'onglet Positions.')"></p>
+
+          <template x-if="!pfRiskEmpty()">
+            <div>
+              <!-- Drawdown (haut) : aire rouge + benchmark -->
+              <div class="card mini pf-risk-card">
+                <h3>
+                  <span>Drawdown</span>
+                </h3>
+                <div class="mini-chart pf-chart" id="pf-risk-drawdown"></div>
+                <!-- Légende HTML SOUS le tracé (les noms de séries superposés aux
+                     courbes dans la zone de tracé étaient illisibles). -->
+                <ul class="pf-legend">
+                  <template x-for="s in pfRiskLegend()" :key="s.key">
+                    <li class="pf-legend-item">
+                      <span class="pf-legend-dot" :style="'background:' + s.color"></span>
+                      <span class="pf-legend-name" x-text="s.label"></span>
+                      <span class="pf-legend-val" x-text="s.value"></span>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+
+              <!-- Métriques de drawdown : portefeuille vs benchmark -->
+              <div class="card mini pf-risk-metrics">
+                <h3><span>Métriques de drawdown</span></h3>
+                <table class="cell-table pf-risk-table">
+                  <thead>
+                    <tr>
+                      <th>Métrique</th>
+                      <th>Portefeuille</th>
+                      <th x-text="'Référence (' + (pfRisk.benchmark?.label || '') + ')'"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in pfRiskMetricRows()" :key="row.label">
+                      <tr>
+                        <td class="cell-val" x-text="row.label"></td>
+                        <td class="cell-val" x-text="row.pf"></td>
+                        <td class="cell-val pf-risk-muted" x-text="row.bench"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Matrice de corrélation (bas) -->
+              <div class="card mini pf-risk-card">
+                <h3>
+                  <span>Matrice de corrélation</span>
+                  <!-- Corrélation moyenne du périmètre sélectionné (compte/étiquette),
+                       calculée sur les paires hors diagonale disponibles. -->
+                  <span class="pf-corr-avg" x-show="pfCorrAverage() != null"
+                        title="Moyenne des corrélations entre toutes les paires de lignes du périmètre">
+                    <span x-text="(pfRisk.correlation.tickers.length) + ' lignes'"></span>
+                    <b x-text="'corrélation moyenne ' + pfCorrAverageLabel()"></b>
+                  </span>
+                </h3>
+                <div class="pf-corr-frame" x-show="pfRisk.correlation.tickers.length >= 2">
+                  <div class="mini-chart pf-corr-chart" id="pf-risk-corr"></div>
+                  <span class="pf-corr-texture" aria-hidden="true"></span>
+                </div>
+                <p class="na" x-show="pfRisk.correlation.tickers.length < 2">
+                  Corrélation indisponible : au moins deux lignes avec assez d'historique sont requises.
+                </p>
+                <template x-for="e in pfCorrExcluded()" :key="e.ticker">
+                  <span class="reliability-badge"
+                        x-text="e.ticker + ' écarté (' + e.obs + ' obs)'"></span>
+                </template>
+
+                <!-- Test de corrélation (#17.3) : impact d'un ticker candidat sur
+                     le périmètre. La ligne de résultat s'aligne sous la matrice. -->
+                <div class="pf-corr-test" x-show="pfRisk.correlation.tickers.length >= 2">
+                  <div class="pf-corr-test-head">
+                    <span class="pf-corr-test-title">Test de corrélation</span>
+                    <div class="pf-corr-test-field">
+                      <input class="search-input pf-corr-test-input" type="text"
+                             x-model="pfCorrTestTicker"
+                             @input="onCorrTestInput()"
+                             @keydown.enter.prevent="submitCorrTest()"
+                             @keydown.escape="pfCorrTestSuggestions = []"
+                             placeholder="Ticker ou nom (ex. LVMH)" autocomplete="off" spellcheck="false"
+                             title="Saisis un titre (par code ou par nom) pour mesurer son impact sur la corrélation du portefeuille">
+                      <!-- Recherche par NOM : suggestions de tickers (réutilise la
+                           liste de la barre principale). Classe `.suggestions`. -->
+                      <div class="suggestions" x-show="pfCorrTestSuggestions.length"
+                           @click.outside="pfCorrTestSuggestions = []">
+                        <template x-for="s in pfCorrTestSuggestions" :key="s.symbol">
+                          <div class="suggestion-item" @click="pickCorrTestSuggestion(s)">
+                            <span class="s-name" x-text="s.name"></span>
+                            <span class="s-meta"><span class="s-symbol" x-text="s.symbol"></span><span x-show="s.exchange" x-text="' · ' + s.exchange"></span></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                    <span class="pf-corr-test-impact" x-show="pfCorrTestImpact()"
+                          :class="pfCorrTestImpactClass()"
+                          x-text="pfCorrTestImpact()?.text"></span>
+                  </div>
+                  <p class="idx-hint" x-show="pfCorrTestLoading" style="color:var(--accent)">Calcul…</p>
+                  <p class="idx-hint pf-corr-test-err" x-show="pfCorrTestError"
+                     x-text="'Test impossible : ' + pfCorrTestError"></p>
+                  <template x-if="pfCorrTest && !pfCorrTestLoading">
+                    <div class="pf-corr-test-result">
+                      <span class="pf-corr-test-cand" x-text="pfCorrTest.ticker"></span>
+                      <span class="reliability-badge" x-show="pfCorrTest.warning"
+                            x-text="pfCorrTest.warning"></span>
+                      <div class="mini-chart pf-corr-test-chart" id="pf-risk-corr-test"></div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <template x-for="w in (pfRisk.warnings || [])" :key="w">
+                <span class="reliability-badge" x-text="w"></span>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Section Performance (#17.4) : donut + stats pondérées + mensuels +
+             contribution par entreprise + ratios ajustés au risque. -->
+        <div class="section" x-show="portfolioSection === 'performance'">
+          <p class="idx-hint" x-show="pfPerfError" style="color:var(--bad)" x-text="pfPerfError"></p>
+          <p class="idx-hint" x-show="pfPerfLoading" style="color:var(--accent)">Calcul de la performance…</p>
+
+          <template x-if="!pfPerfEmpty()">
+            <div>
+              <!-- Donut « Répartition des titres » + panneau de stats pondérées -->
+              <div class="pf-perf-top">
+                <div class="card mini">
+                  <h3><span>Répartition des titres</span></h3>
+                  <div class="mini-chart pf-donut" id="pf-perf-donut"></div>
+                </div>
+                <div class="card mini pf-stat-panel">
+                  <h3><span>Statistiques pondérées</span></h3>
+                  <template x-for="g in pfStatGroups()" :key="g.id">
+                    <div class="pf-stat-group">
+                      <div class="pf-stat-group-title" x-text="g.title"></div>
+                      <template x-for="row in g.rows" :key="row.key">
+                        <div class="pf-stat-row">
+                          <span class="pf-stat-label" x-text="row.label"></span>
+                          <span class="pf-stat-value" :class="polarity(row.good)"
+                                x-text="pfStatValue(row)"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Ratios ajustés au risque (Sharpe / Sortino), par période -->
+              <div class="card mini pf-perf-ra">
+                <h3>
+                  <span>Rendement ajusté au risque</span>
+                  <span class="period-presets pf-presets"
+                        x-show="pfRiskPeriodSelectable()">
+                    <template x-for="p in pfRiskPeriods()" :key="p">
+                      <button type="button" class="period-chip"
+                              :class="{ active: pfRiskPeriod === p }"
+                              :aria-pressed="pfRiskPeriod === p"
+                              @click="setPfRiskPeriod(p)" x-text="pfPeriodLabel(p)"></button>
+                    </template>
+                  </span>
+                </h3>
+                <table class="pf-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Portefeuille</th>
+                      <th x-text="pfBenchmarkLabel(pfBenchmark)"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in pfRiskAdjustedRows()" :key="r.label">
+                      <tr>
+                        <td x-text="r.label"></td>
+                        <td x-text="r.pf"></td>
+                        <td x-text="r.bench"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <p class="idx-hint" x-show="(pfPerf?.risk_adjusted?.risk_free_pct || 0) > 0"
+                   x-text="'Taux sans risque : ' + pfPerf.risk_adjusted.risk_free_pct + ' %/an'"></p>
+              </div>
+
+              <!-- Rendements mensuels : barres groupées portefeuille vs benchmark.
+                   Période : DEUX contrôles seulement — une chip « TTM » (12
+                   derniers mois, défaut) et un sélecteur d'année précise. Même
+                   correctif que le héros Dividende : une chip par année
+                   débordait de l'en-tête dès quelques années d'historique. -->
+              <div class="card mini pf-perf-monthly">
+                <h3>
+                  <span>Rendements mensuels</span>
+                  <span class="pf-period-pick">
+                    <button type="button" class="period-chip"
+                            :class="{ active: pfMonthlyChart().isTtm }"
+                            :aria-pressed="pfMonthlyChart().isTtm"
+                            @click="setPfPerfMonth('ttm')">TTM</button>
+                    <select class="pf-ctl pf-year-select"
+                            :value="pfMonthlyChart().activeYear == null ? '' : String(pfMonthlyChart().activeYear)"
+                            @change="setPfPerfMonth($event.target.value)"
+                            title="Afficher une année précise"
+                            aria-label="Année affichée">
+                      <option value="" disabled x-show="pfMonthlyChart().isTtm">Année…</option>
+                      <template x-for="y in pfMonthlyChart().years" :key="y">
+                        <option :value="String(y)" x-text="String(y)"></option>
+                      </template>
+                    </select>
+                  </span>
+                </h3>
+                <div class="mini-chart pf-monthly-chart" id="pf-perf-monthly-plot"
+                     x-show="pfMonthlyChart().labels.length"></div>
+                <ul class="pf-legend" x-show="pfMonthlyChart().labels.length">
+                  <template x-for="s in pfMonthlyLegend()" :key="s.key">
+                    <li class="pf-legend-item">
+                      <span class="pf-legend-dot" :style="'background:' + s.color"></span>
+                      <span class="pf-legend-name" x-text="s.label"></span>
+                      <span class="pf-legend-val" x-text="s.value"></span>
+                    </li>
+                  </template>
+                </ul>
+                <p class="na" x-show="!pfMonthlyChart().labels.length">Aucun rendement mensuel à afficher.</p>
+              </div>
+
+              <!-- Contribution à la performance : barres verticales par entreprise
+                   (positives en bleu, négatives en rouge), de la pire à gauche à
+                   la meilleure à droite. -->
+              <div class="card mini pf-perf-contrib">
+                <h3>
+                  <span>Contribution à la performance</span>
+                  <span class="pf-contrib-total" :class="polarity(pfContributionTotalGood())">
+                    Total&nbsp;<strong x-text="pfMonthCell(pfPerf?.contributions?.total_pct)"></strong>
+                  </span>
+                </h3>
+                <div class="mini-chart pf-contrib-chart" id="pf-perf-contrib-plot"
+                     x-show="pfContributionChart().labels.length"></div>
+                <p class="na" x-show="!pfContributionChart().labels.length">Aucune contribution à afficher.</p>
+              </div>
+              <!-- Grand tableau cliquable : clic ligne -> détail (critère C) -->
+              <div class="card mini pf-perf-table">
+                <h3><span>Lignes du portefeuille</span></h3>
+                <table class="pf-table pf-clickable">
+                  <thead>
+                    <tr>
+                      <th>Titre</th>
+                      <th>Poids</th>
+                      <th>Perf</th>
+                      <th>Contribution</th>
+                      <th>Valeur</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in (pfPerf?.table || [])" :key="r.ticker">
+                      <tr @click="openPerfDetail(r.ticker)"
+                          :title="'Ouvrir le détail de ' + r.ticker">
+                        <td x-text="r.name || r.ticker"></td>
+                        <td x-text="pfPct(r.weight_pct)"></td>
+                        <td :class="polarity(pfMonthPolarity(r.perf_pct))" x-text="pfMonthCell(r.perf_pct)"></td>
+                        <td :class="polarity(pfMonthPolarity(r.contribution_pct))"
+                            x-text="pfMonthCell(r.contribution_pct)"></td>
+                        <td x-text="pfMoney(r.market_value) + ' €'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+
+          <div class="card mini" x-show="pfPerfEmpty() && !pfPerfLoading && !pfPerfError" style="padding:20px">
+            <p class="idx-hint">Aucune position détenue pour ce périmètre : la performance s'affichera dès la première transaction.</p>
+          </div>
+        </div>
+
+        <!-- Section Dividende (#17.5) : revenu reçu, KPI agrégés et pilotage.
+             Le périmètre vient du bandeau de contexte commun (`.pf-context`,
+             capacité `scope` de la section) : plus de barre locale. -->
+        <div class="section" x-show="portfolioSection === 'dividende'">
+          <p class="idx-hint" x-show="pfDivError" style="color:var(--bad)" x-text="pfDivError"></p>
+          <p class="idx-hint" x-show="pfDivLoading" style="color:var(--accent)">Calcul des dividendes…</p>
+
+          <!-- Badges de fiabilité : SEULEMENT un manque réel, en tête de page
+               (un avertissement sur la donnée doit précéder les chiffres). -->
+          <div class="div-warnings" x-show="pfDivWarnings().length">
+            <template x-for="w in pfDivWarnings()" :key="w">
+              <span class="reliability-badge" x-text="w"></span>
+            </template>
+          </div>
+
+          <template x-if="!pfDivAllEmpty()">
+            <div>
+              <!-- Rangée 1 : tuiles KPI (taxonomie serveur, 4 par ligne).
+                   TOUJOURS affichées : un portefeuille sans versement saisi a
+                   quand même un rendement courant, un revenu TTM et une
+                   couverture calculables. -->
+              <div class="pf-kpis pf-kpis--4">
+                <template x-for="k in pfDivKpis()" :key="k.key">
+                  <div class="card kpi">
+                    <div class="k-title" x-text="k.label"></div>
+                    <div class="k-value" :class="polarity(k.good)" x-text="k.value"></div>
+                    <div class="pf-kpi-sub" x-show="k.sub" x-text="k.sub"></div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Rangée 2 : HÉROS — dividendes reçus par mois, empilés par
+                   payeur. Plein = confirmé, hachuré = proposé.
+                   Période : DEUX contrôles seulement — une chip « TTM » (12
+                   derniers mois) et un sélecteur d'année précise. Une chip par
+                   année débordait de l'en-tête dès 5 ans d'historique, et
+                   l'année civile en cours n'y tenait qu'avec un « (en cours) ». -->
+              <div class="card mini wide pf-div-hero" x-show="!pfDivEmpty()">
+                <h3>
+                  <span>Dividendes reçus par mois</span>
+                  <span class="pf-div-period">
+                    <button type="button" class="period-chip"
+                            :class="{ active: pfDivIsTtm() }"
+                            :aria-pressed="pfDivIsTtm()"
+                            @click="setPfDivPeriod('ttm')">TTM</button>
+                    <select class="pf-ctl pf-div-year-select"
+                            :value="pfDivActiveYear() == null ? '' : String(pfDivActiveYear())"
+                            @change="setPfDivPeriod($event.target.value)"
+                            title="Afficher une année précise"
+                            aria-label="Année affichée">
+                      <option value="" disabled x-show="pfDivIsTtm()">Année…</option>
+                      <template x-for="y in pfDivYears()" :key="y">
+                        <option :value="String(y)" x-text="pfDivYearLabel(y)"></option>
+                      </template>
+                    </select>
+                  </span>
+                </h3>
+                <div class="mini-chart pf-div-monthly-chart" id="pf-div-monthly"></div>
+                <ul class="pf-legend">
+                  <li class="pf-legend-item">
+                    <span class="pf-legend-dot pf-legend-dot-accent"></span>
+                    <span class="pf-legend-name">Confirmé</span>
+                    <span class="pf-legend-val"
+                          x-text="pfMoney(pfDivYearTotals().confirmed) + ' €'"></span>
+                  </li>
+                  <li class="pf-legend-item" x-show="pfDivYearTotals().proposed">
+                    <span class="pf-legend-name">Proposé (hachuré)</span>
+                    <span class="pf-legend-val"
+                          x-text="pfMoney(pfDivYearTotals().proposed) + ' €'"></span>
+                  </li>
+                  <li class="pf-legend-item">
+                    <span class="pf-legend-name">Versements</span>
+                    <span class="pf-legend-val" x-text="pfDivYearTotals().count"></span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Rangée 3 : concentration (barres) + chiffres de contexte.
+                   AUCUN camembert : illisible au-delà de 6 parts, il ne
+                   quantifie rien ; les barres donnent le classement exact. -->
+              <div class="pf-div-pair" x-show="!pfDivEmpty()">
+                <div class="card mini pf-div-conc">
+                  <h3><span>Concentration du revenu</span></h3>
+                  <div class="mini-chart pf-div-conc-chart" id="pf-div-concentration"></div>
+                </div>
+                <div class="card mini pf-div-conc-stats">
+                  <h3><span>Équilibre</span></h3>
+                  <div class="pf-stat-group">
+                    <template x-for="s in pfDivConcentrationStats()" :key="s.label">
+                      <div class="pf-stat-row">
+                        <span class="pf-stat-label" x-text="s.label"></span>
+                        <span class="pf-stat-value" x-text="s.value"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <p class="idx-hint" x-show="!pfDivConcentrationStats().length">
+                    Aucun dividende reçu sur ce périmètre.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Rangée 4 : tableau par ligne. Tri par défaut = poids de revenu
+                   décroissant (« d'où vient l'argent »). La colonne Écart (part du
+                   revenu − part du capital) est la colonne de PILOTAGE : une ligne
+                   qui pèse plus en revenu qu'en capital travaille pour le revenu. -->
+              <div class="card mini pf-div-table-card" x-show="!pfDivEmpty()">
+                <h3><span>Dividende par ligne</span></h3>
+                <table class="pf-table pf-clickable">
+                  <thead>
+                    <tr>
+                      <!-- En-têtes TRIABLES : atteignables au clavier (tabindex) et
+                           annoncés par `aria-sort` ; Entrée/Espace déclenchent le
+                           même tri que le clic. -->
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('ticker')"
+                          @click="setPfDivSort('ticker')" @keydown.enter="setPfDivSort('ticker')"
+                          @keydown.space.prevent="setPfDivSort('ticker')">Titre<span x-text="pfDivSortIcon('ticker')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('dps_ttm')"
+                          @click="setPfDivSort('dps_ttm')" @keydown.enter="setPfDivSort('dps_ttm')"
+                          @keydown.space.prevent="setPfDivSort('dps_ttm')">DPS<span x-text="pfDivSortIcon('dps_ttm')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('div_yield_pct')"
+                          @click="setPfDivSort('div_yield_pct')" @keydown.enter="setPfDivSort('div_yield_pct')"
+                          @keydown.space.prevent="setPfDivSort('div_yield_pct')">Yield cours<span x-text="pfDivSortIcon('div_yield_pct')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('div_to_cost_pct')"
+                          @click="setPfDivSort('div_to_cost_pct')" @keydown.enter="setPfDivSort('div_to_cost_pct')"
+                          @keydown.space.prevent="setPfDivSort('div_to_cost_pct')">Div / coût<span x-text="pfDivSortIcon('div_to_cost_pct')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('capital_share_pct')"
+                          @click="setPfDivSort('capital_share_pct')" @keydown.enter="setPfDivSort('capital_share_pct')"
+                          @keydown.space.prevent="setPfDivSort('capital_share_pct')">P. capital<span x-text="pfDivSortIcon('capital_share_pct')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('income_share_pct')"
+                          @click="setPfDivSort('income_share_pct')" @keydown.enter="setPfDivSort('income_share_pct')"
+                          @keydown.space.prevent="setPfDivSort('income_share_pct')">P. revenu<span x-text="pfDivSortIcon('income_share_pct')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('gap_pp')"
+                          title="Part du revenu − part du capital"
+                          @click="setPfDivSort('gap_pp')" @keydown.enter="setPfDivSort('gap_pp')"
+                          @keydown.space.prevent="setPfDivSort('gap_pp')">Écart<span x-text="pfDivSortIcon('gap_pp')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('cagr_pct')"
+                          @click="setPfDivSort('cagr_pct')" @keydown.enter="setPfDivSort('cagr_pct')"
+                          @keydown.space.prevent="setPfDivSort('cagr_pct')">CAGR<span x-text="pfDivSortIcon('cagr_pct')"></span></th>
+                      <th tabindex="0" role="button" :aria-sort="pfDivAriaSort('payout_pct')"
+                          @click="setPfDivSort('payout_pct')" @keydown.enter="setPfDivSort('payout_pct')"
+                          @keydown.space.prevent="setPfDivSort('payout_pct')">Payout<span x-text="pfDivSortIcon('payout_pct')"></span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in pfDivLines()" :key="r.ticker">
+                      <tr @click="openPortfolioTicker(r.ticker)"
+                          :title="'Ouvrir la fiche ' + r.ticker">
+                        <td x-text="r.ticker"></td>
+                        <td x-text="r.dps_ttm == null ? '—' : pfMoney(r.dps_ttm) + ' €'"></td>
+                        <td x-text="pfDivCell('div_yield_pct', r.div_yield_pct)"></td>
+                        <td class="pf-div-col-cost"
+                            x-text="pfDivCell('div_to_cost_pct', r.div_to_cost_pct)"></td>
+                        <td x-text="pfDivCell('capital_share_pct', r.capital_share_pct)"></td>
+                        <td x-text="pfDivCell('income_share_pct', r.income_share_pct)"></td>
+                        <td class="pf-div-col-gap"
+                            :class="polarity(r.gap_pp == null ? null : r.gap_pp >= 0)">
+                          <span x-text="pfDivCell('gap_pp', r.gap_pp)"></span>
+                          <span class="pf-delta" x-show="r.gap_pp != null">
+                            <span class="pf-delta-bar" :class="pfDivGapSide(r.gap_pp)"
+                                  :style="'--w:' + pfDivGapWidth(r.gap_pp)"></span>
+                          </span>
+                        </td>
+                        <td x-text="pfDivCell('cagr_pct', r.cagr_pct)"></td>
+                        <td x-text="pfDivCell('payout_pct', r.payout_pct)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="card mini" x-show="pfDivEmpty()" style="padding:20px">
+                <p class="idx-hint">Aucun dividende reçu sur ce périmètre : saisis un
+                  versement dans l'onglet Positions, ou vérifie le compte sélectionné.
+                  Les indicateurs ci-dessus restent calculés sur tes positions.</p>
+              </div>
+            </div>
+          </template>
+
+          <div class="card mini" x-show="pfDivAllEmpty() && !pfDivLoading && !pfDivError" style="padding:20px">
+            <p class="idx-hint">Aucune donnée de dividende sur ce périmètre : saisis une
+              transaction dans l'onglet Positions, ou vérifie le compte sélectionné.</p>
+          </div>
+        </div>
+
+        <!-- Sections à venir (jalon 05) -->
+        <div class="section" x-show="portfolioSection !== 'positions' && portfolioSection !== 'resume' && portfolioSection !== 'risque' && portfolioSection !== 'performance' && portfolioSection !== 'dividende'">
+          <div class="card mini" style="padding:20px">
+            <h3 x-text="(portfolioSections.find(s => s.id === portfolioSection) || {}).label || ''"></h3>
+            <p class="idx-hint">Cette section arrive avec un jalon suivant du chantier Portefeuille.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plein écran de la courbe de performance du portefeuille (#17.1). État
+       PROPRE (`pfChartFull`) : il ne touche ni `detailCard` ni `rangeStart` du
+       graphe héro de la fiche — les deux surfaces sont indépendantes. -->
+  <div class="modal-overlay" x-show="pfChartFull" @click.self="closePfChartFull()"
+       @keydown.escape.window="closePfChartFull()">
+    <div class="modal modal-pf-detail" id="pf-detail-modal" role="dialog" aria-modal="true"
+         tabindex="-1" x-show="pfChartFull" x-transition.opacity>
+      <div class="idx-head">
+        <h3 x-text="'Performance (TWR) — ' + pfBenchmarkLabel(pfBenchmark)"></h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closePfChartFull()" aria-label="Fermer">✕</button>
+        </div>
+      </div>
+      <div class="mini-chart pf-detail-chart" id="pf-detail-plot"></div>
+      <ul class="pf-legend">
+        <template x-for="s in pfSeriesLegend()" :key="s.key">
+          <li class="pf-legend-item">
+            <span class="pf-legend-dot" :style="'background:' + s.color"></span>
+            <span class="pf-legend-name" x-text="s.label"></span>
+            <span class="pf-legend-val" x-text="s.value"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Détail par titre (#17.4, section Performance) : deux courbes de perf
+       cumulée (titre vs benchmark, rebasées à 0), horizons TTM/3A/5A/10A/MAX +
+       sélecteur de points d'entrée/sortie (écart au benchmark). État PROPRE
+       (`pfDetail`) — indépendant de la fiche entreprise. -->
+  <div class="modal-overlay" x-show="pfDetailOpen" @click.self="closePerfDetail()"
+       @keydown.escape.window="pfDetailOpen && closePerfDetail()">
+    <div class="modal modal-pf-detail" role="dialog" aria-modal="true"
+         tabindex="-1" x-show="pfDetailOpen" x-transition.opacity>
+      <div class="idx-head">
+        <h3 x-text="pfDetailTitle()"></h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closePerfDetail()" aria-label="Fermer">✕</button>
+        </div>
+      </div>
+      <p class="idx-hint" x-show="pfDetailError" style="color:var(--bad)" x-text="pfDetailError"></p>
+      <p class="idx-hint" x-show="pfDetailLoading" style="color:var(--accent)">Chargement…</p>
+      <template x-if="pfDetail">
+        <div>
+          <!-- Le benchmark du détail est CELUI DU CONTEXTE (`pfBenchmark`) :
+               plus de sélecteur local, donc plus de cinquième copie ni de
+               réconciliation client des écarts. Seuls restent les contrôles
+               propres à ce graphe (points d'entrée/sortie, horizons). -->
+          <div class="pf-detail-tools">
+            <!-- Benchmark PROPRE à la modale, restreint à la liste CURÉE
+                 (`pfBenchmarks`, source unique config.py) : on compare à un
+                 autre indice sans quitter la fiche ni changer la norme globale
+                 persistée. Pas de ticker libre ici — « Autre… » reste dans le
+                 bandeau, où le choix est mémorisé. -->
+            <label class="pf-detail-bench-label" for="pf-detail-bench">Benchmark</label>
+            <select id="pf-detail-bench" class="pf-ctl pf-detail-bench-select"
+                    :value="pfDetailBenchmark"
+                    @change="setPfDetailBenchmark($event.target.value)"
+                    title="Indice de comparaison (local à cette fenêtre)">
+              <template x-if="pfBenchmarks.length && !pfBenchmarks.some(b => b.ticker === pfDetailBenchmark)">
+                <option :value="pfDetailBenchmark" x-text="pfDetailBenchmark"></option>
+              </template>
+              <template x-for="b in pfBenchmarks" :key="b.ticker">
+                <option :value="b.ticker" x-text="b.label + ' (' + b.ticker + ')'"></option>
+              </template>
+            </select>
+            <!-- Points d'entrée/sortie : titre cliquable ; la liste s'ouvre en
+                 surimpression (jamais sur le graphe). -->
+            <div class="pf-entry-pick" x-show="pfDetailEntries().length">
+              <button type="button" class="pf-entry-trigger"
+                      @click="togglePfEntryMenu()"
+                      :aria-expanded="pfEntryMenuOpen"
+                      title="Rejouer depuis un point d'entrée/sortie">
+                <span class="pf-entry-label">Points d'entrée/sortie</span>
+                <span class="pf-entry-caret" x-text="pfEntryMenuOpen ? '▴' : '▾'"></span>
+              </button>
+              <div class="pf-entry-menu" x-show="pfEntryMenuOpen"
+                   @click.outside="pfEntryMenuOpen = false">
+                <template x-for="(e, i) in pfDetailEntries()" :key="i">
+                  <button type="button" class="pf-entry-btn"
+                          :class="{ on: pfDetailEntryIdx != null && pfDetailEntryIdx === pfEntryIdx(e),
+                                    [polarity(e.delta_pct >= 0)]: e.delta_pct != null }"
+                          @click="selectPfEntry(e)"
+                          :title="(e.side === 'buy' ? 'Achat' : 'Vente') + ' · ' + e.date">
+                    <span x-text="(e.side === 'buy' ? '▲ ' : '▼ ') + e.date"></span>
+                    <b x-show="e.delta_pct != null"
+                       x-text="(e.delta_pct > 0 ? '+' : '') + fmt(e.delta_pct) + ' %'"></b>
+                  </button>
+                </template>
+              </div>
+            </div>
+            <span class="period-presets pf-presets pf-detail-horizons">
+              <template x-for="h in pfDetailHorizonChips()" :key="h.value">
+                <button type="button" class="period-chip"
+                        :class="{ active: pfDetailHorizon === h.value }"
+                        :aria-pressed="pfDetailHorizon === h.value"
+                        @click="setPfDetailHorizon(h.value)" x-text="h.label"></button>
+              </template>
+            </span>
+          </div>
+          <div class="mini-chart pf-detail-chart" id="pf-security-plot"></div>
+          <ul class="pf-legend">
+            <template x-for="s in pfDetailLegend()" :key="s.key">
+              <li class="pf-legend-item">
+                <span class="pf-legend-dot" :style="'background:' + s.color"></span>
+                <span class="pf-legend-name" x-text="s.label"></span>
+                <span class="pf-legend-val" x-text="s.value"></span>
+              </li>
+            </template>
+          </ul>
+          <p class="idx-hint" x-show="pfDetailEntryIdx != null"
+             x-text="'Depuis le point sélectionné — comparé au benchmark sur la même fenêtre.'"></p>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "obole-web-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests du front Obole (web/app.js) : parité avec le serveur + unitaires + smoke e2e.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "jsdom": "30.1.0",
+    "vitest": "5.0.1"
+  }
+}

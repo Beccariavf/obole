@@ -1,0 +1,18 @@
+"""Lancement local depuis un checkout : python run.py -> http://127.0.0.1:8000
+
+Délègue à `obole.__main__` (la même commande que celle installée par pipx), pour
+qu'il n'existe qu'un seul chemin de démarrage, avec les mêmes garde-fous (refus
+d'un bind non-loopback) et les mêmes options (`--port`, `--host`, `--mcp`).
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from obole.__main__ import main  # noqa: E402
+
+if __name__ == "__main__":
+    main()

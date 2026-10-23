@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obole"
+dynamic = ["version"]
+description = "Analyse boursière long terme par régression log-prix (droite d'Obole)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["finance", "investissement", "régression", "valuation", "mcp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "yfinance==0.2.66",
+    "pandas>=2.2,<2.3",
+    "numpy>=2.1,<2.3",
+    "fastapi==0.141.1",
+    "starlette==1.6.0",
+    "uvicorn[standard]==0.32.1",
+    "python-multipart==0.0.32",
+    "mcp==2.3.0",
+    # Épinglé : corrige PYSEC-2026-4320 (tiré par yfinance/requests).
+    "certifi>=2026.10.19",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.8.4",
+    "mypy==2.3.1",
+    "pip-audit==2.10.1",
+    "httpx==0.27.2",
+]
+
+[project.scripts]
+obole = "obole.__main__:main"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Le front est servi depuis le paquet : sans cette déclaration, une installation
+# via `pip`/`pipx` n'aurait ni HTML, ni JS, ni vendor — le serveur répondrait 404
+# sur `/` tout en démarrant correctement (piège silencieux).
+[tool.setuptools.package-data]
+obole = [
+    "web/*.html",
+    "web/*.js",
+    "web/*.css",
+    "web/vendor/*.js",
+    "web/vendor/*.css",
+    "web/vendor/inter/*",
+]
+
+# Source unique de la version : `src/obole/__init__.py::__version__`.
+[tool.setuptools.dynamic]
+version = {attr = "obole.__version__"}
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# `spikes/` = scripts de calibration jetables (hors application) : exclus du
+# lint et du format pour ne pas bruiter la CI sur du code non maintenu.
+exclude = ["spikes"]
+
+[tool.mypy]
+python_version = "3.11"
+# Périmètre restreint : on type-checke le cœur (engine/), les cas d'usage
+# (services/), la surface MCP (mcp/) et les contrats (models.py). Les modules
+# importés (data/, api/) ne sont pas audités ici.
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+
+[tool.ruff.lint]
+# Sobre : erreurs, imports inutiles, pyflakes, isort, quelques bugs courants.
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # longueur gérée par le formateur
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+markers = [
+    "network: test qui appelle yfinance (réseau). Ignorer avec -m 'not network'.",
+]

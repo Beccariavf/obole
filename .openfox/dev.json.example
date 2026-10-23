@@ -1,0 +1,6 @@
+{
+  "command": ".venv/bin/python -u run.py",
+  "url": "http://localhost:8000",
+  "hotReload": false,
+  "disableInspect": false
+}
