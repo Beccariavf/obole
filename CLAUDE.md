@@ -56,7 +56,7 @@ pour la fiche RI.PA).
 
 Pas de `python` sur ce poste — utiliser `python3` ou `.venv/bin/python` si présent. `run.py` lance sans `--reload` : redémarrer manuellement après un changement back. Le front (HTML/JS/CSS) est servi en statique, donc un simple rechargement de page suffit côté navigateur.
 
-**Lancement avec background_process :** utiliser `background_process` (action=start) avec `.venv/bin/python -u run.py`. Le message `"  Obole pret sur http://127.0.0.1:8000"` apparaît sur **stdout** une fois le serveur prêt (~3-4s). Uvicorn écrit ses logs sur stderr (non visible dans background_process). Si le serveur ne répond pas, attendre 4s puis `curl http://127.0.0.1:8000/`.
+**Lancement avec background_process :** utiliser `background_process` (action=start) avec `.venv/bin/python -u run.py`. Le message `"  Obole prêt sur http://127.0.0.1:8000"` apparaît sur **stdout** une fois le serveur réellement à l'écoute (~3-4s) — émis par `_serve` après le bind, donc jamais affiché si le port est occupé (dans ce cas un diagnostic actionnable part sur stderr et le process sort en code 1). Uvicorn écrit ses logs sur stderr (non visible dans background_process). Si le serveur ne répond pas, attendre 4s puis `curl http://127.0.0.1:8000/`.
 
 **Tests lents avec pytest-cov :** `pytest-cov` instrumente `yfinance` et allonge les tests de 15× (~4-5 min au lieu de 17s). Passer `-p no:cov` pour désactiver la couverture. Les tests non-network sont **732** au total (~6s avec `.venv/bin/python`).
 

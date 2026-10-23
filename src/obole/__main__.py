@@ -72,15 +72,22 @@ def _check_bind(host: str) -> None:
 
 
 def port_is_busy(host: str, port: int) -> bool:
-    """Un serveur écoute-t-il déjà sur `host:port` ?
+    """Un serveur répond-il déjà sur `host:port` ?
 
     On **essaie** de se connecter plutôt que de tester le bind : un test de bind
     peut échouer pour d'autres raisons (privilèges, interface absente) et donner
-    un faux positif. Une connexion réussie prouve qu'un serveur répond.
+    un faux positif. `create_connection` gère IPv4 **et** IPv6 (`::1`,
+    `localhost`), contrairement à un socket `AF_INET` en dur.
+
+    Un échec de résolution ou de connexion signifie « rien à joindre » : c'est
+    un `False`, jamais une exception (un nom d'hôte invalide ne doit pas
+    produire une trace alors que le serveur saurait peut-être démarrer).
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.3)
-        return sock.connect_ex((host, port)) == 0
+    try:
+        with socket.create_connection((host, port), timeout=0.3):
+            return True
+    except OSError:
+        return False
 
 
 def _check_port_free(host: str, port: int) -> None:
@@ -122,33 +129,53 @@ def main(argv: list[str] | None = None) -> None:
 def _serve(host: str, port: int) -> None:
     """Démarre uvicorn et n'annonce le succès qu'une fois le bind réussi.
 
-    `uvicorn.run()` est bloquant et n'offre pas de point d'accroche après le
-    bind : on lance donc le serveur dans un fil et on attend son drapeau
-    `started`. Le message de succès est **la** preuve que le port est écouté —
-    jamais une supposition faite avant l'appel (l'erreur d'origine).
+    On sous-classe `uvicorn.Server` et surcharge `startup()` : le message est
+    émis **après** le `super().startup()`, donc uniquement si le port a
+    réellement été lié. Le serveur tourne ensuite dans le **thread principal**,
+    ce qui préserve `capture_signals()` — donc Ctrl+C et SIGTERM restent des
+    arrêts gracieux (`INFO: Shutting down`). Lancer `run()` dans un thread
+    (première version de ce correctif) rendait `capture_signals()` inopérant et
+    laissait un traceback `KeyboardInterrupt` à l'utilisateur.
     """
-    import threading
-    import time
-
     import uvicorn
 
-    server = uvicorn.Server(uvicorn.Config("obole.api.app:app", host=host, port=port, reload=False))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
+    class _AnnouncingServer(uvicorn.Server):
+        """Serveur qui annonce son adresse une fois le socket lié.
 
-    deadline = time.monotonic() + 15
-    while not server.started and thread.is_alive() and time.monotonic() < deadline:
-        time.sleep(0.05)
+        Depuis cette version d'uvicorn, `startup()` est une coroutine : la
+        surcharge doit donc être `async` et attendre (`await`) la version
+        parente, sinon elle ne s'exécute jamais.
+        """
+
+        async def startup(self, sockets=None) -> None:
+            await super().startup(sockets=sockets)
+            if self.started:
+                print(f"  Obole prêt sur http://{host}:{port}", flush=True)
+
+    server = _AnnouncingServer(
+        uvicorn.Config("obole.api.app:app", host=host, port=port, reload=False)
+    )
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # `capture_signals()` ré-émet le signal après l'arrêt gracieux (pour
+        # rendre la main au shell comme le ferait un process interrompu). Sans
+        # cette capture, Ctrl+C afficherait un traceback — c'est exactement ce
+        # que `uvicorn.run()` masque et ce que `Server.run()` ne masque pas.
+        return
+    except OSError as exc:
+        # Bind impossible pour une raison autre qu'un port occupé (permission,
+        # interface absente) : on nomme la cause au lieu d'un échec muet.
+        print(f"Erreur : impossible d'écouter sur {host}:{port} ({exc}).", file=sys.stderr)
+        raise SystemExit(1) from None
 
     if not server.started:
         print(
-            f"Erreur : le serveur n'a pas démarré sur http://{host}:{port}.",
+            f"Erreur : le serveur n'a pas démarré sur http://{host}:{port} "
+            "(voir le journal ci-dessus).",
             file=sys.stderr,
         )
         raise SystemExit(1)
-
-    print(f"  Obole prêt sur http://{host}:{port}", flush=True)
-    thread.join()
 
 
 if __name__ == "__main__":
