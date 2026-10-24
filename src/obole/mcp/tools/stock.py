@@ -16,6 +16,7 @@ from obole.data import yahoo
 from obole.mcp.tools._shared import chart_enabled
 from obole.services import analysis as analysis_service
 from obole.services import serialize
+from obole.services import watchlist as watchlist_service
 
 
 def get_stock_analysis(ticker: str, view: Literal["summary", "full"] = "summary") -> dict:
@@ -37,7 +38,9 @@ def get_stock_analysis(ticker: str, view: Literal["summary", "full"] = "summary"
         Le payload de la fiche : identité, indicateurs (avec libellés et polarité),
         régression, comptes, synthèse, avertissements — et, en `view="full"`
         uniquement, les séries du graphe. Identique à `GET /api/stock/{ticker}`
-        (sauf `chart` omis en `summary`).
+        (sauf `chart` omis en `summary`). Le bloc `watch` porte le tier de la
+        valeur dans la watchlist et sa fenêtre de confiance (`ref`, `ref_stats`),
+        ou `null` si elle n'est pas suivie / sans référence.
 
     Raises:
         ToolError: ticker vide, introuvable, ou historique trop court.
@@ -51,7 +54,12 @@ def get_stock_analysis(ticker: str, view: Literal["summary", "full"] = "summary"
         raise ToolError(f"Ticker introuvable : {ticker}") from None
     except ValueError as exc:
         raise ToolError(str(exc)) from None
-    return serialize.analysis_to_dict(analysis, prices, include_chart=chart_enabled(view))
+    payload = serialize.analysis_to_dict(
+        analysis, prices, include_chart=chart_enabled(view)
+    )
+    # État watchlist (#25) : même décoration que la route `/api/stock`, pour que
+    # l'IA voie le tier et la fenêtre de confiance de la valeur qu'elle analyse.
+    return watchlist_service.decorate_stock_payload(payload, analysis.identity.ticker, prices)
 
 
 def register(server) -> None:

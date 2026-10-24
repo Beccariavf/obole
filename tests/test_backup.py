@@ -430,3 +430,27 @@ class TestOlderArchive:
         # Les tables absentes de l'archive sont restaurées vides, sans erreur.
         assert cache.list_watch_items() == []
         assert cache.list_ticker_refs() == {}
+
+
+class TestValuationSettingsBackup:
+    """#25 — le prix juste enregistré (décision de l'utilisateur) est sauvegardé."""
+
+    def test_table_is_in_the_registry(self):
+        assert "valuation_settings" in backup._TABLE_COLUMNS
+        assert "valuation_settings" in backup._TABLE_SINCE[8]
+
+    def test_roundtrip_preserves_saved_fair_price(self, client):
+        cache.set_valuation_settings(
+            "RI.PA", {"metric": "eps", "fair_price": 64.76, "target_yield": 12.0}
+        )
+        archive = client.get("/api/backup").json()
+        assert archive["tables"]["valuation_settings"]
+        cache.clear_valuation_settings("RI.PA")
+
+        r = client.post(
+            "/api/restore",
+            files={"file": ("b.json", json.dumps(archive), "application/json")},
+        )
+        assert r.status_code == 200, r.text
+        saved = cache.get_valuation_settings("RI.PA")
+        assert saved is not None and saved["fair_price"] == 64.76

@@ -324,6 +324,56 @@ class BasketAnalysis:
     warnings: list[str] = field(default_factory=list)
 
 
+# --- Watchlist (#25) ---------------------------------------------------------
+# Une ligne de classement : la valeur suivie + SES deux lectures de marge.
+# `fair_price_source` dit d'où vient le prix juste ("saved" = calculatrice,
+# "regression" = droite de référence) ; `margin_good` porte la polarité couleur
+# (bleu > 0, rouge < 0) pour que le front n'ait aucun seuil à connaître.
+@dataclass(frozen=True)
+class WatchlistRow:
+    """Une valeur suivie, réduite à ses champs de classement.
+
+    `safety_margin_pct` est la marge contre le prix juste (enregistré ou repli sur
+    la droite) ; `trend_gap_pct` et `z` sont la lecture historique (prix bruts).
+    Pour une ligne en repli, les deux marges coïncident par construction.
+    """
+
+    ticker: str
+    tier: int
+    name: str | None = None
+    sector: str | None = None
+    currency: str | None = None
+    price: float | None = None
+
+    fair_price: float | None = None
+    fair_price_source: str | None = None  # "saved" | "regression" | None
+    target_yield: float | None = None  # objectif de rendement (source saved)
+    safety_margin_pct: float | None = None
+    margin_good: bool | None = None
+
+    ref_start: str | None = None  # début EFFECTIF de la fenêtre (ISO)
+    ref_is_default: bool = True  # True = fenêtre 20 ans (aucune référence)
+    ref_line: float | None = None
+    trend_gap_pct: float | None = None
+    z: float | None = None
+    ecart_type_pct: float | None = None
+
+    pente_pct: float | None = None
+    pot_5y_pct: float | None = None
+    pot_10y_pct: float | None = None
+    trend_bullish: bool | None = None
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+
+@dataclass
+class WatchlistRun:
+    """Résultat d'un classement : lignes triées + horodatage du calcul."""
+
+    generated_at: float
+    rows: list[WatchlistRow] = field(default_factory=list)
+
+
 # --- Import piloté (#23) -----------------------------------------------------
 # Contrats du staging d'import : un CSV venu de l'extérieur (IA via MCP, ou
 # collage humain) est d'abord PARSÉ puis PROPOSÉ, jamais appliqué. Le rapport

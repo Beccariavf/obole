@@ -4,7 +4,7 @@ La surface HTTP : son style, ses ressources et ses contrats.
 
 ## Style
 
-- REST JSON, FastAPI ; `api/app.py` **expose ~77 routes** et sert aussi le front.
+- REST JSON, FastAPI ; `api/app.py` **expose ~83 routes** et sert aussi le front.
 - Base `/api` ; routes **fines** : elles valident et délèguent à `services/`, jamais à
   `engine/` directement.
 - Assets statiques servis par `api/static_files.py` avec un hash de contenu

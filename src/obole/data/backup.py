@@ -144,6 +144,16 @@ _TABLE_COLUMNS: dict[str, dict[str, tuple[type, ...]]] = {
         "ref_start": (str,),
         "updated_at": (int, float),
     },
+    # Paramètres de la calculatrice de prix juste (#20) : le prix juste enregistré
+    # est une décision de l'utilisateur (objectif de rendement), donc irremplaçable.
+    # Table plus ancienne (schéma v3) mais déclarée seulement ici : les archives
+    # v3-v7 ne la contenaient pas, et cette déclaration tardive évite de les
+    # rejeter à la restauration.
+    "valuation_settings": {
+        "ticker": (str,),
+        "payload": (str,),  # JSON encodé, conservé tel quel
+        "updated_at": (int, float),
+    },
 }
 
 _TABLE_NAMES = tuple(_TABLE_COLUMNS)
@@ -164,7 +174,7 @@ _TABLE_SINCE: dict[int, tuple[str, ...]] = {
     4: ("theses",),
     5: ("checkpoints",),
     6: ("import_drafts",),
-    8: ("watchlist_items", "ticker_refs"),
+    8: ("watchlist_items", "ticker_refs", "valuation_settings"),
 }
 
 # Colonnes introduites APRÈS la création de leur table (hors baseline) :

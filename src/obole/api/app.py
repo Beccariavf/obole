@@ -27,6 +27,7 @@ from obole.services import indices as indices_service
 from obole.services import portfolio as portfolio_service
 from obole.services import screener as screener_service
 from obole.services import thesis as thesis_service
+from obole.services import watchlist as watchlist_service
 from obole.services.analysis import analyze_ratio_tickers, analyze_ticker, summarize_indices
 from obole.services.checkpoints import CheckpointNotFound
 from obole.services.indices import IndexNotFound
@@ -43,6 +44,8 @@ from obole.services.serialize import (
     screen_run_to_dict,
     security_detail_to_dict,
     summarize_index_to_dict,
+    watchlist_run_to_dict,
+    watchlist_state_to_dict,
 )
 from obole.services.thesis import ThesisNotFound
 
@@ -129,7 +132,10 @@ def get_stock(ticker: str) -> dict:
     except ValueError as exc:  # historique trop court, etc.
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    return analysis_to_dict(analysis, prices)
+    payload = analysis_to_dict(analysis, prices)
+    # État watchlist (#25) ajouté ICI, jamais dans `analyze()` : c'est de l'état
+    # utilisateur, pas de l'analyse (le payload MCP de la thèse reste propre).
+    return watchlist_service.decorate_stock_payload(payload, analysis.identity.ticker, prices)
 
 
 @app.get("/api/ratio")
@@ -772,6 +778,13 @@ def get_meta() -> dict:
         # au-delà duquel la heatmap masque les annotations (cellules illisibles).
         "portfolio_corr_min_obs": config.PORTFOLIO_CORR_MIN_OBS,
         "portfolio_corr_annotate_max": config.PORTFOLIO_CORR_ANNOTATE_MAX,
+        # Watchlist (#25) : tiers fixes, point minimal d'une fenêtre de confiance
+        # et plafond de valeurs. Le front n'écrit aucun de ces nombres en dur.
+        "watch": {
+            "tiers": [dict(t) for t in config.WATCH_TIERS],
+            "min_ref_points": config.REGRESSION_MIN_POINTS,
+            "max_items": config.WATCHLIST_MAX_ITEMS,
+        },
     }
 
 
@@ -1327,6 +1340,81 @@ def delete_valuation_settings(ticker: str) -> dict:
     à la droite de régression."""
     cache_data.clear_valuation_settings(ticker)
     return {"status": "cleared", "ticker": ticker.upper()}
+
+
+# --- Watchlist (#25) ---------------------------------------------------------
+# Cas d'usage partagé avec le MCP (`services/watchlist.py`) : validation,
+# classement et erreurs typées viennent de là, la route ne fait que traduire en
+# HTTP (422) et sérialiser. La référence et le prix juste restent des gestes
+# humains ; le MCP n'expose pas leurs écritures.
+
+
+@app.get("/api/watchlist")
+def get_watchlist() -> dict:
+    """Tiers, valeurs suivies et références par titre (aucune analyse)."""
+    return watchlist_state_to_dict(watchlist_service.list_state())
+
+
+@app.put("/api/watchlist/items/{ticker}")
+def put_watchlist_item(ticker: str, body: dict) -> dict:
+    """Ajoute OU déplace une valeur dans un tier (upsert). 422 si tier invalide."""
+    try:
+        item = watchlist_service.set_tier(ticker, body.get("tier"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"item": item}
+
+
+@app.delete("/api/watchlist/items/{ticker}")
+def delete_watchlist_item(ticker: str) -> dict:
+    """Retire une valeur. La référence de fenêtre est conservée."""
+    try:
+        removed = watchlist_service.remove(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"removed": removed}
+
+
+@app.put("/api/watchlist/ref/{ticker}")
+def put_watchlist_ref(ticker: str, body: dict) -> dict:
+    """Enregistre la fenêtre de confiance (date de départ) d'un titre.
+
+    Renvoie les statistiques de la droite de référence ; 422 si la date est
+    invalide/future ou si la fenêtre ne contient pas assez de points.
+    """
+    try:
+        return watchlist_service.set_ref(ticker, body.get("start"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@app.delete("/api/watchlist/ref/{ticker}")
+def delete_watchlist_ref(ticker: str) -> dict:
+    """Efface la référence : retour à la fenêtre 20 ans par défaut."""
+    try:
+        watchlist_service.clear_ref(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return {"ref": None}
+
+
+@app.post("/api/watchlist/run")
+def run_watchlist(body: dict | None = None) -> dict:
+    """Classe les valeurs suivies par marge de sécurité.
+
+    `tier` (1..3, optionnel) restreint le scan ; `max_rows` borne les lignes
+    RENDUES (`count` reste le total). Le scan est synchrone et borné par le pool
+    du screener ; les erreurs de ticker sont isolées dans `rows[].error`.
+    """
+    body = body or {}
+    try:
+        tier = body.get("tier")
+        tier = None if tier in (None, "") else watchlist_service.validate_tier(tier)
+        max_rows = screener_service.validate_max_rows(body.get("max_rows"))
+        run = watchlist_service.run(tier=tier)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return watchlist_run_to_dict(run, max_rows=max_rows)
 
 
 # --- Thèses d'entreprise (#21) ----------------------------------------------

@@ -8,6 +8,7 @@ métier ici : pas de formule, pas de seuil, pas d'appel réseau.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -28,6 +29,7 @@ from obole.models import (
 )
 
 if TYPE_CHECKING:
+    from obole.models import WatchlistRun
     from obole.services.screener import ScreenRun
 
 
@@ -541,6 +543,63 @@ def screen_run_to_dict(run: ScreenRun, max_rows: int | None = None) -> dict:
         "tickers_count": run.tickers_count,
         "rows": [screen_row_to_dict(r) for r in rows],
     }
+
+
+# --- Watchlist (#25) ---------------------------------------------------------
+
+# Champs renvoyés par `view="summary"` (outil MCP) : la décision, sans le bruit
+# (secteur, potentiels, avertissements). `view="full"` renvoie la ligne complète
+# et reste STRICTEMENT identique à `POST /api/watchlist/run`.
+_WATCH_SUMMARY_FIELDS = (
+    "ticker",
+    "tier",
+    "name",
+    "price",
+    "fair_price",
+    "fair_price_source",
+    "target_yield",
+    "safety_margin_pct",
+    "margin_good",
+    "ref_start",
+    "ref_is_default",
+    "ref_line",
+    "trend_gap_pct",
+    "z",
+    "ecart_type_pct",
+    "error",
+)
+
+
+def watchlist_state_to_dict(state: dict) -> dict:
+    """État de la watchlist -> payload JSON (partagé API ↔ MCP).
+
+    `tiers` vient de `config.WATCH_TIERS`, `items` de la table, `refs` est le
+    dictionnaire `{ticker: date}` des fenêtres de confiance. Aucune valeur n'est
+    recalculée ici : le service a déjà tout lu.
+    """
+    return {
+        "tiers": [dict(t) for t in state.get("tiers", [])],
+        "items": [dict(i) for i in state.get("items", [])],
+        "refs": dict(state.get("refs", {})),
+    }
+
+
+def watchlist_run_to_dict(
+    run: WatchlistRun, *, view: str = "full", max_rows: int | None = None
+) -> dict:
+    """Classement watchlist -> payload JSON (partagé API ↔ MCP).
+
+    `count` = nombre total de lignes (avant `max_rows`) ; `rows` peut être tronqué.
+    `view="summary"` réduit chaque ligne aux champs de décision ; `view="full"`
+    conserve la ligne complète (parité stricte avec la route REST).
+    """
+    if view not in ("full", "summary"):
+        raise ValueError(f"view invalide : {view!r} (attendu : full ou summary)")
+    rows = run.rows if max_rows is None else run.rows[:max_rows]
+    payload = [asdict(r) for r in rows]
+    if view == "summary":
+        payload = [{k: row[k] for k in _WATCH_SUMMARY_FIELDS} for row in payload]
+    return {"generated_at": run.generated_at, "count": len(run.rows), "rows": payload}
 
 
 # --- Portefeuille (#17) ------------------------------------------------------

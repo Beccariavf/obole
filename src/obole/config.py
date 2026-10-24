@@ -141,7 +141,7 @@ REGRESSION_MIN_POINTS = 30
 # Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
 # aides vivent ici (source unique) et sont servis par `/api/meta` — le front et
 # le MCP n'en dupliquent aucun.
-WATCH_TIERS = (
+WATCH_TIERS: tuple[dict[str, str | int], ...] = (
     {"id": 1, "label": "Tier 1", "hint": "Conviction la plus forte — à acheter en priorité"},
     {"id": 2, "label": "Tier 2", "hint": "À suivre de près"},
     {"id": 3, "label": "Tier 3", "hint": "Veille — opportunité à confirmer"},
