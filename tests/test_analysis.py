@@ -280,9 +280,7 @@ class TestFairPriceReference:
         config.CACHE_DB = _orig
 
     def _analyze(self):
-        prices = _make_prices(
-            length=3000
-        )  # ~12 ans d'historique (2000-01-03 -> 2011-07), < 20 ans
+        prices = _make_prices(length=3000)  # ~12 ans d'historique (2000-01-03 -> 2011-07), < 20 ans
         with (
             patch("obole.services.analysis.yahoo.fetch_identity", side_effect=_fake_identity),
             patch("obole.services.analysis.yahoo.fetch_fundamentals", return_value=None),
@@ -327,9 +325,17 @@ class TestFairPriceReference:
         cache.set_ticker_ref("FAKE", "2005-01-03")
         cache.set_valuation_settings(
             "FAKE",
-            {"metric": "eps", "period": 10, "growth": 2.0, "multiple": 12.0,
-             "target_yield": 12.0, "dividend_yield": 0.0, "include_dividends": True,
-             "fair_price": 123.45, "net_debt_per_share": None},
+            {
+                "metric": "eps",
+                "period": 10,
+                "growth": 2.0,
+                "multiple": 12.0,
+                "target_yield": 12.0,
+                "dividend_yield": 0.0,
+                "include_dividends": True,
+                "fair_price": 123.45,
+                "net_debt_per_share": None,
+            },
         )
         analysis, _ = self._analyze()
         fair = self._fair(analysis)
@@ -341,9 +347,17 @@ class TestFairPriceReference:
 
         cache.set_valuation_settings(
             "FAKE",
-            {"metric": "eps", "period": 10, "growth": 2.0, "multiple": 12.0,
-             "target_yield": 12.0, "dividend_yield": 0.0, "include_dividends": True,
-             "fair_price": -5.0, "net_debt_per_share": None},
+            {
+                "metric": "eps",
+                "period": 10,
+                "growth": 2.0,
+                "multiple": 12.0,
+                "target_yield": 12.0,
+                "dividend_yield": 0.0,
+                "include_dividends": True,
+                "fair_price": -5.0,
+                "net_debt_per_share": None,
+            },
         )
         analysis, _ = self._analyze()
         assert self._fair(analysis).note is None

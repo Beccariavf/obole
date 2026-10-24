@@ -23,7 +23,16 @@ from mcp.server import MCPServer
 
 from obole.mcp import tools as tools_pkg
 
-WRITING_PREFIXES = ("add_", "create_", "update_", "delete_", "save_", "propose_", "apply_", "remove_")
+WRITING_PREFIXES = (
+    "add_",
+    "create_",
+    "update_",
+    "delete_",
+    "save_",
+    "propose_",
+    "apply_",
+    "remove_",
+)
 
 TOOL_MODULES = (
     "stock",

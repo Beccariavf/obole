@@ -240,16 +240,16 @@ class TestWindowedAnalysis:
         prices = _make_prices(length=7000)
         start = prices.raw.index[3000].date()
         with self._patches()[0], self._patches()[1]:
-            by_ref = screen_service.windowed_analysis(
-                "FAKE", prices, ref_start=start.isoformat()
-            )
+            by_ref = screen_service.windowed_analysis("FAKE", prices, ref_start=start.isoformat())
             by_both = screen_service.windowed_analysis(
                 "FAKE", prices, ref_start=start, regression_window=5
             )
 
         # La tranche commence exactement au premier point >= start.
         assert by_ref.regression_raw.start == start
-        assert by_ref.regression_raw.n_points == len(prices.raw[prices.raw.index >= pd.Timestamp(start)])
+        assert by_ref.regression_raw.n_points == len(
+            prices.raw[prices.raw.index >= pd.Timestamp(start)]
+        )
         # `ref_start` gagne sur `regression_window`.
         assert by_both.regression_raw.start == by_ref.regression_raw.start
         assert by_both.regression_raw.n_points == by_ref.regression_raw.n_points

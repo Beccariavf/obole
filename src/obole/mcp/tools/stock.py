@@ -54,9 +54,7 @@ def get_stock_analysis(ticker: str, view: Literal["summary", "full"] = "summary"
         raise ToolError(f"Ticker introuvable : {ticker}") from None
     except ValueError as exc:
         raise ToolError(str(exc)) from None
-    payload = serialize.analysis_to_dict(
-        analysis, prices, include_chart=chart_enabled(view)
-    )
+    payload = serialize.analysis_to_dict(analysis, prices, include_chart=chart_enabled(view))
     # État watchlist (#25) : même décoration que la route `/api/stock`, pour que
     # l'IA voie le tier et la fenêtre de confiance de la valeur qu'elle analyse.
     return watchlist_service.decorate_stock_payload(payload, analysis.identity.ticker, prices)

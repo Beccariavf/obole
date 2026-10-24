@@ -112,9 +112,7 @@ def set_tier(ticker: object, tier: object) -> dict:
     if cache.get_watch_item(key) is None and (
         cache.count_watch_items() >= config.WATCHLIST_MAX_ITEMS
     ):
-        raise ValueError(
-            f"Watchlist pleine ({config.WATCHLIST_MAX_ITEMS} valeurs maximum)"
-        )
+        raise ValueError(f"Watchlist pleine ({config.WATCHLIST_MAX_ITEMS} valeurs maximum)")
     cache.upsert_watch_item(key, clean_tier)
     item = cache.get_watch_item(key)
     assert item is not None  # upsert juste au-dessus
@@ -268,9 +266,7 @@ def _row_from_analysis(
     price = ident.last_price
     line = regression.fitted_now if regression else None
     z = reg.distance_sigma(regression, float(price)) if regression and price else None
-    trend_gap = (
-        (line - float(price)) / line * 100 if (line and price) else None
-    )
+    trend_gap = (line - float(price)) / line * 100 if (line and price) else None
 
     saved_fair = _saved_fair(saved)
     fair: float | None
@@ -347,9 +343,7 @@ def run(tier: int | None = None) -> WatchlistRun:
             # mais inexploitable retombe sur 20 ans (pas d'erreur trompeuse).
             _, effective_ref = analysis_service.reference_window(ticker, prices.raw)
             if effective_ref:
-                analysis = screen_service.windowed_analysis(
-                    ticker, prices, ref_start=effective_ref
-                )
+                analysis = screen_service.windowed_analysis(ticker, prices, ref_start=effective_ref)
             else:
                 analysis = screen_service.windowed_analysis(
                     ticker, prices, regression_window=config.REGRESSION_YEARS_DEFAULT

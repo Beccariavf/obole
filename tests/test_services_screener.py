@@ -309,9 +309,10 @@ class TestValidateBounds:
 
 def test_scan_parallel_empty_list():
     """Aucun ticker -> dict vide, sans créer de scan inutile."""
-    assert screener_service.scan_parallel(
-        [], lambda t: (t, t), timeout_result=lambda t: "timeout"
-    ) == {}
+    assert (
+        screener_service.scan_parallel([], lambda t: (t, t), timeout_result=lambda t: "timeout")
+        == {}
+    )
 
 
 def test_scan_parallel_collects_worker_keys():

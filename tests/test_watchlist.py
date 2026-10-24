@@ -327,9 +327,7 @@ class TestRun:
             raise ValueError("données indisponibles")
 
         monkeypatch.setattr(wl.screen_service, "windowed_analysis", fake_windowed)
-        monkeypatch.setattr(
-            wl.cache, "get_valuation_settings", lambda t: (saved or {}).get(t)
-        )
+        monkeypatch.setattr(wl.cache, "get_valuation_settings", lambda t: (saved or {}).get(t))
 
     def test_rows_are_sorted_by_margin_with_saved_price(self, monkeypatch):
         from obole.services import watchlist as wl
