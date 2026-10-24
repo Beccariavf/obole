@@ -16,8 +16,10 @@ pour que l'API et le MCP consomment la MÊME règle (le MCP ne peut pas importer
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from typing import Any
 
 from obole import config
 from obole.data import cache as cache_data
@@ -217,19 +219,52 @@ def run_screen(
     return ScreenRun(rows=rows, source=source, tickers_count=len(raw_screens))
 
 
-def _scan_universe(tickers: list[str], regression_window: float | None) -> dict[str, dict]:
-    """Passe 2 : réduit chaque ticker de l'univers en ScreenResult dict.
+def scan_parallel(
+    tickers: list[str],
+    worker: Callable[[str], tuple[str, Any]],
+    *,
+    timeout_result: Callable[[str], Any],
+) -> dict[str, Any]:
+    """Exécute `worker(ticker)` en **parallèle borné**, avec un budget GLOBAL.
 
-    I/O-bound (yfinance) -> exécuté en **parallèle** via un ThreadPoolExecutor
-    borné (`config.SCREEN_WORKERS`). Un ticker introuvable ou une série trop
-    courte est isolé via le champ `error` de screen_stock — jamais de crash
-    global. Garde-fou GLOBAL : au-delà d'un budget `SCREEN_WORKERS ×
-    SCREEN_FETCH_TIMEOUT`, les tickers non-aboutis sont isolés `error="timeout"`
-    et le pool est arrêté sans attendre (`shutdown(wait=False)`) : les threads
-    déjà lancés ne sont PAS préemptables, mais on ne bloque pas le scan sur eux.
-    Les vrais bugs (TypeError…) restent visibles via `fut.result()`.
+    Partagé par le screener (univers) et la watchlist (#25, liste d'items) : un
+    seul endroit porte le pool, le budget et l'isolation des timeouts.
+
+    - `worker` renvoie `(clé, valeur)` ; il gère lui-même ses erreurs de DONNÉES
+      connues (ticker introuvable, série trop courte) — les vrais bugs
+      (`TypeError`…) remontent via `fut.result()` et restent visibles.
+    - Budget = `SCREEN_WORKERS × SCREEN_FETCH_TIMEOUT` secondes : filet
+      anti-scan-infini, PAS une limite par ticker.
+    - Un futur non abouti reçoit `timeout_result(ticker)` et le pool est arrêté
+      sans attendre (`shutdown(wait=False)`) : les threads déjà lancés ne sont
+      pas préemptables, mais on ne bloque pas le retour sur eux.
     """
-    screens: dict[str, dict] = {}
+    results: dict[str, Any] = {}
+    if not tickers:
+        return results
+    budget = config.SCREEN_WORKERS * config.SCREEN_FETCH_TIMEOUT
+    pool = ThreadPoolExecutor(max_workers=config.SCREEN_WORKERS)
+    try:
+        futures = {pool.submit(worker, t): t for t in tickers}
+        done, pending = wait(futures, timeout=budget)
+        for fut in done:
+            key, val = fut.result()  # les vraies exceptions remontent (visibles)
+            results[key] = val
+        for fut in pending:
+            fut.cancel()
+            ticker = futures[fut]
+            results[ticker.upper()] = timeout_result(ticker)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return results
+
+
+def _scan_universe(tickers: list[str], regression_window: float | None) -> dict[str, dict]:
+    """Passe 2 du screener : réduit chaque ticker de l'univers en ScreenResult dict.
+
+    Le pool/budget/timeout vit dans `scan_parallel` (partagé avec la watchlist) ;
+    ici on ne fournit que le worker (fetch prix + `screen_stock`).
+    """
 
     def _one(ticker: str) -> tuple[str, dict]:
         try:
@@ -239,21 +274,8 @@ def _scan_universe(tickers: list[str], regression_window: float | None) -> dict[
         result = screen_service.screen_stock(ticker, prices, regression_window)
         return ticker.upper(), result.__dict__
 
-    # Budget GLOBAL (secondes) : filet anti-scan-infini, PAS une limite par
-    # ticker. `shutdown(wait=False)` évite qu'un thread en cours (réseau sans
-    # timeout propre) bloque le retour ; un futur inachevé est isolé en erreur.
-    budget = config.SCREEN_WORKERS * config.SCREEN_FETCH_TIMEOUT
-    pool = ThreadPoolExecutor(max_workers=config.SCREEN_WORKERS)
-    try:
-        futures = {pool.submit(_one, t): t for t in tickers}
-        done, pending = wait(futures, timeout=budget)
-        for fut in done:
-            key, val = fut.result()  # les vraies exceptions remontent (visibles)
-            screens[key] = val
-        for fut in pending:
-            fut.cancel()
-            ticker = futures[fut]
-            screens[ticker.upper()] = ScreenResult(ticker=ticker.upper(), error="timeout").__dict__
-    finally:
-        pool.shutdown(wait=False, cancel_futures=True)
-    return screens
+    return scan_parallel(
+        tickers,
+        _one,
+        timeout_result=lambda t: ScreenResult(ticker=t.upper(), error="timeout").__dict__,
+    )

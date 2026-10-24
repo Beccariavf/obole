@@ -263,3 +263,107 @@ class TestAnalyzeRatio:
         ):
             result, *_ = analyze_ratio("A", "B", pa, pb)
         assert any("Historique commun" in w for w in result.warnings)
+
+
+class TestFairPriceReference:
+    """#25 — le « Prix juste » suit la fenêtre de confiance persistée du titre."""
+
+    @pytest.fixture(autouse=True)
+    def _isolated_db(self):
+        import tempfile
+
+        from obole import config
+
+        _orig = config.CACHE_DB
+        config.CACHE_DB = tempfile.mktemp(suffix=".sqlite")
+        yield
+        config.CACHE_DB = _orig
+
+    def _analyze(self):
+        prices = _make_prices(
+            length=3000
+        )  # ~12 ans d'historique (2000-01-03 -> 2011-07), < 20 ans
+        with (
+            patch("obole.services.analysis.yahoo.fetch_identity", side_effect=_fake_identity),
+            patch("obole.services.analysis.yahoo.fetch_fundamentals", return_value=None),
+        ):
+            return analyze("FAKE", prices), prices
+
+    @staticmethod
+    def _fair(analysis):
+        return next(
+            r
+            for c in analysis.summary
+            if c.id == "valorisation"
+            for r in c.rows
+            if r.key == "fair_price"
+        )
+
+    def test_no_reference_keeps_20y_default(self):
+        from obole.engine import regression as reg
+        from obole.engine.summary import regression_window
+
+        analysis, prices = self._analyze()
+        expected = reg.fit_log_regression(regression_window(prices.raw)).fitted_now
+        fair = self._fair(analysis)
+        assert fair.value == pytest.approx(expected)
+        assert fair.note is None
+
+    def test_reference_drives_the_fair_price_and_the_note(self):
+        from obole.data import cache
+        from obole.engine import regression as reg
+        from obole.engine.summary import window_since
+
+        cache.set_ticker_ref("FAKE", "2005-01-03")
+        analysis, prices = self._analyze()
+        expected = reg.fit_log_regression(window_since(prices.raw, "2005-01-03")).fitted_now
+        fair = self._fair(analysis)
+        assert fair.value == pytest.approx(expected)
+        assert fair.note == "Droite de référence (prix bruts, depuis 2005)"
+
+    def test_saved_fair_price_wins_over_reference(self):
+        from obole.data import cache
+
+        cache.set_ticker_ref("FAKE", "2005-01-03")
+        cache.set_valuation_settings(
+            "FAKE",
+            {"metric": "eps", "period": 10, "growth": 2.0, "multiple": 12.0,
+             "target_yield": 12.0, "dividend_yield": 0.0, "include_dividends": True,
+             "fair_price": 123.45, "net_debt_per_share": None},
+        )
+        analysis, _ = self._analyze()
+        fair = self._fair(analysis)
+        assert fair.value == pytest.approx(123.45)
+        assert fair.note == "Prix juste enregistré (calculatrice)"
+
+    def test_negative_saved_fair_price_is_ignored(self):
+        from obole.data import cache
+
+        cache.set_valuation_settings(
+            "FAKE",
+            {"metric": "eps", "period": 10, "growth": 2.0, "multiple": 12.0,
+             "target_yield": 12.0, "dividend_yield": 0.0, "include_dividends": True,
+             "fair_price": -5.0, "net_debt_per_share": None},
+        )
+        analysis, _ = self._analyze()
+        assert self._fair(analysis).note is None
+
+    def test_too_short_reference_falls_back_to_20y(self):
+        from obole.data import cache
+        from obole.engine import regression as reg
+        from obole.engine.summary import regression_window
+
+        prices = _make_prices(length=3000)
+        cache.set_ticker_ref("FAKE", prices.raw.index[-5].date().isoformat())
+        analysis, _ = self._analyze()
+        expected = reg.fit_log_regression(regression_window(prices.raw)).fitted_now
+        fair = self._fair(analysis)
+        assert fair.value == pytest.approx(expected)
+        assert fair.note is None
+
+    def test_corrupted_reference_falls_back(self):
+        from obole.data import cache
+
+        cache.set_ticker_ref("FAKE", "pas-une-date")
+        analysis, _ = self._analyze()
+        assert self._fair(analysis).note is None

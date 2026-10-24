@@ -176,10 +176,23 @@ class TestCards:
         fund = _fundamentals(table)
         plain = sf.build_summary(_identity(), fund, 10.0, 50.0)
         assert _row(plain, "valorisation", "fair_price").note is None
-        saved = sf.build_summary(_identity(), fund, 10.0, 50.0, fair_price_saved=True)
+        saved = sf.build_summary(
+            _identity(),
+            fund,
+            10.0,
+            50.0,
+            fair_price_note="Prix juste enregistré (calculatrice)",
+        )
         assert _row(saved, "valorisation", "fair_price").note == (
             "Prix juste enregistré (calculatrice)"
         )
+
+    def test_fair_price_note_passes_through_for_reference(self):
+        """Une note de référence (#25) est portée telle quelle par la carte."""
+        fund = _fundamentals(_table({"Bénéfice net": [10, 9, 8, 7, 6]}))
+        note = "Droite de référence (prix bruts, depuis 2012)"
+        cards = sf.build_summary(_identity(), fund, 10.0, 50.0, fair_price_note=note)
+        assert _row(cards, "valorisation", "fair_price").note == note
 
     def test_capex_sales_ratio(self):
         table = _table({"Chiffre d'affaires": [1000, 900, 800, 700, 600]})

@@ -19,6 +19,8 @@ ScoredValue(None, None, None) au lieu de crasher (dégradation gracieuse).
 
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 
 from obole import config
@@ -36,6 +38,22 @@ def regression_window(series: pd.Series, years: int = config.REGRESSION_YEARS_DE
     if series.empty:
         return series
     cutoff = series.index[-1] - pd.DateOffset(years=years)
+    return series[series.index >= cutoff]
+
+
+def window_since(series: pd.Series, start: date | str) -> pd.Series:
+    """Fenêtre depuis `start` (inclus) jusqu'au dernier point — la « confiance ».
+
+    Miroir temporel de `regression_window` : le début est une DATE persistée
+    (#25) au lieu d'une durée glissante. L'index est supposé tz-naïf (les séries
+    de prix le sont) ; un index tz-aware est aligné sur son fuseau.
+    """
+    if series.empty:
+        return series
+    cutoff = pd.Timestamp(start)
+    tz = getattr(series.index, "tz", None)
+    if tz is not None:
+        cutoff = cutoff.tz_localize(tz) if cutoff.tzinfo is None else cutoff.tz_convert(tz)
     return series[series.index >= cutoff]
 
 

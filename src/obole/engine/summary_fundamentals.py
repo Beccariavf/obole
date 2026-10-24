@@ -191,21 +191,20 @@ def _valuation_card(
     market: dict | None,
     fitted_now: float | None,
     last_price: float | None,
-    fair_price_saved: bool = False,
+    fair_price_note: str | None = None,
 ) -> SummaryCard:
-    """Valorisation : prix juste (droite 20 ans) vs cours, puis les multiples.
+    """Valorisation : prix juste (droite de référence) vs cours, puis les multiples.
 
-    « Prix juste » = valeur de la droite de régression sur les 20 dernières années
-    (cours brut, série de la valorisation) ; « Prix communiqué » = dernier cours.
-    C'est une lecture de tendance longue à comparer au cours — elle ne se confond
-    PAS avec le KPI « distance σ », calculé sur l'historique complet (méthode
-    Obole, PRD §5). Les deux lignes rendent l'écart lisible, sans dupliquer le
-    calcul de σ.
+    « Prix juste » = valeur de la droite de régression sur la fenêtre de référence
+    du titre (cours brut, série de la valorisation), 20 ans par défaut ; « Prix
+    communiqué » = dernier cours. C'est une lecture de tendance longue à comparer
+    au cours — elle ne se confond PAS avec le KPI « distance σ », calculé sur
+    l'historique complet (méthode Obole, PRD §5). Les deux lignes rendent l'écart
+    lisible, sans dupliquer le calcul de σ.
 
-    `fair_price_saved` : le prix juste affiché vient de la calculatrice de la
-    section Valorisation (enregistré par l'utilisateur) et non de la droite.
-    La ligne porte alors une note « enregistré » pour expliquer l'écart éventuel
-    avec le calcul courant de la calculatrice.
+    `fair_price_note` : note explicative quand la valeur ne vient pas de la droite
+    20 ans par défaut — prix juste enregistré (calculatrice) ou droite de
+    référence persistée (#25). `None` = lecture par défaut, aucune note.
 
     Les multiples sont **neutralisés** (None -> « -- ») quand leur dénominateur
     est nul ou négatif (P/B négatif = capitaux propres négatifs, P/E ou P/FCF
@@ -219,7 +218,7 @@ def _valuation_card(
             "Prix juste",
             fitted_now,
             "money",
-            note="Prix juste enregistré (calculatrice)" if fair_price_saved else None,
+            note=fair_price_note,
         ),
         _row("price", "Prix communiqué", last_price, "money"),
         _positive_row("per", "P/E", market.get("trailing_pe")),
@@ -531,7 +530,7 @@ def build_summary(
     fundamentals: Fundamentals | None,
     fitted_now: float | None,
     quality_score: float | None,
-    fair_price_saved: bool = False,
+    fair_price_note: str | None = None,
 ) -> list[SummaryCard]:
     """Grille de synthèse complète (8 cartes) pour la section « Résumé ».
 
@@ -539,8 +538,9 @@ def build_summary(
     `fundamentals` les comptes/dividendes et les postes bruts de santé,
     `fitted_now` la valeur de la droite de régression (prix juste) et
     `quality_score` le score qualité 0-100 déjà calculé par `engine/quality`.
-    `fair_price_saved` signale un prix juste issu de la calculatrice (enregistré) :
-    la ligne « Prix juste » porte alors une note explicative.
+    `fair_price_note` explique un prix juste qui ne vient pas de la droite 20 ans
+    par défaut (prix juste enregistré, ou droite de référence persistée #25) ;
+    `None` = lecture par défaut, aucune note.
     Une carte dont aucune ligne n'est renseignée est conservée (le front affiche
     « -- ») : la grille garde une structure stable d'un titre à l'autre.
     """
@@ -553,7 +553,7 @@ def build_summary(
     return [
         _profil_card(identity, quality_score),
         _market_card(identity),
-        _valuation_card(fundamentals, market, fitted_now, identity.last_price, fair_price_saved),
+        _valuation_card(fundamentals, market, fitted_now, identity.last_price, fair_price_note),
         _dividend_card(fundamentals, market),
         _growth_card(
             fundamentals.table if fundamentals else None,
