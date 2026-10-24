@@ -1,6 +1,6 @@
 ---
 objective: "Une écriture SQLite concurrente ne doit plus échouer sur un verrou temporaire, et un verrou permanent doit remonter une erreur claire après un nombre borné de tentatives."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Retry SQLite sur `database is locked`
