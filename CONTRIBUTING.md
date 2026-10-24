@@ -49,6 +49,14 @@ cd web-tests && npm ci
 > le travail à venir. Traçabilité (SHA, décomptes de commits, branches historiques) :
 > cf. `CLAUDE.md` §Workflow git.
 
+## Contexte IA et livraison
+
+Le contexte que lit l'assistant vit dans `aidd_docs/` (banque mémoire + plans d'exécution),
+verrouillé par `tests/test_aidd_memory.py` et `tests/test_doc_coherence.py`. Un chantier se
+livre via le fil `/01-plan` → `/02-implement` → `/03-assert` → `/05-review` → `/01-commit` →
+`/02-pull-request` : la fiche `chantiers/NN.md` reste la spec, le plan d'exécution vit dans
+`aidd_docs/tasks/<yyyy_mm>/<yyyy_mm_dd>_<slug>/`.
+
 ## Vérifications obligatoires
 
 ```bash

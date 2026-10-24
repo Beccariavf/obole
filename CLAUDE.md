@@ -2,6 +2,9 @@
 
 This file provides guidance to the AI assistant when working with code in this repository.
 
+Le contexte de fond vit dans `aidd_docs/memory/` (voir §Memory Management) : ce fichier ne
+garde que ce qui doit être chargé à chaque session — commandes, invariants, workflow.
+
 ## Memory Management
 
 Project docs, memory, specs, and plans live in `aidd_docs/`.
@@ -27,7 +30,10 @@ Read only task-relevant context and linked memory files; complete required reads
 
 ## Projet
 
-Obole — outil perso d'analyse boursière long terme, monoposte (localhost, pas d'auth, mono-utilisateur). Réplique la méthode « droite de régression » de référence Obole : on régresse `ln(prix)` sur le temps et on en déduit valorisation, potentiel et qualité. La référence produit est `PRD.md` (la méthode et les seuils calibrés sont au §5).
+Obole — outil perso d'analyse boursière long terme, monoposte (localhost, pas d'auth,
+mono-utilisateur). On régresse `ln(prix)` sur le temps pour en déduire valorisation,
+potentiel et qualité. La méthode et les seuils calibrés sont dans `PRD.md` §5 ; le
+vocabulaire métier dans `aidd_docs/memory/project-brief.md`.
 
 ## Commandes
 
@@ -50,21 +56,6 @@ cd web-tests && npm test          # tests front : parité seuils/régression + u
 cd web-tests && npm run test:e2e  # smoke Playwright (Chromium + WebKit) — démarre le serveur
 ```
 
-**Si le port 8000 est déjà pris** (autre serveur sur le poste), inutile de dupliquer
-la config Playwright : le port est paramétrable. `OBOLE_SERVER_CMD` change la
-commande de lancement, `OBOLE_E2E_PORT` l'URL surveillée et le `baseURL`.
-
-```bash
-cd web-tests && OBOLE_E2E_PORT=8012 \
-  OBOLE_SERVER_CMD="PYTHONPATH=../src ../.venv/bin/python -m uvicorn obole.api.app:app --host 127.0.0.1 --port 8012" \
-  npm run test:e2e
-```
-
-Lancer uvicorn sur une base **neuve** (`config.CACHE_DB` redirigé) reproduit la CI :
-elle part d'un checkout sans `cache.sqlite`, donc **aucune donnée utilisateur**. Un
-test e2e qui présuppose une thèse existante doit semer sa propre fixture via l'API
-et la restaurer — sinon il est vert en local et **rouge en CI**.
-
 **Diagnostic (observabilité, #01) :**
 
 ```bash
@@ -73,54 +64,39 @@ OBOLE_LOG_LEVEL=DEBUG .venv/bin/python run.py   # logs verbeux (défaut INFO)
 tail -f logs/obole.log                    # journal fichier (rotation, dossier gitignoré)
 ```
 
-**CI** (`.github/workflows/ci.yml`) : 3 jobs — `backend` (ruff + mypy + pytest hors réseau +
-pip-audit), `frontend` (Vitest), `e2e` (Playwright Chromium + WebKit, nécessite le réseau
-pour la fiche RI.PA).
+- Pas de `python` sur ce poste — utiliser `python3` ou `.venv/bin/python`. `run.py` lance
+  sans `--reload` : redémarrer après un changement back ; le front se recharge seul.
+- Lancement en tâche de fond : `.venv/bin/python -u run.py` ; le message « Obole prêt »
+  sur **stdout** signale le bind réussi (jamais affiché si le port est occupé).
+- `pytest-cov` allonge la suite d'environ 15× : garder `-p no:cov` en usage courant.
+  **Ne jamais recopier un décompte de tests**, il dérive à chaque session.
+- Port 8000 occupé : `OBOLE_E2E_PORT` / `OBOLE_SERVER_CMD` paramètrent l'e2e (exemple et
+  détails dans `aidd_docs/memory/testing.md` §Browser QA).
+- CI : 3 jobs (backend, frontend, e2e), sur toute branche poussée — détail dans
+  `aidd_docs/memory/vcs.md`.
 
-Pas de `python` sur ce poste — utiliser `python3` ou `.venv/bin/python` si présent. `run.py` lance sans `--reload` : redémarrer manuellement après un changement back. Le front (HTML/JS/CSS) est servi en statique, donc un simple rechargement de page suffit côté navigateur.
+## Règles de travail
 
-**Lancement avec background_process :** utiliser `background_process` (action=start) avec `.venv/bin/python -u run.py`. Le message `"  Obole prêt sur http://127.0.0.1:8000"` apparaît sur **stdout** une fois le serveur réellement à l'écoute (~3-4s) — émis par `_serve` après le bind, donc jamais affiché si le port est occupé (dans ce cas un diagnostic actionnable part sur stderr et le process sort en code 1). Uvicorn écrit ses logs sur stderr (non visible dans background_process). Si le serveur ne répond pas, attendre 4s puis `curl http://127.0.0.1:8000/`.
+| Situation | Geste |
+| --- | --- |
+| Idée floue | `/01-brainstorm`, puis une fiche `chantiers/NN-….md` |
+| Fiche prête | `/01-plan` → plan + phases sous `aidd_docs/tasks/<date>_<slug>/` |
+| Plan validé | `/02-implement` (un commit par tâche validée) |
+| Avant commit | `/03-assert` — portes de `aidd_docs/memory/coding-assertions.md` |
+| Avant merge | `/05-review`, puis `/01-commit` et `/02-pull-request` |
+| Décision durable | `/10-learn` (mémoire ou ADR) |
 
-**Tests lents avec pytest-cov :** `pytest-cov` instrumente `yfinance` et allonge les tests de 15× (~4-5 min au lieu de 17s). Passer `-p no:cov` pour désactiver la couverture. La suite hors réseau (`-m "not network"`) est la référence : son décompte exact est donné par `pytest -m "not network" --collect-only -q | tail -1` — **ne pas recopier le chiffre ici**, il dérive à chaque session (garde-fou automatique : `tests/test_doc_coherence.py`).
-
-**Tests front (`web-tests/`)** — Node/Vitest+jsdom, aucun build du front. Le front est
-découpé en **modules ES natifs** (`src/obole/web/app.js` = composant Alpine seul qui assemble les
-mixins `search/screener/indices/charts/cursor/exportcsv/events/settings/sections/summary/portfolio/portfolio-dividends/dividend/valorisation/thesis/suivi` ; `api.js` centralise les
-`fetch` ; `thresholds.js` porte les maths et reçoit les seuils de `/api/meta`). Les tests
-importent ces modules réellement. Garde-fous de **parité** :
-`labels-parity.test.js` (parse `config.py` et compare au payload `/api/meta` consommé par
-`thresholds.js`) et `regression-parity.test.js` (même fixture que
-`tests/test_regression_parity_fixture.py`). `modules.test.js` verrouille la structure
-(0 `fetch` hors `api.js`, `app.js` < 500 lignes, et la **liste des modules** : chaque `.js` de
-`src/obole/web/` doit être déclaré comme mixin ou classé utilitaire — un module oublié fait
-échouer le test). La fixture est régénérée par
-`tests/fixtures/generate_regression_parity.py` : toute modification de la formule de
-régression doit la régénérer (sinon les deux tests cassent).
-
-## Chantiers (backlog)
-
-Le backlog vit dans **`CHANTIERS.md`** (index + matrice de priorité) et **`chantiers/`** (une fiche spec par chantier). Avant tout travail de fond, vérifier s'il existe une fiche ; la lire avant de coder et la **mettre à jour en fin de session** (statut dans l'index, note de reprise dans la fiche). Chaque fiche indique son **impact Pernod** (🟢/🟠/🔴), qui détermine si le test réseau est obligatoire.
+Le backlog et les specs vivent dans **`CHANTIERS.md`** (index + matrice de priorité) et
+**`chantiers/`** (une fiche spec par chantier, gabarit `chantiers/_gabarit.md`). Avant tout
+travail de fond : lire la fiche, puis la mettre à jour en fin de session (statut dans
+l'index, note de reprise dans la fiche). Chaque fiche indique son **impact Pernod**
+(🟢/🟠/🔴), qui détermine si le test réseau est obligatoire.
 
 ## Workflow git
 
-Dépôt distant : `origin` = `git@github.com:Beccariavf/obole.git` (privé, auth par clé SSH — aucun mot de passe demandé).
-
-**Cycle d'une modification :**
-
-```
-branche → commit → vérif (verte) → merge --no-ff sur main → push → suppression de la branche
-```
-
-1. **Branche dédiée** — jamais de travail de fond directement sur `main`. Préfixes : `feat/` (fonctionnalité), `fix/` (correction), `chore/` (outillage, doc, config). Le préfixe `feature/` est un vestige à ne pas réutiliser.
-2. **Commit** — messages **en français**, en *Conventional Commits* (`feat:`, `fix:`, `chore:`, `docs:`, `test:`). `git add <fichiers>` ciblé, **jamais `-A`**.
-3. **Vérification** — la suite outillée doit être verte **avant** de fusionner (lint, types, tests hors réseau) : voir §Commandes. Un commit rouge ne part pas sur `main`.
-4. **Fusion** — **merge commit `--no-ff`** systématique (`git merge --no-ff <branche>`), jamais de squash : l'historique garde la trace des regroupements (ex. « Merge feat/observability : chantier #01 »).
-5. **Push** — `git push` puis, après fusion, `git push origin main`. Une branche peut aussi être poussée pendant le travail : la CI tourne alors dessus et sert de garde-fou avant le merge.
-6. **Nettoyage** — la branche fusionnée est supprimée (`git branch -d <branche>`) ; seules les branches réellement mergées peuvent disparaître (`-d` refuse le reste).
-
-**Commande `Commit & Push`.** La commande OpenFox générique est surchargée au niveau du projet par `.openfox/commands/commit-push.command.md` (même `id: commit-push`, donc elle remplace la version par défaut ici). Elle connaît les chemins réels du dépôt (`.venv/bin/ruff`, `.venv/bin/pytest`, `cd web-tests && npm test`) et vérifie **avant** de pousser. Pour l'invoquer : « commit & push » ou « crée une branche `feat/xxx` ».
-
-Ce cycle prolonge celui des chantiers (cf. **`CHANTIERS.md` §4**) : une fiche passe « à faire » → « en cours » (branche dédiée) → « fait » (merge sur `main`). Mettre à jour le statut dans l'index et la note de reprise dans la fiche en fin de session.
+**Cycle** : branche → commit → vérif verte → merge `--no-ff` sur `main` → push →
+suppression de la branche. Le détail (préfixes, commits français signés DCO, `git add`
+ciblé, PR draft, CI) est dans `aidd_docs/memory/vcs.md`.
 
 **Historique git aplati — règle de traçabilité (bloc canonique).** L'historique de ce dépôt a été **aplati** : il ne contient **aucun merge**, et les branches citées dans `chantiers/` ne sont plus consultables (elles y sont annotées « Branche (historique) »). Conséquences, valables partout :
 
@@ -128,21 +104,14 @@ Ce cycle prolonge celui des chantiers (cf. **`CHANTIERS.md` §4**) : une fiche p
 - **ne jamais citer un SHA de commit ou de merge**, ni figer un décompte de commits dans la documentation : ils deviennent faux au premier aplatissement ou au commit suivant. **Décrire le jalon, jamais le commit.** Vérifié par `tests/test_doc_coherence.py` ;
 - si l'historique est aplati de nouveau, mettre à jour **ce seul paragraphe** — les autres documents y renvoient, ils ne recopient pas.
 
-**CI.** `.github/workflows/ci.yml` tourne sur **toute branche poussée** (`push.branches: ["**"]`) et sur les pull requests : 3 jobs (`backend` = ruff + mypy + pytest hors réseau + `pip-audit`, `frontend` = Vitest, `e2e` = Playwright). Attention : les *branch protection rules* ne sont pas disponibles sur un dépôt privé en plan gratuit — le garde-fou est donc la CI + le template de PR (`.github/pull_request_template.md`), pas un verrou de serveur.
-
 ## Architecture : couches à sens unique `web → api → services → engine → data`
 
-Les dépendances ne vont **jamais** dans l'autre sens. Respecter cette règle est l'invariant structurel principal.
+Les dépendances ne vont **jamais** dans l'autre sens ; `mcp/` entre par `services/`. C'est
+l'invariant structurel principal.
 
-- **`data/`** — seule couche qui touche le réseau et le disque. `yahoo.py` (yfinance + retry + dégradation gracieuse : un bloc qui échoue renvoie `None`, jamais de crash), `cache.py` (SQLite, blobs picklés, TTL ; porte aussi les tables utilisateur et les migrations de schéma), `backup.py` (export/restauration JSON des données utilisateur) et `health.py` (contrôle des briques pour `/api/health`). Tout passe par le cache ; rien d'autre ne doit appeler yfinance.
-- **`engine/`** — cœur **100 % pur** (zéro I/O, zéro réseau, numpy/pandas only). `regression.py` est le cœur mathématique. **N'importe jamais `data/` ni `services/`** (vérifiable par `grep`). Le screener y garde sa partie pure (`screen.py` : `filter_and_sort`, `composite_score`).
-- **`services/`** — **cas d'usage** (orchestration) : assemble `data/` + `engine/` sans logique métier propre. `analysis.py` (analyse action/ratio/indice/panier, `summarize_index`, et les façades `analyze_ticker`/`analyze_ratio_tickers`/`analyze_index` partagées API ↔ MCP), `indices.py` (façade CRUD indices, erreur typée `IndexNotFound`), `screen.py` (`screen_stock`), `screener.py` (cas d'usage `run_screen` + validation partagée API ↔ MCP `validate_filters`/`validate_sort_by`/`validate_score_keys`, déplacée hors de `api/` au jalon 09.2), `thesis.py` (cas d'usage thèse : `write_thesis` — prompt + `analysis_to_dict` sans `chart` — et CRUD à erreur typée `ThesisNotFound`, jalon 09.3), `imports.py` (staging d'import #23 : `propose_import` n'écrit qu'un **brouillon**, `apply_draft` est la seule écriture et n'est branchée que sur une route REST — jamais un outil MCP) et `serialize.py` (transformation des analyses → payload JSON, partagé API ↔ MCP ; ancien `api/serialize.py`, déplacé au jalon 09.1). C'est ici que vit l'orchestration I/O, appelée par `api/` **et** par le MCP. La règle documentée devient `web → api → services → engine → data`.
-- **`api/`** — FastAPI fin. `app.py` expose ~77 routes (stock, ratio, search, refresh, indices, événements, saisie manuelle, **imports pilotés** `GET/POST/DELETE /api/imports`, screener, settings, sauvegarde/restauration, health) + sert le front ; il appelle `services/`, jamais `engine/analysis`. Le décompte exact de décorateurs `@app.*` est vérifié par `tests/test_doc_coherence.py` — ne pas recopier un chiffre figé sans lui. La sérialisation vit dans `services/serialize.py` (déplacée hors de `api/` au jalon MCP 09.1 pour que le MCP partage le même code sans importer `api/`) ; `api/serialize.py` **n'existe plus**. `static_files.py` sert les assets avec versionnage par hash de contenu (`/static/x.js?v=<hash>` → cache immuable) et `no-cache` sinon.
-- **`web/`** (`src/obole/web/`) — front **sans build**, découpé en **modules ES natifs** (`<script type="module">`) : `app.js` = composant Alpine seul (< 500 l.) qui assemble un mixin par domaine — `search.js`, `screener.js`, `indices.js`, `charts.js`, `cursor.js` (overlay du curseur du graphe héro : readout prix·σ·date, survol + repos), `exportcsv.js`, `events.js`, `settings.js`, `sections.js`, `summary.js`, `portfolio.js`, `portfolio-dividends.js`, `dividend.js`, `valorisation.js`, `thesis.js`, `suivi.js`, `markdown.js` ; `api.js` centralise **tous** les `fetch` (aucun `fetch` ailleurs) ; `thresholds.js` porte les maths (`olsLog`, `scored`…) et reçoit les seuils de `/api/meta` (source unique `config.py`) via `applyMeta` ; `theme.js` (charte couleur), `util.js` (slug, `parseCSV`/`detectDelimiter`/`parseNumber` — miroir de `data/manual` pour l'aperçu d'import). **Aucune dépendance CDN** : Plotly, Alpine et Inter sont vendorisés dans `web/vendor/`. Test de structure : `web-tests/modules.test.js` (qui vérifie aussi la liste des modules contre `src/obole/web/` dans les deux sens).
-- **`mcp/`** — **surface de pilotage IA** (projet acté, cf. `PRD.md` §12) : `src/obole/mcp/server.py` porte l'instance unique `mcp` (`MCPServer`, SDK **v2**, transport **stdio** par défaut), l'outil de vérification `obole_status` et l'enregistrement des outils (`tools/`). Jalons **09.0** (socle), **09.1** (lecture : `get_stock_analysis`, `get_ratio_analysis`, `search_tickers`, CRUD indices), **09.2** (screener FR : `screen_french_stocks`), **09.3** (thèse : `write_thesis` + `save_thesis`/`list_theses`/`get_thesis`/`delete_thesis`, persistance `theses`) livrés et **09.4** (**portefeuille MCP-B** : comptes, transactions, dividendes, positions, résumé TWR — `mcp/tools/portfolio.py` ; **suivi** : `list_checkpoints`/`add_checkpoint`/`update_checkpoint`/`delete_checkpoint` — `mcp/tools/checkpoints.py`) livré, plus **#23** (**staging d'import** : `propose_import` — `mcp/tools/imports.py` — qui crée un **brouillon** `pending` et **n'applique jamais** ; l'application est une route REST réservée à l'utilisateur). Couche de transport à sens unique vers `services`/`engine`/`data` : les outils sont des **verbes** aux docstrings descriptives (= doc de l'IA), **aucune formule ni seuil dupliqué** (toujours `config.py`), **aucune I/O** hors de `data/`. Ne touche pas `web/` ni `api/app.py`. **stdout est le canal du protocole stdio** : jamais de `print()` dans cette couche, la journalisation passe par `observability` (stderr). Les erreurs métier remontent en `ToolError` (message lisible). Tests : `tests/test_mcp_server.py` (structurels, dont le garde-fou « aucun outil n'applique un import ») et `tests/test_mcp_tools.py` (parité outil ↔ API).
-- **`models.py`** — contrats typés (dataclasses) échangés entre couches. Tout champ potentiellement absent de yfinance est `Optional` explicite : l'absence se gère partout, jamais de crash sur un champ vide.
-- **`config.py`** — toutes les constantes et seuils calibrés. Aucun nombre magique ailleurs.
-- **`observability.py`** — module **feuille** (stdlib + `config`, comme `config.py`) : toutes les couches peuvent l'importer, il n'importe rien de l'app. Fournit `configure_logging()` (console **stderr** + fichier `logs/obole.log` à rotation, idempotente ; niveau via `OBOLE_LOG_LEVEL`), `get_logger()`, `safe_label()` (anti-injection de logs) et le compteur d'échecs d'appels externes lu par `/api/health`. **Ne jamais journaliser un payload** (résultat yfinance, données saisies) : uniquement ticker/contexte, durée, étape, type d'exception.
+Le détail (rôle de chaque couche, décisions, pièges) est dans
+`aidd_docs/memory/architecture.md` ; la carte du dépôt dans `codebase-map.md` ; la surface
+REST dans `api.md` ; le pipeline de données dans `data.md`.
 
 ## Invariants à ne pas casser
 
@@ -182,14 +151,11 @@ projet (détail : *Réglages → Vision* dans l'UI OpenFox).
 
 ## Conventions
 
-- **Couleurs sémantiques : bleu = bien, rouge = mal** (pas vert/rouge). Constantes `COLOR_*` (config.py) et `C` (theme.js). Le champ `good` d'un `ScoredValue` pilote la couleur (True=bleu, False=rouge, None=neutre).
-- **Rachats d'actions toujours en bleu** (C.accent), jamais en rouge. Les rachats sont un retour à l'actionnaire, pas un signal négatif.
-- **Graphiques ≤6 points** : toujours en ligne+marqueurs, jamais en barres (aspect histogramme vide). Concerne les rachats (4-5 ans), la génération de cash, les mono-montants courts.
-- **Area fill** : ajouté sous les courbes simples (mono, combo, rachats) avec opacité 6-8%, pour un rendu premium (inspiré Baggr). Pas de fill sur les multi-séries (superposition illisible).
-- **Palette unifiée** des mini-charts (charts.js `drawMulti`, `drawBars`) : `[#2563EB (bleu), #0D9488 (teal), #7C3AED (violet), #F59E0B (ambre), #F59E0B (or)]`. Pas de rouge ni de vert dans la palette catégorielle.
-- **Cartes wide** (pleine largeur) : dividend-kpi, dividend-hist, buyback-hist. Les échelles temporelles différentes (dividendes 20-40 ans vs rachats 4-5 ans) sont séparées visuellement.
-- **Hauteur mini-charts** : 220px (CSS `.mini-chart`), cohérent avec le layout Plotly.
-- **Sobriété assumée** : cache agressif (prix 1j, comptes 7j, recherche 1j), pas d'ORM, pas de build front, dépendances minimales. Préférer une fonction pure à une abstraction.
-- **yfinance est limité** : ~20-30 ans de cours mais seulement ~4-5 ans de comptes ; `yf.Search` plafonne à ~5 résultats côté Yahoo (limite réelle de l'API, pas contournable via `max_results`). Gérer ces manques par des `warnings` (badges de fiabilité), pas par des crashs.
+- **Couleurs sémantiques : bleu = bien, rouge = mal** (jamais vert/rouge). Le champ `good`
+  d'un `ScoredValue` pilote la couleur (True = bleu, False = rouge, None = neutre).
+- **Rachats d'actions toujours en bleu**, jamais en rouge : c'est un retour à
+  l'actionnaire, pas un signal négatif.
 - Code et commentaires en **français** (le domaine et le PRD le sont).
-- Les `spikes/spike_*.py` sont des scripts de calibration jetables (exploration des seuils), pas du code applicatif : le dossier `spikes/` est **exclu du lint et du format** (`pyproject.toml`).
+- Règles de graphiques (≤ 6 points, area fill, palette unifiée, hauteurs de cartes) :
+  `aidd_docs/memory/design.md`. Limites de yfinance et dégradation :
+  `aidd_docs/memory/data.md`.
