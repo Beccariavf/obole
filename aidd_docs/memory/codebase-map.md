@@ -14,11 +14,12 @@ flowchart TD
 - `src/obole/api/` : routes FastAPI (`app.py`), uploads bornés (`uploads.py`), service des
   assets avec hash de contenu (`static_files.py`).
 - `src/obole/services/` : cas d'usage partagés API ↔ MCP (analyse, screener, indices,
-  thèse, portefeuille, imports, sérialisation).
+  thèse, portefeuille, watchlist, imports, sérialisation).
 - `src/obole/engine/` : calcul pur (régression, labels, qualité, valorisation, dividende,
   portefeuille, screener) — aucune I/O.
 - `src/obole/data/` : I/O uniquement (`yahoo.py`, `cache.py`, `backup.py`, `health.py`,
-  tables utilisateur : indices, thèses, portefeuille, points de contrôle, imports).
+  tables utilisateur : indices, thèses, portefeuille, points de contrôle, imports,
+  watchlist et références de fenêtre).
 - `src/obole/mcp/` : surface IA — un module par famille d'outils dans `tools/`.
 - `src/obole/web/` : front sans build (voir §Front).
 - `src/obole/config.py` : constantes et seuils (source unique).
@@ -44,6 +45,6 @@ Modules ES natifs de `src/obole/web/` : `app.js` (composant Alpine qui assemble 
 mixins), `search.js`, `screener.js`, `indices.js`, `charts.js`, `cursor.js`, `exportcsv.js`,
 `events.js`, `settings.js`, `sections.js`, `summary.js`, `portfolio.js`,
 `portfolio-dividends.js`, `dividend.js`, `valorisation.js`, `thesis.js`, `suivi.js`,
-`markdown.js`. Utilitaires : `api.js` (centralise tous les `fetch`), `thresholds.js`
+`watchlist.js`, `markdown.js`. Utilitaires : `api.js` (centralise tous les `fetch`), `thresholds.js`
 (maths et seuils reçus de `/api/meta`), `theme.js` (charte couleur), `util.js` (slug,
 parsing CSV et nombres).

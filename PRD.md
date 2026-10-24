@@ -196,7 +196,7 @@ Multiples classiques, chacun en **valeur actuelle + médiane historique** (cher/
 - 🔶 MVP : on peut livrer le schéma standard d'abord, puis ajouter le schéma financier. Mais l'architecture (`models.py`) doit prévoir le **polymorphisme de schéma de comptes** dès le départ pour ne pas tout refactorer.
 
 ### Phase 2 — Watchlist + Screener
-- **Watchlist** : liste de tickers persistée localement, que je gère (ajout/retrait depuis une fiche).
+- **Watchlist** (#25) : 3 **tiers de conviction** fixes, une appartenance par ticker, ajout/déplacement depuis la fiche. Classement par **marge de sécurité** contre le prix juste enregistré (calculatrice) ou, à défaut, la droite de référence ; **position σ** et **écart à la droite** sur les prix bruts. **Fenêtre de confiance par titre** (date de départ → aujourd'hui, 20 ans par défaut), qui pilote aussi le « Prix juste » du Résumé. La watchlist est exposée au MCP en lecture et en organisation (jamais la référence ni le prix juste).
 - **Tag « en portefeuille »** : marquer une valeur de la watchlist comme détenue (simple booléen/label, pas de suivi de lignes ni de valorisation).
   > **Lien avec le Portefeuille (Phase 3)** : le tag est un **raccourci manuel provisoire** (booléen, sans lignes ni valorisation). Quand le **Portefeuille** réel (MCP-B) arrive, il devient la **source de vérité** : le tag en est dérivé (valeur présente dans les positions) plutôt que saisi à la main. Le filtre screener « tag portefeuille » s'appuiera alors sur les positions réelles.
 - **Screener** : appliquer des filtres sur la watchlist (et/ou un univers de tickers fourni).

@@ -128,5 +128,27 @@ Deux prolongements actés :
 
 ## 8. Note de reprise
 
-**J1 → J6 exécutés dans la même session.** Détail des décisions et pièges dans
+**J1 → J6 exécutés dans la même session** (schéma v8, domaine, fenêtrage + Résumé, API, MCP,
+front, e2e). Détail des décisions et pièges dans
 `aidd_docs/tasks/2026_10/2026_10_24_watchlist/plan.md`.
+
+**Décisions.** 3 tiers fixes, une appartenance par ticker (`ticker` PK) ; la référence est
+**par titre** (`ticker_refs`) et survit au retrait de la watchlist. Le prix juste est **lu**
+de `valuation_settings` (jamais recalculé) ; le repli sur la droite de référence est assumé
+et signalé (badge `droite`, légende, filtre). Défaut **20 ans** (aligné sur l'ouverture de la
+fiche et le Résumé). Marge historique sur **prix bruts**. MCP : lecture + appartenance ;
+la référence et le prix juste restent hors de la surface d'écriture.
+
+**Pièges.** (1) La barre de tiers lit `metaReady` dans `watchTierList()` : sans cette
+dépendance réactive, ouvrir la modale avant la fin de `init()` laissait les libellés vides.
+(2) `windowed_analysis(ref_start=...)` **refuse** une fenêtre < `REGRESSION_MIN_POINTS` (pas de
+repli silencieux) ; le classement choisit la fenêtre effective via `reference_window` pour
+que le Résumé et la watchlist ne divergent pas. (3) `initRange` ouvre la fiche sur la
+référence ; après définition/effacement, la fiche est **rechargée** pour que la carte
+« Prix juste » suive. (4) `valuation_settings` manquait au registre de sauvegarde depuis #20 :
+il y est entré avec le schéma v8 (archive v7 restaurable). (5) Le PUT de référence valide la
+fenêtre avec les prix (cache chaud de la fiche) : réseau/`TickerNotFound` -> 422, jamais
+d'écriture partielle trompeuse.
+
+**Prochaine action.** Revue (`/05-review`), correction des constats, puis merge `--no-ff`
+et passage du statut à **fait**.

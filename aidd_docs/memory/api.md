@@ -17,6 +17,10 @@ La surface HTTP : son style, ses ressources et ses contrats.
 - Imports pilotés : `GET/POST/DELETE /api/imports` — l'IA ne crée qu'un brouillon, seule
   une route REST applique (jamais un outil MCP).
 - Screener de l'univers français.
+- Watchlist (#25) : `GET /api/watchlist`, `PUT`/`DELETE` sur `api/watchlist/items/<ticker>`,
+  `PUT`/`DELETE` sur `api/watchlist/ref/<ticker>`, `POST /api/watchlist/run`. `GET /api/stock`
+  porte un bloc `watch` (tier, référence, stats) ajouté par la route, et `/api/meta`
+  expose `watch` (tiers, points minimum d'une référence, plafond).
 - Paramètres, sauvegarde/restauration, santé.
 
 ## Contracts
@@ -29,3 +33,7 @@ La surface HTTP : son style, ses ressources et ses contrats.
 - Les uploads sont plafonnés avant lecture (CSV, archive de sauvegarde, image de thèse).
 - La sérialisation vit dans `services/serialize.py`, partagée API ↔ MCP : `api/` ne
   contient pas de logique de présentation.
+- Watchlist : le prix juste est **lu** de `valuation_settings` (jamais recalculé) ; la
+  marge est `engine.valuation_calc.safety_margin` et la fenêtre de confiance
+  `services.analysis.reference_window` (référence persistée sinon 20 ans). Les routes de
+  référence ne sont pas exposées en écriture MCP (jugement humain).
