@@ -406,3 +406,27 @@ class TestPurgeCache:
         }
         backup.purge_cache()
         assert _cache_kinds() == set()
+
+
+class TestOlderArchive:
+    """Une archive d'un schéma antérieur reste restaurable (#25 : v7 -> v8)."""
+
+    def test_v7_archive_without_watchlist_tables_is_accepted(self, client):
+        _populate()
+        cache.upsert_watch_item("RI.PA", 1)
+        cache.set_ticker_ref("RI.PA", "2012-01-04")
+        archive = backup.build_archive()
+
+        # Archive d'avant #25 : version 7, sans les deux nouvelles tables.
+        archive["schema_version"] = 7
+        del archive["tables"]["watchlist_items"]
+        del archive["tables"]["ticker_refs"]
+
+        r = client.post(
+            "/api/restore",
+            files={"file": ("b.json", json.dumps(archive), "application/json")},
+        )
+        assert r.status_code == 200, r.text
+        # Les tables absentes de l'archive sont restaurées vides, sans erreur.
+        assert cache.list_watch_items() == []
+        assert cache.list_ticker_refs() == {}

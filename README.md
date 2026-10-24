@@ -52,14 +52,17 @@ Tapez un ticker (`RI.PA`, `AAPL`, `BNP.PA`) et cliquez **Analyser**.
 La fiche se navigue par sections — `Résumé`, `Quantitatif`, `Dividende`, `Finance`,
 `Thèse & Société`, `Valorisation` — et l'adresse reflète la section (`#RI.PA/quantitatif`),
 donc un lien est partageable. Autres écrans : **screener** de l'univers français,
-**indices** personnalisés (paniers equal-weight chaînés en total return) et **portefeuille**
-(comptes, transactions, dividendes, positions, performance TWR face à un benchmark, risque).
+**indices** personnalisés (paniers equal-weight chaînés en total return), **portefeuille**
+(comptes, transactions, dividendes, positions, performance TWR face à un benchmark, risque)
+et **watchlist** (3 tiers de conviction, marges de sécurité contre le prix juste enregistré
+ou la droite de référence, fenêtre de confiance par titre).
 
 ## Le MCP : l'IA comme cerveau, Obole comme mémoire
 
 Obole embarque un serveur **MCP** (transport stdio). Une IA cliente peut alors lire les
-analyses, chercher un ticker, lancer un screener, rédiger une thèse — et **écrire** dans le
-portefeuille.
+analyses, chercher un ticker, lancer un screener, rédiger une thèse, lire et classer la
+watchlist, y ajouter/déplacer une valeur — et **écrire** dans le portefeuille. Elle ne peut
+pas définir la fenêtre de confiance ni le prix juste : ce sont des jugements humains.
 
 ```bash
 obole --mcp                        # tous les outils : lecture + écriture

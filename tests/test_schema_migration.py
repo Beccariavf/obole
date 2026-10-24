@@ -73,6 +73,8 @@ class TestBaseline:
                 "custom_indices",
                 "settings",
                 "events",
+                "watchlist_items",
+                "ticker_refs",
             } <= _table_names(conn)
         finally:
             conn.close()
@@ -148,7 +150,7 @@ class TestAtomicity:
 
     def test_missing_migration_raises(self, monkeypatch):
         self._base_at(1)
-        monkeypatch.setattr(config, "SCHEMA_VERSION", 8)  # aucune migration 7 -> 8
+        monkeypatch.setattr(config, "SCHEMA_VERSION", 9)  # aucune migration 8 -> 9
         with pytest.raises(RuntimeError, match="Migration manquante"):
             cache._conn()
 
@@ -190,10 +192,10 @@ class TestUpgradePreservesData:
 
 
 class TestFutureMigration:
-    """J3 — le mécanisme tient au-delà de la baseline (migration 7 -> 8, hypothétique)."""
+    """J3 — le mécanisme tient au-delà de la version courante (v8 -> v9, hypothétique)."""
 
-    def test_v7_to_v8_alter_preserves_data(self, monkeypatch):
-        cache._conn().close()  # base migrée jusqu'à la version courante (v7)
+    def test_v8_to_v9_alter_preserves_data(self, monkeypatch):
+        cache._conn().close()  # base migrée jusqu'à la version courante (v8)
         conn = sqlite3.connect(config.CACHE_DB)
         try:
             conn.execute(
@@ -204,15 +206,15 @@ class TestFutureMigration:
         finally:
             conn.close()
 
-        def v7_to_v8(c: sqlite3.Connection) -> None:
+        def v8_to_v9(c: sqlite3.Connection) -> None:
             c.execute("ALTER TABLE events ADD COLUMN impact TEXT")
 
-        monkeypatch.setitem(cache.MIGRATIONS, 7, v7_to_v8)
-        monkeypatch.setattr(config, "SCHEMA_VERSION", 8)
+        monkeypatch.setitem(cache.MIGRATIONS, 8, v8_to_v9)
+        monkeypatch.setattr(config, "SCHEMA_VERSION", 9)
 
         conn = cache._conn()
         try:
-            assert cache._read_user_version(conn) == 8
+            assert cache._read_user_version(conn) == 9
             assert "impact" in _columns(conn, "events")
             assert conn.execute("SELECT label FROM events").fetchone()[0] == "Résultats"
         finally:
@@ -397,3 +399,44 @@ class TestThesesMigration:
         cache.save_thesis("ri.pa", {"pitch": "b"})  # insensible à la casse -> remplace
         assert len(cache.list_theses()) == 1
         assert cache.get_thesis("RI.PA")["content"] == {"pitch": "b"}
+
+
+class TestWatchlistMigration:
+    """#25 — la migration 7 -> 8 crée la watchlist et les références par titre."""
+
+    def test_tables_created_at_current_version(self):
+        conn = cache._conn()
+        try:
+            assert cache._read_user_version(conn) == config.SCHEMA_VERSION
+            assert "watchlist_items" in _table_names(conn)
+            assert "ticker_refs" in _table_names(conn)
+            assert _columns(conn, "watchlist_items") == {"ticker", "tier", "added_at"}
+            assert _columns(conn, "ticker_refs") == {"ticker", "ref_start", "updated_at"}
+        finally:
+            conn.close()
+
+    def test_v7_db_gains_tables_without_data_loss(self):
+        conn = sqlite3.connect(config.CACHE_DB)
+        try:
+            for version in range(0, 7):
+                cache.MIGRATIONS[version](conn)
+            conn.execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES ('trend_ma_short','20',1.0)"
+            )
+            cache._write_user_version(conn, 7)
+            conn.commit()
+            assert "watchlist_items" not in _table_names(conn)
+        finally:
+            conn.close()
+
+        conn = cache._conn()
+        try:
+            assert cache._read_user_version(conn) == config.SCHEMA_VERSION
+            assert "watchlist_items" in _table_names(conn)
+            assert "ticker_refs" in _table_names(conn)
+            assert (
+                conn.execute("SELECT value FROM settings WHERE key='trend_ma_short'").fetchone()[0]
+                == "20"
+            )
+        finally:
+            conn.close()

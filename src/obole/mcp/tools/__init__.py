@@ -1,5 +1,5 @@
 """Outils MCP d'Obole — stock, ratio, recherche, indices, screener, thèse,
-portefeuille, suivi et staging d'import.
+portefeuille, suivi, staging d'import et watchlist.
 
 Chaque module expose des fonctions **verbe** : leur docstring EST la
 documentation lue par l'IA cliente (`PRD.md` §12.3). Aucune formule ni seuil ici :
@@ -36,6 +36,7 @@ from obole.mcp.tools import (
     search,
     stock,
     thesis,
+    watchlist,
 )
 
 # Outils qui MODIFIENT les données de l'utilisateur (base locale). Toute
@@ -68,6 +69,10 @@ WRITE_TOOLS = frozenset(
         # Staging d'import (`propose_import` crée un brouillon : c'est une
         # écriture, même si son application reste réservée à l'utilisateur).
         "propose_import",
+        # Watchlist (#25) : organisation seulement. La référence de confiance et
+        # le prix juste ne sont PAS des outils MCP (jugements humains).
+        "add_to_watchlist",
+        "remove_from_watchlist",
     }
 )
 
@@ -154,3 +159,4 @@ def register(server) -> None:
     portfolio.register(target)
     checkpoints.register(target)
     imports.register(target)
+    watchlist.register(target)

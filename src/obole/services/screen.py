@@ -8,6 +8,8 @@ l'orchestration I/O + réduction.
 
 from __future__ import annotations
 
+from datetime import date
+
 from obole import config
 from obole.data.yahoo import TickerNotFound as TickerNotFound
 from obole.engine import labels
@@ -17,6 +19,61 @@ from obole.models import PriceSeries, ScreenResult, StockAnalysis
 from obole.services.analysis import analyze
 
 
+def windowed_analysis(
+    ticker: str,
+    prices: PriceSeries,
+    *,
+    regression_window: float | None = None,
+    ref_start: date | str | None = None,
+) -> StockAnalysis:
+    """Analyse complète dont les indicateurs de PRIX sont recalculés sur une fenêtre.
+
+    `ref_start` (date, **prioritaire**) : fenêtre de confiance #25, tranche
+    `date >= ref_start` jusqu'au dernier cours. Sinon `regression_window` (années,
+    règle du screener). Sinon historique complet. La fenêtre ne touche que la
+    régression brute + ajustée (σ, pente, potentiels) ; la tendance MM reste sur
+    l'historique complet, et les comptes/valorisation sont inchangés.
+
+    Lève les mêmes erreurs connues que `analyze` (`TickerNotFound`, `ValueError`
+    pour un historique trop court). Un `ref_start` qui laisse moins de
+    `config.REGRESSION_MIN_POINTS` points lève aussi `ValueError` (jamais de
+    repli silencieux). `screen_stock` les isole ; la watchlist aussi.
+    """
+    # La fenêtre est validée AVANT l'analyse : une référence trop courte échoue
+    # sans payer le coût de l'analyse complète (identité + comptes + séries).
+    raw, adj = _window_series(prices, regression_window, ref_start)
+    if ref_start is not None and len(raw) < config.REGRESSION_MIN_POINTS:
+        # Une fenêtre de confiance trop courte doit être REFUSÉE, pas dégradée en
+        # silence : l'appelant (watchlist) veut savoir que la référence ne porte
+        # plus assez de points, plutôt que d'afficher des stats d'historique plein
+        # sous une date de référence trompeuse.
+        raise ValueError(
+            f"Historique insuffisant sur la fenêtre de référence ({len(raw)} points, "
+            f"{config.REGRESSION_MIN_POINTS} minimum)"
+        )
+    analysis = analyze(ticker, prices)
+    _recompute_window(analysis, raw, adj)
+    return analysis
+
+
+def _window_series(
+    prices: PriceSeries,
+    regression_window: float | None,
+    ref_start: date | str | None,
+) -> tuple:
+    """Tranche (raw, adjusted) de la fenêtre demandée, filtrée > 0."""
+    if ref_start is not None:
+        raw = summary_mod.window_since(prices.raw, ref_start).dropna()
+        adj = summary_mod.window_since(prices.adjusted, ref_start).dropna()
+    elif regression_window is not None:
+        raw = summary_mod.regression_window(prices.raw, int(regression_window)).dropna()
+        adj = summary_mod.regression_window(prices.adjusted, int(regression_window)).dropna()
+    else:
+        raw = prices.raw.dropna()
+        adj = prices.adjusted.dropna()
+    return raw[raw > 0], adj[adj > 0]
+
+
 def screen_stock(
     ticker: str,
     prices: PriceSeries,
@@ -24,11 +81,11 @@ def screen_stock(
 ) -> ScreenResult:
     """Réduit une valeur à ses critères triables (méthode « droite d'Obole »).
 
-    Délègue à `services.analysis.analyze(ticker, prices)` (aucune formule recalculée
-    ici, aucun appel réseau : les prix arrivent déjà fetchés). Si `regression_window`
-    (années) est fourni, la distance σ ET la pente sont recalculées sur cette
-    fenêtre (via summary.regression_window, même règle que summary.member_stats) ;
-    sinon historique complet. La tendance MM reste sur l'historique complet.
+    Délègue à `services.analysis.analyze` (aucune formule recalculée ici, aucun
+    appel réseau : les prix arrivent déjà fetchés). Si `regression_window` (années)
+    est fourni, la distance σ ET la pente sont recalculées sur cette fenêtre (via
+    `windowed_analysis`, même règle que `summary.member_stats`) ; sinon historique
+    complet. La tendance MM reste sur l'historique complet.
 
     Les fondamentaux (ROE, PER, P/B, P/FCF, FCF yield) sont extraits de
     `analysis.fundamentals` et valent None si les comptes sont indisponibles.
@@ -38,23 +95,11 @@ def screen_stock(
     données connues — un vrai bug (TypeError, AttributeError…) doit rester visible.
     """
     try:
-        analysis: StockAnalysis = analyze(ticker, prices)
+        analysis = windowed_analysis(ticker, prices, regression_window=regression_window)
     # Données indisponibles/invalides (ticker inconnu, série trop courte) :
     # on isole le ticker pour que le scan continue. Jamais de crash global.
     except (TickerNotFound, ValueError, KeyError, IndexError) as exc:
         return ScreenResult(ticker=ticker.upper(), error=str(exc))
-
-    # Décision « fenêtre » : σ et pente sur la fenêtre définie (sinon complet).
-    if regression_window is not None:
-        raw = summary_mod.regression_window(prices.raw, int(regression_window)).dropna()
-        adj = summary_mod.regression_window(prices.adjusted, int(regression_window)).dropna()
-    else:
-        raw = prices.raw.dropna()
-        adj = prices.adjusted.dropna()
-    raw = raw[raw > 0]
-    adj = adj[adj > 0]
-
-    _recompute_window(analysis, raw, adj)
 
     return _from_analysis(analysis)
 
@@ -65,9 +110,9 @@ def _recompute_window(analysis: StockAnalysis, raw, adj) -> None:
     On ne réutilise pas `summary.member_stats` ici : elle ne renvoie que 3 stats
     étiquetées (z, pente, tendance) sur la série ajustée seulement — le screener a
     besoin des valeurs brutes, des potentiels 5/10 ans ET de la régression brute+ajustée.
-    La fenêtre elle-même est bien `summary.regression_window` (même règle), seule
-    la consommation diffère. Toute modification de la sémantique de fenêtre doit
-    rester synchronisée entre `summary` et `_recompute_window` (invariant J2).
+    La fenêtre elle-même est choisie par `_window_series` (`regression_window` ou
+    `window_since`), seule la consommation diffère. Toute modification de la
+    sémantique de fenêtre doit rester synchronisée avec `summary` (invariant J2).
     """
     try:
         reg_raw = reg.fit_log_regression(raw)

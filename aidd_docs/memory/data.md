@@ -45,8 +45,12 @@ flowchart LR
   négatif), recherche 1 jour.
 - `OBOLE_CACHE_DB` redirige la base (tests, e2e) ; `OBOLE_DATA_DIR` déplace les données
   utilisateur hors du paquet installé.
-- Le schéma est versionné par `config.SCHEMA_VERSION` et des migrations dans
+- Le schéma est versionné par `config.SCHEMA_VERSION` (v8) et des migrations dans
   `data/cache.MIGRATIONS` ; une base ancienne est mise à niveau à l'ouverture.
+- Watchlist (#25) : `watchlist_items` (ticker PK, tier 1..3, `added_at` préservé au
+  changement de tier) et `ticker_refs` (date ISO de début de la fenêtre de confiance,
+  indépendante de l'appartenance). Le prix juste n'est pas dupliqué : il reste dans
+  `valuation_settings`.
 
 ## Dégradation
 
@@ -58,5 +62,10 @@ flowchart LR
 
 ## Sauvegarde
 
-- `data/backup.py` exporte et restaure les données utilisateur en JSON (hors cache).
+- `data/backup.py` exporte et restaure les données utilisateur en JSON (hors cache),
+  y compris `watchlist_items` et `ticker_refs`. Une archive v7 reste restaurable (tables
+  absentes traitées comme vides). `valuation_settings` reste **hors** du registre de
+  sauvegarde : l'y ajouter exigerait de préserver la table lors d'une restauration
+  d'archive ancienne (sinon les prix justes enregistrés seraient effacés) — gap connu,
+  hors #25.
 - `cache.sqlite*`, `logs/`, `thesis_assets/` et `exemple/` sont hors dépôt (`.gitignore`).

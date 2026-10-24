@@ -305,3 +305,21 @@ class TestValidateBounds:
     def test_window_non_numeric_raises(self):
         with pytest.raises(ValueError, match="Fenêtre invalide"):
             screener_service.validate_regression_window("n/a")
+
+
+def test_scan_parallel_empty_list():
+    """Aucun ticker -> dict vide, sans créer de scan inutile."""
+    assert (
+        screener_service.scan_parallel([], lambda t: (t, t), timeout_result=lambda t: "timeout")
+        == {}
+    )
+
+
+def test_scan_parallel_collects_worker_keys():
+    """Le helper partagé (screener + watchlist) indexe par la clé rendue par le worker."""
+    out = screener_service.scan_parallel(
+        ["air.pa", "ai.pa"],
+        lambda t: (t.upper(), t.lower()),
+        timeout_result=lambda t: "timeout",
+    )
+    assert out == {"AIR.PA": "air.pa", "AI.PA": "ai.pa"}

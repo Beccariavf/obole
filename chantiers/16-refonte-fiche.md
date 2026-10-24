@@ -111,6 +111,9 @@ section (`#RI.PA/quantitatif`).
 - [x] **« Prix juste »** = droite de régression sur la **fenêtre 20 ans** (cours brut,
   série de la valorisation). Ce n'est PAS la distance σ du KPI (historique complet) ni la
   droite du graphe (série ajustée, fenêtre visible) : trois lectures distinctes, documentées.
+  **Évolution #25** : lorsque le titre a une fenêtre de confiance persistée (watchlist), le
+  « Prix juste » du Résumé utilise cette fenêtre (date → aujourd'hui) au lieu des 20 ans ; le
+  prix juste enregistré reste prioritaire. Voir `chantiers/25-watchlist.md`.
 - [x] **Cache** : marqueur `MODEL_VERSION` (`Identity`/`Fundamentals`) — un objet caché d'une
   version antérieure du modèle est re-fetché au lieu de servir une grille incomplète.
 

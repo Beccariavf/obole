@@ -29,6 +29,12 @@ Le langage visuel : charte, jetons et conventions de graphiques.
 - **Cartes wide** : dividend-kpi, dividend-hist, buyback-hist — les échelles temporelles
   différentes (dividendes 20-40 ans vs rachats 4-5 ans) sont séparées visuellement.
 - **Mini-charts** : 220 px de haut (CSS `.mini-chart`), cohérent avec le layout Plotly.
+- **Watchlist** (#25) : espace plein écran (même gabarit que Screener/Portefeuille), barre
+  de tiers avec compteurs, tableau dense à première colonne gelée. La **source du prix
+  juste** est un badge neutre (`calc` / `droite`) — jamais une couleur de jugement ; la
+  marge et l'écart suivent la polarité bleu/rouge. L'**étoile** du header est l'action
+  d'appartenance (popover des 3 tiers), le **chip de référence** de la barre de période
+  porte la fenêtre de confiance (prix bruts) et ses stats (`z`, σ).
 
 ## Accessibility
 

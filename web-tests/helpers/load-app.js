@@ -3,16 +3,18 @@ import { readFileSync } from "node:fs";
 // Chemins injectés par `vitest.config.js` (voir `define`).
 const APP_PATH = __APP_JS_PATH__;
 const CONFIG_PATH = __CONFIG_PY_PATH__;
+const WATCHLIST_JS_PATH = __WATCHLIST_JS_PATH__;
 
 // #04 : `app.js` est désormais un module ES (plus de script classique évalué
 // par `vm`). On importe les modules réels : le composant Alpine vient de
 // `app.js`, les maths/seuils de `thresholds.js`, la charte de `theme.js`.
-import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS } from "../../src/obole/web/thresholds.js";
+import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS, WATCH_TIERS, WATCH_MIN_REF_POINTS, WATCH_MAX_ITEMS } from "../../src/obole/web/thresholds.js";
 import { C } from "../../src/obole/web/theme.js";
 import { obole } from "../../src/obole/web/app.js";
 import { chartsMixin } from "../../src/obole/web/charts.js";
 import { dividendMixin } from "../../src/obole/web/dividend.js";
 import { valorisationMixin, fairPrice, safetyMargin, estimatedReturn, targetEntryPrice, matrixGrid, colorBucket, cagrFromSeries } from "../../src/obole/web/valorisation.js";
+import { watchlistMixin, sortWatchRows, watchCoverage, tierLabel, fairPriceSourceLabel } from "../../src/obole/web/watchlist.js";
 
 // `LABELS`, `RATIO_THRESHOLDS`, etc. sont des `let` mutables réassignés par
 // `applyMeta` : on les expose via des getters pour que les tests lisent la
@@ -61,7 +63,15 @@ export function loadApp() {
     get VALUATION_PERIODS() { return VALUATION_PERIODS; },
     get VALUATION_MATRIX() { return VALUATION_MATRIX; },
     get VALUATION_COLOR_RATIOS() { return VALUATION_COLOR_RATIOS; },
+    get WATCH_TIERS() { return WATCH_TIERS; },
+    get WATCH_MIN_REF_POINTS() { return WATCH_MIN_REF_POINTS; },
+    get WATCH_MAX_ITEMS() { return WATCH_MAX_ITEMS; },
     fairPrice, safetyMargin, estimatedReturn, targetEntryPrice, matrixGrid, colorBucket, cagrFromSeries,
+    watchlistMixin,
+    sortWatchRows,
+    watchCoverage,
+    tierLabel,
+    fairPriceSourceLabel,
     valuationGroups: valorisationMixin.valuationGroups,
     valMatrix: valorisationMixin.valMatrix,
     valMetricDef: valorisationMixin.valMetricDef,
@@ -115,6 +125,11 @@ export function readDividendSource() {
 // Source du module Valorisation (vérif « aucun seuil littéral » côté front).
 export function readValorisationSource() {
   return readFileSync(__VALORISATION_JS_PATH__, "utf8");
+}
+
+// Source du module Watchlist (vérif « aucun seuil littéral » côté front, #25).
+export function readWatchlistSource() {
+  return readFileSync(WATCHLIST_JS_PATH, "utf8");
 }
 
 // Source du CSS (vérif de cohérence des hauteurs avec config.py).
@@ -380,6 +395,11 @@ export function metaFromConfig(source) {
     portfolio_tag_max: Number(source.match(/PORTFOLIO_TAG_MAX\s*=\s*(\d+)/)[1]),
     portfolio_corr_min_obs: Number(source.match(/PORTFOLIO_CORR_MIN_OBS\s*=\s*(\d+)/)[1]),
     portfolio_corr_annotate_max: Number(source.match(/PORTFOLIO_CORR_ANNOTATE_MAX\s*=\s*(\d+)/)[1]),
+    watch: {
+      tiers: parsePyWatchTiers(source),
+      min_ref_points: Number(source.match(/REGRESSION_MIN_POINTS\s*=\s*(\d+)/)[1]),
+      max_items: Number(source.match(/WATCHLIST_MAX_ITEMS\s*=\s*(\d+)/)[1]),
+    },
   };
 }
 
@@ -438,4 +458,21 @@ export function parsePyDividendMetricUnits(source) {
   const out = {};
   for (const m of block[1].matchAll(/"([^"]+)":\s*"([^"]+)"/g)) out[m[1]] = m[2];
   return out;
+}
+
+
+// Parse `config.WATCH_TIERS` (tuple de dicts id/label/hint). Découpage sur les
+// frontières `{"id":` : robuste aux apostrophes et aux accents des libellés.
+export function parsePyWatchTiers(source) {
+  const block = source.match(/WATCH_TIERS[^=]*=\s*\(([\s\S]*?)\n\)/);
+  if (!block) throw new Error("WATCH_TIERS introuvable dans config.py");
+  const tiers = block[1].split(/\{"id":\s*/).slice(1).map((seg) => {
+    const id = Number(seg.slice(0, seg.indexOf(",")));
+    const label = seg.match(/"label":\s*"([^"]+)"/)?.[1];
+    const hint = seg.match(/"hint":\s*"([^"]+)"/)?.[1];
+    if (!label || !hint) throw new Error(`Tier ${id} : label/hint introuvable`);
+    return { id, label, hint };
+  });
+  if (tiers.length === 0) throw new Error("Aucun tier de watchlist parsé");
+  return tiers;
 }

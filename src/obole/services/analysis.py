@@ -33,24 +33,54 @@ from obole.models import (
 )
 
 
-def _fair_price(raw: pd.Series) -> float | None:
-    """« Prix juste » : droite de régression sur les 20 dernières années (prix brut).
+def reference_window(ticker: str, raw: pd.Series) -> tuple[pd.Series, str | None]:
+    """Fenêtre de confiance d'un titre : depuis la date persistée, sinon 20 ans.
 
-    On régresse ln(cours brut) sur la fenêtre des 20 dernières années et on prend
-    la valeur ajustée au dernier point. Le cours brut est la série de référence de
-    la valorisation (PRD §5) : c'est aussi celle du cours affiché en en-tête, donc
+    SOURCE UNIQUE de la sélection (#25) : le « Prix juste » du Résumé et le
+    classement de la watchlist lisent la même tranche. La référence est une date
+    ISO persistée par titre (`ticker_refs`) ; une référence illisible ou trop
+    courte (< `config.REGRESSION_MIN_POINTS` points) est ignorée et on retombe
+    sur la fenêtre 20 ans — dégradation silencieuse, jamais de crash.
+
+    Renvoie `(série filtrée > 0, ref_start | None)`. `ref_start` vaut None quand
+    la fenêtre par défaut est utilisée (aucune note à afficher).
+    """
+    ref = cache.get_ticker_ref(ticker)
+    if ref:
+        try:
+            window = summary_mod.window_since(raw, ref).dropna()
+            window = window[window > 0]
+            if len(window) >= config.REGRESSION_MIN_POINTS:
+                return window, ref
+        except (TypeError, ValueError):
+            pass  # date corrompue en base : on retombe sur le défaut
+    window = summary_mod.regression_window(raw).dropna()
+    return window[window > 0], None
+
+
+def _fair_price(ticker: str, raw: pd.Series) -> tuple[float | None, str | None]:
+    """« Prix juste » : droite de la fenêtre de référence (prix brut) + sa note.
+
+    La fenêtre vient de `reference_window` : date de confiance persistée si elle
+    existe, sinon 20 ans. Le cours brut est la série de référence de la
+    valorisation (PRD §5) : c'est aussi celle du cours affiché en en-tête, donc
     la comparaison « prix juste / prix communiqué » est homogène.
 
     Ce n'est PAS la distance σ du KPI : celle-ci se calcule sur l'historique
     complet (droite d'Obole), ni la droite du graphe (série ajustée, fenêtre
     visible). Trois lectures distinctes, chacune documentée.
+
+    Renvoie `(valeur, note)` ; la note n'existe que pour une référence
+    persistée (le défaut 20 ans garde le comportement historique, sans note).
     """
+    window, ref = reference_window(ticker, raw)
     try:
-        window = summary_mod.regression_window(raw).dropna()
-        window = window[window > 0]
-        return reg.fit_log_regression(window).fitted_now
+        value = reg.fit_log_regression(window).fitted_now
     except ValueError:
-        return None
+        return None, None
+    if ref:
+        return value, f"Droite de référence (prix bruts, depuis {ref[:4]})"
+    return value, None
 
 
 def _shares_by_year(ticker: str, fundamentals) -> dict[int, float]:
@@ -390,22 +420,23 @@ def analyze(ticker: str, prices: PriceSeries) -> StockAnalysis:
     else:
         warnings.append("Comptes indisponibles (yfinance)")
 
-    fair_price = _fair_price(prices.raw)
+    fair_price, fair_price_note = _fair_price(identity.ticker, prices.raw)
     # Prix juste de la calculatrice ENREGISTRÉ (par titre) : il prime sur la
-    # droite de régression dans la synthèse « Résumé » — c'est l'objectif que
-    # l'utilisateur s'est fixé. Absent -> on garde la droite. La ligne porte une
-    # note « enregistré » pour ne pas la confondre avec le calcul courant.
+    # droite de référence dans la synthèse « Résumé » — c'est l'objectif que
+    # l'utilisateur s'est fixé. Absent (ou <= 0 : valeur non exploitable) -> on
+    # garde la droite. La ligne porte une note « enregistré » pour ne pas la
+    # confondre avec le calcul courant.
     saved = cache.get_valuation_settings(identity.ticker)
     saved_fair = float(saved["fair_price"]) if saved and saved.get("fair_price") else None
-    fair_price_saved = saved_fair is not None
-    if fair_price_saved:
+    if saved_fair is not None and saved_fair > 0:
         fair_price = saved_fair
+        fair_price_note = "Prix juste enregistré (calculatrice)"
     summary = summary_fund_mod.build_summary(
         identity=identity,
         fundamentals=fundamentals,
         fitted_now=fair_price,
         quality_score=quality,
-        fair_price_saved=fair_price_saved,
+        fair_price_note=fair_price_note,
     )
 
     indicators = Indicators(

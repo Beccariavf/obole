@@ -12,6 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from obole import config
 from obole.models import RegressionResult
 
 
@@ -29,7 +30,7 @@ def fit_log_regression(prices: pd.Series) -> RegressionResult:
     """
     s = prices.dropna()
     s = s[s > 0]
-    if len(s) < 30:
+    if len(s) < config.REGRESSION_MIN_POINTS:
         raise ValueError(f"Série trop courte pour une régression fiable ({len(s)} points)")
 
     t = _years_axis(s.index)

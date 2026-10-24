@@ -225,3 +225,52 @@ class TestFilterAndSort:
         rows = self._rows()
         out = screen.filter_and_sort(rows, filters={"market_cap": (1_000_000_000, None)})
         assert [r.ticker for r in out] == ["A", "B", "C", "D"]
+
+
+class TestWindowedAnalysis:
+    """#25 — fenêtre de confiance par date, prioritaire sur la fenêtre en années."""
+
+    def _patches(self):
+        return (
+            patch("obole.services.analysis.yahoo.fetch_identity", side_effect=_fake_identity),
+            patch("obole.services.analysis.yahoo.fetch_fundamentals", return_value=None),
+        )
+
+    def test_ref_start_slices_and_takes_precedence(self):
+        prices = _make_prices(length=7000)
+        start = prices.raw.index[3000].date()
+        with self._patches()[0], self._patches()[1]:
+            by_ref = screen_service.windowed_analysis("FAKE", prices, ref_start=start.isoformat())
+            by_both = screen_service.windowed_analysis(
+                "FAKE", prices, ref_start=start, regression_window=5
+            )
+
+        # La tranche commence exactement au premier point >= start.
+        assert by_ref.regression_raw.start == start
+        assert by_ref.regression_raw.n_points == len(
+            prices.raw[prices.raw.index >= pd.Timestamp(start)]
+        )
+        # `ref_start` gagne sur `regression_window`.
+        assert by_both.regression_raw.start == by_ref.regression_raw.start
+        assert by_both.regression_raw.n_points == by_ref.regression_raw.n_points
+
+    def test_ref_start_too_short_raises(self):
+        import pytest
+
+        prices = _make_prices(length=3000)
+        with self._patches()[0], self._patches()[1]:
+            with pytest.raises(ValueError, match="Historique insuffisant"):
+                screen_service.windowed_analysis(
+                    "FAKE", prices, ref_start=prices.raw.index[-5].date().isoformat()
+                )
+
+    def test_window_since_includes_start_and_survives_empty(self):
+        from obole.engine.summary import window_since
+
+        prices = _make_prices(length=500)
+        start = prices.raw.index[100]
+        sliced = window_since(prices.raw, start.date())
+        assert sliced.index[0] == start
+        assert len(sliced) == len(prices.raw) - 100
+        empty = window_since(prices.raw.iloc[:0], "2010-01-01")
+        assert empty.empty

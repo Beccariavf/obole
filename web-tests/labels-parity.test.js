@@ -52,6 +52,10 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
     // ρ et horizons de potentiel sont AUSSI consommés (source unique complète).
     expect(app.CORR_MIN_POINTS).toBe(meta.corr_min_points);
     expect(app.POTENTIAL_HORIZONS).toEqual(meta.potential_horizons);
+    // Watchlist (#25) : tiers, point minimal de référence et plafond.
+    expect(app.WATCH_TIERS).toEqual(meta.watch.tiers);
+    expect(app.WATCH_MIN_REF_POINTS).toBe(meta.watch.min_ref_points);
+    expect(app.WATCH_MAX_ITEMS).toBe(meta.watch.max_items);
   });
 
   it("le payload /api/meta ne contient aucun champ mort", () => {
@@ -67,7 +71,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
       "ratio_thresholds", "reg_years_default", "reg_years_financial",
       "valuation_color_ratios", "valuation_groups", "valuation_horizon_years",
       "valuation_matrix", "valuation_metrics", "valuation_period_default",
-      "valuation_periods", "valuation_target_default",
+      "valuation_periods", "valuation_target_default", "watch",
     ]);
   });
 

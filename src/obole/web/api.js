@@ -106,6 +106,22 @@ export const api = {
   },
   runScreener(body) { return _send("/api/screener/run", "POST", body); },
 
+  // --- Watchlist (#25) ------------------------------------------------------
+  watchlist() { return _loadOrThrow("/api/watchlist"); },
+  runWatchlist(body) { return _send("/api/watchlist/run", "POST", body || {}); },
+  setWatchTier(ticker, tier) {
+    return _send(`/api/watchlist/items/${encodeURIComponent(ticker)}`, "PUT", { tier });
+  },
+  removeWatchItem(ticker) {
+    return _send(`/api/watchlist/items/${encodeURIComponent(ticker)}`, "DELETE", {});
+  },
+  setWatchRef(ticker, start) {
+    return _send(`/api/watchlist/ref/${encodeURIComponent(ticker)}`, "PUT", { start });
+  },
+  clearWatchRef(ticker) {
+    return _send(`/api/watchlist/ref/${encodeURIComponent(ticker)}`, "DELETE", {});
+  },
+
   // --- Portefeuille (#17) --------------------------------------------------
   portfolioAccounts() {
     return _loadOrThrow("/api/portfolio/accounts");

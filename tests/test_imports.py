@@ -292,10 +292,10 @@ class TestManualCsvReport:
 
 
 class TestSchemaAndBackup:
-    """Le schéma v6 et la sauvegarde connaissent la nouvelle table."""
+    """Le schéma v8 et la sauvegarde connaissent la nouvelle table."""
 
-    def test_schema_version_is_7(self):
-        assert config.SCHEMA_VERSION == 7
+    def test_schema_version_is_8(self):
+        assert config.SCHEMA_VERSION == 8
         conn = cache._conn()
         try:
             tables = {

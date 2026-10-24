@@ -1359,3 +1359,131 @@ class TestImportViaOutil:
         names = [t.name for t in tools.tools]
         assert "propose_import" in names
         assert not [n for n in names if "apply" in n]
+
+
+# --- Watchlist (#25) ---------------------------------------------------------
+
+
+class TestWatchlistTools:
+    """Parité des outils watchlist avec les routes, et frontière de l'écriture."""
+
+    @pytest.mark.anyio
+    @pytest.mark.usefixtures("isolated_db")
+    async def test_get_watchlist_parite(self):
+        from fastapi.testclient import TestClient
+
+        from obole.data import cache
+
+        cache.upsert_watch_item("RI.PA", 2)
+        cache.set_ticker_ref("RI.PA", "2012-01-04")
+        tool = await _call("get_watchlist", {})
+        api = TestClient(app).get("/api/watchlist").json()
+        assert tool == api
+        assert tool["refs"] == {"RI.PA": "2012-01-04"}
+
+    @pytest.mark.anyio
+    @pytest.mark.usefixtures("isolated_db")
+    async def test_rank_watchlist_parite_full(self):
+        from fastapi.testclient import TestClient
+
+        from obole.models import WatchlistRow, WatchlistRun
+
+        run = WatchlistRun(
+            generated_at=1.0,
+            rows=[
+                WatchlistRow(
+                    ticker="RI.PA",
+                    tier=1,
+                    name="Pernod",
+                    price=100.0,
+                    fair_price=120.0,
+                    fair_price_source="saved",
+                    target_yield=12.0,
+                    safety_margin_pct=16.67,
+                    margin_good=True,
+                    ref_start="2005-01-03",
+                    ref_is_default=False,
+                    ref_line=110.0,
+                    trend_gap_pct=9.09,
+                    z=-1.2,
+                    ecart_type_pct=25.0,
+                    warnings=["Comptes indisponibles"],
+                ),
+                WatchlistRow(ticker="AI.PA", tier=2, error="Ticker introuvable"),
+            ],
+        )
+        client = TestClient(app)
+        with patch("obole.services.watchlist.run", return_value=run):
+            api_payload = client.post("/api/watchlist/run", json={}).json()
+            tool_payload = await _call("rank_watchlist", {"view": "full"})
+        assert tool_payload == api_payload
+        assert tool_payload["rows"][0]["fair_price_source"] == "saved"
+
+    @pytest.mark.anyio
+    @pytest.mark.usefixtures("isolated_db")
+    async def test_rank_watchlist_summary_is_compact(self):
+        from obole.models import WatchlistRow, WatchlistRun
+
+        run = WatchlistRun(
+            generated_at=1.0,
+            rows=[WatchlistRow(ticker="RI.PA", tier=1, sector="Drinks", warnings=["w"])],
+        )
+        with patch("obole.services.watchlist.run", return_value=run):
+            payload = await _call("rank_watchlist", {})
+        row = payload["rows"][0]
+        assert payload["count"] == 1
+        # Le résumé garde la décision, écarte le bruit de contexte.
+        assert "safety_margin_pct" in row
+        assert "sector" not in row
+        assert "warnings" not in row
+
+    @pytest.mark.anyio
+    @pytest.mark.usefixtures("isolated_db")
+    async def test_rank_watchlist_max_rows_and_tier(self):
+        from obole.models import WatchlistRow, WatchlistRun
+
+        run = WatchlistRun(
+            generated_at=1.0,
+            rows=[
+                WatchlistRow(ticker="RI.PA", tier=1),
+                WatchlistRow(ticker="AI.PA", tier=1),
+            ],
+        )
+        with patch("obole.services.watchlist.run", return_value=run) as service_run:
+            payload = await _call("rank_watchlist", {"tier": 1, "max_rows": 1})
+        service_run.assert_called_once_with(tier=1)
+        assert payload["count"] == 2
+        assert len(payload["rows"]) == 1
+
+    @pytest.mark.anyio
+    async def test_rank_watchlist_erreurs(self):
+        msg = await _call_error("rank_watchlist", {"tier": 9})
+        assert "Tier" in msg
+        msg = await _call_error("rank_watchlist", {"max_rows": 0})
+        assert "max_rows" in msg
+        msg = await _call_error("rank_watchlist", {"view": "Full"})
+        assert "view" in msg
+
+    @pytest.mark.anyio
+    @pytest.mark.usefixtures("isolated_db")
+    async def test_add_and_remove_write_the_membership(self):
+        from obole.data import cache
+
+        added = await _call("add_to_watchlist", {"ticker": "ri.pa", "tier": 2})
+        assert added["status"] == "ok"
+        assert added["item"]["tier"] == 2
+        assert cache.get_watch_item("RI.PA")["tier"] == 2
+
+        removed = await _call("remove_from_watchlist", {"ticker": "RI.PA"})
+        assert removed == {"status": "removed", "ticker": "RI.PA"}
+        assert cache.get_watch_item("RI.PA") is None
+        # Idempotent : retirer une valeur absente ne lève pas.
+        assert await _call("remove_from_watchlist", {"ticker": "RI.PA"}) == {
+            "status": "absent",
+            "ticker": "RI.PA",
+        }
+
+    @pytest.mark.anyio
+    async def test_add_rejects_invalid_tier(self):
+        msg = await _call_error("add_to_watchlist", {"ticker": "RI.PA", "tier": 4})
+        assert "Tier" in msg
