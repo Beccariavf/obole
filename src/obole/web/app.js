@@ -21,6 +21,7 @@ import { dividendMixin } from "./dividend.js";
 import { valorisationMixin } from "./valorisation.js";
 import { thesisMixin } from "./thesis.js";
 import { checkpointsMixin } from "./suivi.js";
+import { watchlistMixin } from "./watchlist.js";
 
 // Enregistre le composant via alpine:init pour garantir qu'il est défini
 // AVANT qu'Alpine n'initialise le DOM (évite la race entre les scripts defer).
@@ -169,6 +170,7 @@ export function obole() {
     ...valorisationMixin,
     ...thesisMixin,
     ...checkpointsMixin,
+    ...watchlistMixin,
 
     async init() {
       // Alpine appelle automatiquement `init()` ; le template porte en plus

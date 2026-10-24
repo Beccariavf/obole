@@ -48,15 +48,36 @@ export const chartsMixin = {
 
   maxIdx() { return this.data ? this.data.chart.dates.length - 1 : 0; },
 
+  // Index du premier point ≥ une date ISO (`AAAA-MM-JJ`). Les dates du payload
+  // sont ISO : la comparaison lexicographique suffit (pas de parsing Date).
+  // Sert à la fenêtre de confiance (#25), partagée avec la watchlist.
+  idxForDate(iso) {
+    if (!iso || !this.data?.chart?.dates) return null;
+    const dates = this.data.chart.dates;
+    for (let i = 0; i < dates.length; i++) {
+      if (dates[i] >= iso) return i;
+    }
+    return null;
+  },
+
   initRange() {
-    // Plage par défaut : 20 dernières années.
     const dates = this.data.chart.dates;
     const n = dates.length;
-    const cutoff = new Date(dates[n - 1]);
-    cutoff.setFullYear(cutoff.getFullYear() - 20);
-    let i0 = 0;
-    for (let i = 0; i < n; i++) { if (new Date(dates[i]) >= cutoff) { i0 = i; break; } }
-    this.rangeStart = i0;
+    const refStart = this.data?.watch?.ref?.start;
+    const refIdx = refStart ? this.idxForDate(refStart) : null;
+    if (refIdx != null) {
+      // La fiche s'ouvre sur la fenêtre de confiance du titre (#25) : la droite
+      // affichée est celle que l'utilisateur a choisi de suivre. Le slider reste
+      // libre ensuite — c'est le « Prix juste » du Résumé qui fige la référence.
+      this.rangeStart = refIdx;
+    } else {
+      // Plage par défaut : 20 dernières années.
+      const cutoff = new Date(dates[n - 1]);
+      cutoff.setFullYear(cutoff.getFullYear() - 20);
+      let i0 = 0;
+      for (let i = 0; i < n; i++) { if (new Date(dates[i]) >= cutoff) { i0 = i; break; } }
+      this.rangeStart = i0;
+    }
     this.rangeEnd = n - 1;
     // « Fenêtre fixe » : on replie la plage sur winYears (extrémité droite).
     if (this.winLocked) {

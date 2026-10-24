@@ -89,6 +89,12 @@ export let VALUATION_COLOR_RATIOS = [0.5, 1.0];
 // Bornes des points de contrôle suivis (#21) : source unique `config.py` via
 // `/api/meta`. `null` tant que le payload n'est pas chargé (le serveur valide).
 export let CHECKPOINT_LABEL_MAX = null;
+// Watchlist (#25) : tiers fixes, point minimal d'une fenêtre de confiance et
+// plafond de valeurs. Source unique `config.py` via `/api/meta` : le front ne
+// connaît aucun de ces nombres en dur.
+export let WATCH_TIERS = [];
+export let WATCH_MIN_REF_POINTS = 0;
+export let WATCH_MAX_ITEMS = 0;
 
 // Applique les seuils reçus de /api/meta (source unique config.py). Idempotent.
 export function applyMeta(m) {
@@ -124,6 +130,9 @@ export function applyMeta(m) {
   VALUATION_MATRIX = m.valuation_matrix || VALUATION_MATRIX;
   VALUATION_COLOR_RATIOS = m.valuation_color_ratios || VALUATION_COLOR_RATIOS;
   CHECKPOINT_LABEL_MAX = m.checkpoint_label_max || CHECKPOINT_LABEL_MAX;
+  WATCH_TIERS = (m.watch && m.watch.tiers) || [];
+  WATCH_MIN_REF_POINTS = (m.watch && m.watch.min_ref_points) || 0;
+  WATCH_MAX_ITEMS = (m.watch && m.watch.max_items) || 0;
   PORTFOLIO_TAG_MAX = m.portfolio_tag_max || PORTFOLIO_TAG_MAX;
   PORTFOLIO_CORR_MIN_OBS = m.portfolio_corr_min_obs || PORTFOLIO_CORR_MIN_OBS;
   PORTFOLIO_CORR_ANNOTATE_MAX = m.portfolio_corr_annotate_max || PORTFOLIO_CORR_ANNOTATE_MAX;

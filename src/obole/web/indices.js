@@ -131,6 +131,12 @@ export const indicesMixin = {
       this.screenerOpen = true;
       return;
     }
+    // Retour à la watchlist : on rouvre la modale avec son état (lignes,
+    // tier filtré, tri) — aucun re-scan, comme le screener.
+    if (b.source === "watchlist") {
+      this.watchlistOpen = true;
+      return;
+    }
     this.loadIndex(b.index_id);
   },
 

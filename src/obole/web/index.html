@@ -42,6 +42,7 @@
     <button class="btn ghost" @click="openIndices()" title="Indices personnalisés : crée tes propres paniers d'actions">Mes indices</button>
     <button class="btn ghost" @click="openScreener()" title="Screener : sélectionne des actions selon des critères (droite de régression, rentabilité, valorisation)">Screener</button>
     <button class="btn ghost" @click="openPortfolio()" title="Portefeuille : saisis tes achats/ventes/dividendes et suis tes positions">Portefeuille</button>
+    <button class="btn ghost" @click="openWatchlist()" title="Watchlist : valeurs suivies, tiers et marges de sécurité">★ Watchlist</button>
     <button class="btn ghost" @click="openSettings()" title="Paramètres : réglage des moyennes mobiles et autres mesures techniques">⚙ Paramètres</button>
   </div>
 
@@ -96,6 +97,35 @@
           <span class="chip" x-show="data.identity.market_cap" x-text="'Capi ' + fmtCap(data.identity.market_cap)"></span>
           <template x-for="w in data.warnings"><span class="chip warn" x-text="w"></span></template>
         </div>
+        <!-- Étoile watchlist (#25) : ajout/déplacement/retrait en un geste. Le
+             rail reste du contenu ; l'action vit près de l'identité du titre. -->
+        <div class="header-watch" x-show="!isRatio() && !isBasket()">
+          <button type="button" class="watch-star" :class="{ active: watchTier() != null }"
+                  @click="watchPopoverOpen = !watchPopoverOpen"
+                  :aria-expanded="watchPopoverOpen ? 'true' : 'false'" aria-haspopup="menu"
+                  :title="watchTier() != null ? 'Dans la watchlist (' + watchTierLabel(watchTier()) + ') — cliquer pour changer' : 'Ajouter à la watchlist'">
+            <span x-text="watchTier() != null ? '★ ' + watchTierLabel(watchTier()) : '☆ Watchlist'"></span>
+          </button>
+          <div class="watch-pop" x-show="watchPopoverOpen" @click.outside="watchPopoverOpen = false"
+               role="menu" aria-label="Watchlist">
+            <div class="watch-pop-title">Tier de conviction</div>
+            <template x-for="t in watchTierList()" :key="t.id">
+              <button type="button" class="watch-pop-item" :class="{ active: watchTier() === t.id }"
+                      role="menuitemradio" :aria-checked="watchTier() === t.id ? 'true' : 'false'"
+                      @click="setWatchTier(t.id)">
+                <span class="watch-pop-check" x-text="watchTier() === t.id ? '●' : '○'"></span>
+                <span class="watch-pop-label" x-text="t.label"></span>
+                <span class="watch-pop-hint" x-text="t.hint"></span>
+              </button>
+            </template>
+            <button type="button" class="watch-pop-item danger" x-show="watchTier() != null"
+                    @click="removeFromWatch()">Retirer de la watchlist</button>
+            <button type="button" class="watch-pop-item" @click="openWatchlistFromFiche()">
+              Voir la watchlist →
+            </button>
+            <p class="watch-pop-error" x-show="watchError" x-text="watchError"></p>
+          </div>
+        </div>
       </div>
 
       <!-- Membres de l'indice : stats « coup d'œil » affichées dans la section
@@ -109,8 +139,37 @@
         <div class="period" tabindex="0" @keydown="onPeriodKey($event)"
            @focus="periodFocused = true" @blur="periodFocused = false">
           <div class="period-label">
-            Période : <span x-text="rangeLabel()"></span>
+            <span>Période : <span x-text="rangeLabel()"></span></span>
             <span class="period-hint" x-show="winLocked && periodFocused" title="Utilise les flèches du clavier pour déplacer la fenêtre de régression dans le temps">· ← → pour déplacer</span>
+            <!-- Fenêtre de confiance (#25) : la droite que la watchlist et le
+                 « Prix juste » du Résumé utilisent. Prix bruts, jusqu'au dernier cours. -->
+            <div class="watch-ref" x-show="!isRatio() && !isBasket()">
+              <button type="button" class="watch-ref-btn" :class="{ set: watchRefStart() != null }"
+                      @click="watchRefOpen = !watchRefOpen; watchRefError = ''"
+                      :aria-expanded="watchRefOpen ? 'true' : 'false'" aria-haspopup="menu"
+                      :title="watchRefStart() ? 'Fenêtre de confiance : depuis ' + watchRefStart() + ' (prix bruts)' : 'Définir la fenêtre de confiance utilisée par la watchlist et le Résumé'">
+                <span x-text="watchRefLabel()"></span>
+              </button>
+              <div class="watch-ref-pop" x-show="watchRefOpen" @click.outside="watchRefOpen = false"
+                   role="menu" aria-label="Fenêtre de confiance">
+                <div class="watch-pop-title">Fenêtre de confiance (prix bruts)</div>
+                <button type="button" class="watch-pop-item" :disabled="!canDefineWatchRef() || watchRefBusy"
+                        @click="defineWatchRef()"
+                        :title="canDefineWatchRef() ? 'Utiliser la fenêtre affichée comme référence (jusqu’au dernier cours)' : 'Place la poignée droite sur le dernier cours — au moins le minimum de points requis'">
+                  Définir depuis le <span x-text="watchRefStartDate() || '—'"></span>
+                </button>
+                <button type="button" class="watch-pop-item" :disabled="!watchRefStart()"
+                        @click="applyWatchRef()">Voir la référence</button>
+                <button type="button" class="watch-pop-item danger" :disabled="!watchRefStart() || watchRefBusy"
+                        @click="clearWatchRef()">Effacer la référence</button>
+                <p class="watch-ref-stats" x-show="watchRefStats()">
+                  <span x-text="'z ' + fmt(watchRefStats()?.z) + ' σ'"></span>
+                  <span x-text="'· σ ' + fmt(watchRefStats()?.ecart_type_pct) + ' %'"></span>
+                  <span x-text="'· ' + (watchRefStats()?.n_points || 0) + ' points'"></span>
+                </p>
+                <p class="watch-pop-error" x-show="watchRefError" x-text="watchRefError"></p>
+              </div>
+            </div>
           </div>
           <div class="dual-slider">
             <div class="ds-track"></div>
@@ -1625,6 +1684,140 @@
       <div class="idx-hint" x-show="!events().length" style="color:var(--text-soft)">
         Aucun événement pour l'instant. Ajoute ta première date importante ci-dessus.
       </div>
+    </div>
+  </div>
+
+  <!-- Modale Watchlist (#25) : classe les valeurs suivies par marge de sécurité.
+       Plein écran (même gabarit que Screener/Portefeuille) ; le tableau est trié
+       par le serveur (marge décroissante) et re-triable au clic. -->
+  <div class="modal-overlay" x-show="watchlistOpen" @click.self="closeWatchlist()">
+    <div class="modal modal-watchlist">
+      <div class="idx-head">
+        <h3>Watchlist</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="refreshWatchlist()" :disabled="watchLoading"
+                  title="Relancer le classement">↻</button>
+          <button class="btn small ghost" @click="closeWatchlist()">✕</button>
+        </div>
+      </div>
+
+      <nav class="wl-tiers" aria-label="Tiers de la watchlist">
+        <button type="button" class="wl-tier-btn" :class="{ active: watchTierFilter === null }"
+                @click="setWatchTierFilter(null)">
+          Tous <span class="wl-count" x-text="watchCounts().all"></span>
+        </button>
+        <template x-for="t in watchTierList()" :key="t.id">
+          <button type="button" class="wl-tier-btn" :class="{ active: watchTierFilter === t.id }"
+                  @click="setWatchTierFilter(t.id)" :title="t.hint">
+            <span x-text="t.label"></span>
+            <span class="wl-count" x-text="watchCounts()[t.id] || 0"></span>
+          </button>
+        </template>
+        <div class="wl-coverage">
+          <span x-text="'Prix justes définis : ' + watchCoverage().defined + '/' + watchCoverage().total"></span>
+          <label class="wl-hide-fallback">
+            <input type="checkbox" x-model="watchHideFallback" /> masquer sans prix juste
+          </label>
+          <span class="wl-generated" x-text="watchGeneratedLabel()"></span>
+        </div>
+      </nav>
+
+      <p class="idx-hint" x-show="watchError" style="color:var(--bad)" x-text="watchError"></p>
+      <p class="idx-hint" x-show="watchLoading" style="color:var(--accent)">
+        <span x-text="watchRows.length ? 'Nouveau classement…' : 'Analyse de ' + watchCounts().all + ' valeur(s)…'"></span>
+      </p>
+
+      <div class="idx-list" x-show="watchRows.length">
+        <div class="screen-table-wrap">
+          <table class="cell-table screen-table wl-table">
+            <thead>
+              <tr>
+                <th class="screen-col-anchor" title="Entreprise">Entreprise</th>
+                <th :class="watchSortClass('tier')" @click="toggleWatchSort('tier')" title="Trier par tier">Tier</th>
+                <th :class="watchSortClass('price')" @click="toggleWatchSort('price')" title="Trier par cours">Cours</th>
+                <th :class="watchSortClass('fair_price')" @click="toggleWatchSort('fair_price')" title="Trier par prix juste">Prix juste</th>
+                <th :class="watchSortClass('safety_margin_pct')" @click="toggleWatchSort('safety_margin_pct')"
+                    title="Trier par marge de sécurité">Marge sécurité</th>
+                <th :class="watchSortClass('z')" @click="toggleWatchSort('z')" title="Trier par position σ">Position σ</th>
+                <th :class="watchSortClass('trend_gap_pct')" @click="toggleWatchSort('trend_gap_pct')"
+                    title="Trier par écart à la droite">Écart à la droite</th>
+                <th :class="watchSortClass('pot_5y_pct')" @click="toggleWatchSort('pot_5y_pct')"
+                    title="Trier par potentiel 5 ans">Pot. 5A</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="r in watchRowsSorted()" :key="r.ticker">
+                <tr @click="openWatchRow(r)" :class="{ 'row-error': r.error }" :title="watchRowTitle(r)">
+                  <td class="cell-val screen-col-anchor">
+                    <span class="screen-ticker" x-text="r.ticker"></span>
+                    <span class="screen-name" x-text="r.name || '—'"></span>
+                  </td>
+                  <td class="cell-val" @click.stop>
+                    <select class="wl-tier-select" :value="r.tier"
+                            @change="moveWatchRow(r, $event.target.value)"
+                            :title="'Tier de conviction — ' + (watchTierLabel(r.tier) || '')">
+                      <template x-for="t in watchTierList()" :key="t.id">
+                        <option :value="t.id" x-text="t.label"></option>
+                      </template>
+                    </select>
+                  </td>
+                  <td class="cell-val" x-text="fmt(r.price)"></td>
+                  <td class="cell-val">
+                    <div class="wl-cell-stack">
+                      <span x-text="r.fair_price == null ? '—' : fmt(r.fair_price)"></span>
+                      <span class="wl-src" :class="'wl-src-' + (r.fair_price_source || 'none')"
+                            x-text="watchSourceLabel(r)"></span>
+                      <span class="wl-hint" x-show="r.target_yield != null"
+                            x-text="'objectif ' + fmt(r.target_yield) + ' %/an'"></span>
+                    </div>
+                  </td>
+                  <td class="cell-val" :class="polarity(r.margin_good)">
+                    <div class="wl-cell-stack">
+                      <b x-text="watchPct(r.safety_margin_pct)"></b>
+                      <span class="wl-hint" x-text="r.ref_is_default ? '20 ans (défaut)' : 'depuis ' + (r.ref_start || '').slice(0, 4)"></span>
+                    </div>
+                  </td>
+                  <td class="cell-val" :class="polarity(scored(r.z, 'distance').good)">
+                    <div class="wl-cell-stack">
+                      <span x-text="r.z == null ? '—' : fmt(r.z) + ' σ'"></span>
+                      <span class="wl-hint" x-text="scored(r.z, 'distance').label || ''"></span>
+                    </div>
+                  </td>
+                  <td class="cell-val" :class="polarity(r.trend_gap_pct == null ? null : r.trend_gap_pct > 0)">
+                    <div class="wl-cell-stack">
+                      <span x-text="watchPct(r.trend_gap_pct)"></span>
+                      <span class="wl-hint" x-text="r.ecart_type_pct == null ? '' : 'σ ' + fmt(r.ecart_type_pct) + ' %'"></span>
+                    </div>
+                  </td>
+                  <td class="cell-val" x-text="watchPct(r.pot_5y_pct)"></td>
+                  <td class="idx-actions">
+                    <span class="chip warn" x-show="r.error" :title="r.error" x-text="'⚠'"></span>
+                    <button class="btn small ghost" @click.stop="removeWatchRow(r)" title="Retirer de la watchlist">✕</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="wl-empty" x-show="!watchLoading && !watchRows.length">
+        <p>Ta watchlist est vide.</p>
+        <p class="wl-hint">Ouvre une fiche et clique l’étoile pour choisir un tier de conviction.</p>
+      </div>
+      <div class="wl-empty" x-show="!watchLoading && watchRows.length && !watchRowsSorted().length">
+        <p>Aucune valeur pour ce filtre.</p>
+      </div>
+
+      <p class="wl-legend">
+        Marge = (prix juste − cours) / prix juste, contre l’objectif enregistré
+        (badge <b>calc</b>) ou, à défaut, la droite de référence (badge <b>droite</b>).
+        Position σ = écart à la droite en écarts-types ; Écart = (droite − cours) / droite.
+        Ces deux lectures historiques sont calculées sur les <b>prix bruts</b> et sur la
+        fenêtre de référence du titre (20 ans par défaut). Sans prix juste enregistré,
+        la marge coïncide avec l’écart à la droite.
+      </p>
     </div>
   </div>
 

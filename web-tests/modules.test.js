@@ -19,6 +19,7 @@ import { dividendMixin } from "../src/obole/web/dividend.js";
 import { valorisationMixin } from "../src/obole/web/valorisation.js";
 import { thesisMixin } from "../src/obole/web/thesis.js";
 import { checkpointsMixin } from "../src/obole/web/suivi.js";
+import { watchlistMixin } from "../src/obole/web/watchlist.js";
 import { obole } from "../src/obole/web/app.js";
 
 // #04 : découpage du front en modules ES natifs. Ce test verrouille la
@@ -44,6 +45,7 @@ const MIXINS = {
   "valorisation.js": valorisationMixin,
   "thesis.js": thesisMixin,
   "suivi.js": checkpointsMixin,
+  "watchlist.js": watchlistMixin,
 };
 
 describe("découpage du front (modules ES)", () => {
