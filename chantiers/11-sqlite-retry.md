@@ -61,5 +61,13 @@ analyse.
 approuvée au tour 2. **Implémenté :** retry au niveau de la connexion
 (`execute`/`executemany`/`executescript`), constantes `SQLITE_WRITE_RETRIES` (3) et
 `SQLITE_WRITE_BACKOFF_S`, trois tests (`tests/test_cache_retry.py`). **Vérifié :** 1 179 tests
-hors réseau, 579 tests front, lint et types verts. **Reste :** relire la PR draft, fusionner sur
-`main`, puis passer le statut de l'index à « fait ».
+hors réseau, 579 tests front, lint et types verts.
+
+**CI :** `backend` et `frontend` verts. Le job `e2e` est rouge pour une cause **préexistante et
+sans rapport** avec ce chantier : quatre tests WebKit de géométrie Plotly (readout de repos,
+donut centré, largeur du graphe étalé) échouent déjà sur `main` avant ce chantier et passent en
+local ; ils mesurent la géométrie avant que Plotly ait fini sa mise en page. Au passage, le test
+de cohérence documentaire échouait en CI parce qu'il supposait un historique git complet (clone
+superficiel de GitHub Actions) : corrigé sur `main`, hors de ce chantier.
+
+**Reste :** relire la PR draft, fusionner sur `main`, puis passer le statut de l'index à « fait ».
