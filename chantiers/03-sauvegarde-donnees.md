@@ -1,7 +1,7 @@
 # #03 — Sauvegarde des données utilisateur
 
 > **Statut :** **fait** · **Priorité :** 🔴 Q1 (urgent + important — cas (b) irréversible)
-> **Impact Pernod :** 🟢 · **Branche (mergée) :** `feat/user-data-backup` · **Taille :** ~1-2 sessions
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/user-data-backup` · **Taille :** ~1-2 sessions
 > **Dépend de :** #02 (versioning du schéma)
 
 ---
@@ -144,5 +144,4 @@ base vide → le test échoue. La transaction est donc bien porteuse, le test n'
 
 Le chantier a d'abord cohabité avec #01 sur une branche commune (les deux ayant été développés dans
 la même session). Il a été **scindé proprement** : #03 sur `feat/user-data-backup`, #01 sur
-`feat/observability`, chacune mergée séparément sur `main` (deux commits distincts, conformes à la
-convention « un chantier par branche »).
+`feat/observability` — un chantier par branche.

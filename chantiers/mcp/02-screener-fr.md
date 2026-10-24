@@ -1,7 +1,7 @@
 # #09.2 — MCP · Screener FR (`screen_french_stocks`)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟢 · **Branche :** `feat/mcp-screener` · **Taille :** ~1 session
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/mcp-screener` · **Taille :** ~1 session
 > **Fiche parente :** #09 (MCP — surface IA) · **Précédent :** `mcp/01-outils-lecture.md`
 > **Dépend de :** le screener web (fiche `chantiers/screener.md`, J0–J5 déjà validés)
 

@@ -1,7 +1,7 @@
 # #14 — Score composite du screener (classement par compromis)
 
 > **Statut :** fait · **Priorité :** 🔵 Q3 · **Impact Pernod :** 🟠
-> **Branche (mergée) :** `feat/screener-score` · **Taille :** 1 session
+> **Branche (historique) :** `feat/screener-score` · **Taille :** 1 session
 > **Fiche parente :** `chantiers/13-screener-ux.md` (l'UX du screener ; ici, le classement)
 
 ---

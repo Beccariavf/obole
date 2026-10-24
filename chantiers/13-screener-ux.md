@@ -1,7 +1,7 @@
 # #13 — UX du screener (doublon capi, plein écran, filtres repliables, ancre de ligne)
 
 > **Statut :** fait · **Priorité :** 🔵 Q3 (urgent, pas important — confort d'un outil qui marche)
-> **Impact Pernod :** 🟢 · **Branche (mergée) :** `feat/screener-ux` · **Taille :** ~1 session
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/screener-ux` · **Taille :** ~1 session
 > **Fiche parente :** `chantiers/screener.md` (le screener lui-même ; ici, uniquement l'UX)
 
 ---

@@ -1,7 +1,7 @@
 # #17.1 — Portefeuille · Résumé (TWR vs benchmark, top/flop)
 
 > **Statut :** **fait** (J1) · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/portefeuille-resume` · **Taille :** ~1 session
+> **Branche (historique) :** `feat/portefeuille-resume` · **Taille :** ~1 session
 > **Fiche parente :** #17 · **Précédent :** `00-socle.md` · **Suivant :** `02-positions.md`
 
 ---

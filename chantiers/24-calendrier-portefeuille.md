@@ -1,7 +1,7 @@
 # #24 — Calendrier du portefeuille en séances de marché + contexte unique
 
 > **Statut :** fait · **Priorité :** 🔴 Urgent (blocage : graphes faux) · **Impact Pernod :** 🟠
-> **Branche :** `fix/portefeuille-calendrier` · **Taille :** ~2 sessions
+> **Branche (historique) :** `fix/portefeuille-calendrier` · **Taille :** ~2 sessions
 > **Fiche parente :** [portefeuille/04-performance.md](portefeuille/04-performance.md)
 
 ---
@@ -88,7 +88,8 @@ trois sections.
   test de régression tz-aware ajouté (`test_tz_aware_series_are_aligned_not_dropped`).
 - [x] **C4** `_pfSummarySeq`/`_pfRiskSeq` + test Vitest (réponses inversées → la dernière gagne).
 - [x] **C5** `ruff`, `mypy`, `pytest -m "not network"`, `npm test` verts.
-- [ ] **C5bis** calibration réseau Pernod (`z = −3.81`) — à rejouer (`pytest -m network`).
+- [x] **C5bis** calibration réseau Pernod (`z = −3.81`) — rejouée le 24/10/2026 : `pytest -m network`
+      → 5 passed.
 
 ## 6. Invariants préservés
 
@@ -107,8 +108,8 @@ trois sections.
 
 ## 8. Note de reprise
 
-Chantier livré sur `fix/portefeuille-calendrier`. Reste à faire avant merge : rejouer le test
-réseau (`pytest -m network`, Pernod `z = −3.81`) — vert à la clôture.
+Chantier livré. Le test réseau (`pytest -m network`, Pernod `z = −3.81`) a été rejoué et **vert**
+le 24/10/2026 (5 passed) — la réserve « reste à faire avant merge » est levée.
 
 **Revue de code (9 findings)** : 8 résolus, 1 écarté hors périmètre.
 - `correlation_test` tz-aware (via `_align`) + test de régression.

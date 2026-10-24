@@ -1,6 +1,6 @@
 # #16 — Refonte de la fiche entreprise (rail de sections)
 
-> **Statut :** en cours · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Statut :** **fait** (Étapes 0 → 7 ; la section Finance est livrée via #22/#23) · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
 > **Impact Pernod :** 🟠 · **Branche proposée :** `feat/refonte-fiche` · **Taille :** 7 étapes
 > **Cadrage amont :** `amélioration/docs/product/prd.md` (non versionné)
 
@@ -138,14 +138,14 @@ section (`#RI.PA/quantitatif`).
 ## 7. Jalons
 
 - **J1 — Étape 0 : coquille.** Rail + section unique + deep-link + répartition des cartes.
-  ✅ fait (branche `feat/refonte-fiche`).
-- **J2 — Étape 1 : organisation.** Vérifier la répartition, ajuster les titres de blocs.
-- **J3 — Étape 2 : Résumé.** Grille de synthèse fondamentale ✅ fait
-  (branche `feat/resume-fiche`) — 9 cartes initialement, ramenées à **8** par la revue UX
-  (CA+EPS fusionnés en carte matrice « Croissance », KPI Qualité retiré).
+  ✅ fait.
+- **J2 — Étape 1 : organisation.** Vérifier la répartition, ajuster les titres de blocs. ✅ fait.
+- **J3 — Étape 2 : Résumé.** Grille de synthèse fondamentale ✅ fait — 9 cartes initialement,
+  ramenées à **8** par la revue UX (CA+EPS fusionnés en carte matrice « Croissance », KPI Qualité
+  retiré).
 - **J4 → J8 — Étapes 3 → 7.** Une section par étape, dans l'ordre : Quantitatif,
-  Dividende, Finance *(plus tard)*, Thèse & Société, Valorisation. Chaque étape : prototype HTML
-  validé puis implémentation.
+  Dividende, Finance, Thèse & Société, Valorisation. ✅ toutes faites — Quantitatif (#18),
+  Dividende (#19), Finance (#22/#23), Thèse & Société (#21), Valorisation (#20).
 
 ## 8. Note de reprise
 
@@ -194,8 +194,8 @@ le tracer → `scheduleRedraw()` attend que les conteneurs `.mini-chart` existen
 unique ne suffit pas, Alpine flush après). (2) `render_index` est `lru_cache` : après une
 modification de `index.html`, il faut **redémarrer le serveur** (pas de `--reload`).
 
-**Prochaine action.** Étape 3 : section **Quantitatif** (graphiques d'évolution — CA, bénéfice,
-FCF, marges, rentabilités), d'après `amélioration/docs/specifications/quantitative-analysis.md`.
+**Prochaine action.** Aucune — chantier clos. Les étapes 3 → 7 sont livrées par #18 (Quantitatif),
+#19 (Dividende), #22/#23 (Finance), #21 (Thèse & Société) et #20 (Valorisation).
 
 **Prototype.** `amélioration/prototypes/coquille.html` (non versionné) : coquille statique pour
 valider l'ordre et le rendu du rail avant implémentation.

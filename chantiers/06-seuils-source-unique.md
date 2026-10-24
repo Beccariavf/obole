@@ -1,7 +1,7 @@
 # #06 — Source unique des seuils (`/api/meta`)
 
 > **Statut :** fait · **Priorité :** 🔵 Q3 (urgent, pas important — à expédier)
-> **Impact Pernod :** 🟠 · **Branche (mergée) :** `refactor/seuils-source-unique` · **Taille :** ~1 session
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `refactor/seuils-source-unique` · **Taille :** ~1 session
 
 ---
 
@@ -68,4 +68,4 @@ littéral. **Tout le payload `/api/meta` est consommé** (`corr_min_points` → 
 `potential_horizons` → `computeLive`), plus aucun champ mort. Défensif si `/api/meta` échoue
 (`classify` renvoie null, `load()`/`loadIndex()` affichent une erreur explicite). Suite backend
 verte (`pytest -m "not network" -q`), tests front verts, e2e verts, `ruff` + `mypy` verts.
-Reste : commit + merge `--no-ff`.
+Clos : travail intégré sur `main`.

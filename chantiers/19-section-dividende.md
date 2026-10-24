@@ -1,7 +1,7 @@
 # #19 — Fiche entreprise : section Dividende
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche :** `feat/dividende-fiche` · **Taille :** ~1 session
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `feat/dividende-fiche` · **Taille :** ~1 session
 > **Fiche parente :** #16 (refonte fiche) — étape 4 « Dividende ».
 > **Précédent :** #18 (Quantitatif, même patron de taxonomie).
 
@@ -215,7 +215,7 @@ roulant (~21 % en mai 2023) vient de la fenêtre 12 mois capturant deux versemen
 exceptionnels + une année de rachats — comportement de la méthode roulante, pas un
 artefact du correctif.
 
-**Prochaine action.** Rien — chantier prêt à fusionner (CI verte).
+**Prochaine action.** Aucune — chantier clos.
 
 ## 9. Revue de code (correctifs)
 

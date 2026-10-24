@@ -1,7 +1,7 @@
 # #20 — Fiche entreprise : section Valorisation (calculatrice de prix juste)
 
-> **Statut :** en cours · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche :** `feat/valorisation-fiche` · **Taille :** ~1 session
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `feat/valorisation-fiche` · **Taille :** ~1 session
 > **Fiche parente :** #16 (refonte fiche) — étape 7 « Valorisation ».
 > **Précédents :** #18 (Quantitatif), #19 (Dividende) — même patron de taxonomie.
 
@@ -194,7 +194,7 @@ du DOM (carte héro du Résumé, masquée → largeur 0, assertion vide de sens)
 maintenant la section RÉELLEMENT visible (`getBoundingClientRect().width > 0`, hors breakout) et
 exige une largeur > 0 — le test mord vraiment.
 
-**Prochaine action.** Rien — chantier prêt à fusionner (CI verte).
+**Prochaine action.** Aucune — chantier clos.
 
 **Polish design (2e passe).** (1) **Boutons d'action en icônes** : Enregistrer/Télécharger/
 Réinitialiser passent en boutons carrés 34px SANS emoji (SVG inline monochrome `currentColor`,

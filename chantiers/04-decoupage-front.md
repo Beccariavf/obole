@@ -1,7 +1,7 @@
 # #04 — Découpage du front (modules ES natifs)
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche (mergée) :** `refactor/front-modules` · **Taille :** ~2-3 sessions
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `refactor/front-modules` · **Taille :** ~2-3 sessions
 
 ---
 
@@ -69,5 +69,5 @@ graphe), et tester unitairement chaque domaine isolément.
 `thresholds.js` (maths + seuils /api/meta, 116), `theme.js`, `util.js`. `index.html` charge
 `app.js` en `type="module"`. Tests front verts (dont `modules.test.js`), e2e verts,
 suite backend verte (`pytest -m "not network" -q`), `ruff`/`mypy` verts. Déplacement **verbatim**
-(aucune réécriture de logique) : seule adaptation = `fetch` → `api.*`. Reste : commit + merge
-`--no-ff`.
+(aucune réécriture de logique) : seule adaptation = `fetch` → `api.*`.
+Clos : travail intégré sur `main`.

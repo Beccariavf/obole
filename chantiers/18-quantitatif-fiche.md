@@ -1,7 +1,7 @@
 # #18 — Fiche entreprise : section Quantitatif, comparateur & lisibilité
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 (cas (c) évolutivité) · **Impact Pernod :** 🟠
-> **Branche :** `feat/quantitatif-fiche` · **Taille :** ~1 session
+> **Branche (historique) :** `feat/quantitatif-fiche` · **Taille :** ~1 session
 > **Fiche parente :** #16 (refonte fiche) — étape 3 « Quantitatif », jamais raffinée.
 > **Maquette :** `amélioration/prototypes/quantitatif.html` (hors dépôt, gitignoré) — hiérarchie,
 > pastilles de dernière valeur, puce « N ans », état vide, comparateur base 100 validés avant code.
@@ -115,4 +115,4 @@ cette branche (appartient à `feat/portefeuille`).
 finales produites par `ruff format` sur les objets multilignes. (2) Un cache comptes 7 j peut
 servir une table sans les nouvelles métriques : `POST /api/refresh/<ticker>` pour tester.
 
-**Prochaine action.** Rien — chantier prêt à fusionner (CI verte).
+**Prochaine action.** Aucune — chantier clos.

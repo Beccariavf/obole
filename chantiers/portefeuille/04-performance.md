@@ -1,7 +1,7 @@
 # #17.4 — Portefeuille · Performance (stats, mensuels, points d'entrée/sortie)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟠 (marqueurs sur le graphe héro)
-> **Branche :** `feat/portefeuille-performance` · **Taille :** ~3 sessions
+> **Branche (historique) :** `feat/portefeuille-performance` · **Taille :** ~3 sessions
 > **Fiche parente :** #17 · **Précédent :** `03-risque.md` · **Suivant :** `05-dividendes.md`
 
 ---
@@ -167,7 +167,7 @@ benchmark.
 `PORTFOLIO_STAT_GROUPS`/`portfolio_months` exposés ; `weighted_mean` remonté avant
 `aggregate_statistics`.
 
-**Correctifs post-vérif live (`a7775fd`)** — la route renvoyait un 500 sur données réelles,
+**Correctifs post-vérif live** — la route renvoyait un 500 sur données réelles,
 que les mocks masquaient :
 
 - **500** : `services/portfolio._perf_line_metrics` lisait `ind.perf_passe` (inexistant) au lieu

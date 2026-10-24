@@ -1,7 +1,7 @@
 # #08 — Renforcer le garde-fou Pernod (5 mesures)
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 (important, non urgent — cas (a) justesse)
-> **Impact Pernod :** 🟢 · **Branche (mergée) :** `test/gardefou-pernod` · **Taille :** ~20 min
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `test/gardefou-pernod` · **Taille :** ~20 min
 
 ---
 

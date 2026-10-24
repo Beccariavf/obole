@@ -1,7 +1,7 @@
 # #23 — Import CSV robuste + staging piloté par l'IA
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/import-csv-ia` · **Taille :** ~2 sessions
+> **Branche (historique) :** `feat/import-csv-ia` · **Taille :** ~2 sessions
 > **Fiche parente :** — (prolonge #22)
 
 ---
@@ -104,7 +104,7 @@ retirer).
 
 ## 8. Note de reprise
 
-**Livré, prêt à fusionner.** Tous les jalons sur `feat/import-csv-ia`.
+**Livré.** Tous les jalons sont sur `main`.
 
 ### Décisions
 

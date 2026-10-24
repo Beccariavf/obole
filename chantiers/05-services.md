@@ -1,7 +1,7 @@
 # #05 — Extraire une couche `services/` (rendre `engine/` pur)
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche (mergée) :** `refactor/services-layer` · **Taille :** ~1-2 sessions
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `refactor/services-layer` · **Taille :** ~1-2 sessions
 
 ---
 

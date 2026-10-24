@@ -45,6 +45,10 @@ cd web-tests && npm ci
 4. **Vérifiez localement** avant de pousser (voir ci-dessous). Une branche rouge ne sera pas fusionnée.
 5. **Merge `--no-ff`** — pas de squash : l'historique garde la trace des regroupements.
 
+> **Note.** L'historique de ce dépôt a été aplati : la règle `--no-ff` ci-dessus ne vaut que pour
+> le travail à venir. Traçabilité (SHA, décomptes de commits, branches historiques) :
+> cf. `CLAUDE.md` §Workflow git.
+
 ## Vérifications obligatoires
 
 ```bash
