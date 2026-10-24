@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from obole import config
 from obole.observability import get_logger, safe_label
@@ -372,12 +372,70 @@ def _migrate(conn: sqlite3.Connection) -> None:
         raise
 
 
+T = TypeVar("T")
+
+
+def _backoff(attempt: int) -> None:
+    """Attente entre deux tentatives d'écriture.
+
+    Isolée dans une fonction pour que les tests puissent la neutraliser (et
+    relâcher un verrou simulé) sans attendre réellement.
+    """
+    time.sleep(config.SQLITE_WRITE_BACKOFF_S * attempt)
+
+
+def _retry_locked(operation: Callable[[], T]) -> T:
+    """Rejoue une opération bloquée par un verrou SQLite temporaire.
+
+    SQLite lève `OperationalError: database is locked` quand `busy_timeout`
+    expire. On rejoue l'instruction avec un back-off linéaire ; un verrou
+    permanent finit par remonter l'erreur après `config.SQLITE_WRITE_RETRIES`
+    tentatives (pas de boucle infinie). Toute autre erreur remonte aussitôt.
+    """
+    for attempt in range(config.SQLITE_WRITE_RETRIES):
+        try:
+            return operation()
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or attempt == config.SQLITE_WRITE_RETRIES - 1:
+                raise
+            _backoff(attempt + 1)
+    raise AssertionError("retry épuisé sans erreur")  # pragma: no cover - inatteignable
+
+
+class _LockRetryingConnection(sqlite3.Connection):
+    """Connexion qui retente une instruction bloquée par un verrou temporaire.
+
+    Le retry vit au niveau des méthodes d'exécution : toutes les écritures de ce
+    module passent par là (y compris `BEGIN IMMEDIATE` / `COMMIT` des migrations),
+    sans décorer une à une la trentaine de fonctions d'écriture.
+
+    Le `commit` implicite du `with _conn()` n'est pas retenté : en WAL, le verrou
+    d'écriture est acquis dès la première instruction, donc un `COMMIT` bloqué
+    n'est pas le cas réaliste.
+    """
+
+    def execute(self, sql: str, parameters: Any = (), /) -> sqlite3.Cursor:
+        return _retry_locked(lambda: super(_LockRetryingConnection, self).execute(sql, parameters))
+
+    def executemany(self, sql: str, seq_of_parameters: Any, /) -> sqlite3.Cursor:
+        return _retry_locked(
+            lambda: super(_LockRetryingConnection, self).executemany(sql, seq_of_parameters)
+        )
+
+    def executescript(self, sql_script: str, /) -> sqlite3.Cursor:
+        return _retry_locked(lambda: super(_LockRetryingConnection, self).executescript(sql_script))
+
+
 def _conn() -> sqlite3.Connection:
     # Le dossier de données peut ne pas exister au premier lancement d'une
     # installation fraîche (pipx/pip) : on le crée, sinon SQLite échoue avec
     # « unable to open database file ».
     Path(config.CACHE_DB).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.CACHE_DB, timeout=config.SQLITE_BUSY_TIMEOUT)
+    conn = sqlite3.connect(
+        config.CACHE_DB,
+        timeout=config.SQLITE_BUSY_TIMEOUT,
+        factory=_LockRetryingConnection,
+    )
     # `busy_timeout` d'abord sur la connexion : attend sous contention plutôt
     # que lever `database is locked` (essentiel quand plusieurs threads écrivent).
     conn.execute(f"PRAGMA busy_timeout={config.SQLITE_BUSY_TIMEOUT}")
