@@ -144,6 +144,10 @@ idée → fiche créée depuis _gabarit.md + ligne dans l'index (statut : à fai
 **En fin de session**, toujours : mettre à jour le **statut** dans l'index et la **note de reprise**
 dans la fiche. C'est ce qui permet de reprendre trois semaines plus tard sans rien réexpliquer.
 
+**Plan d'exécution.** Quand un chantier est planifié, son plan vit dans
+`aidd_docs/tasks/<yyyy_mm>/<yyyy_mm_dd>_<slug>/` (format AIDD : `plan.md`, phases, revue). La fiche
+reste la **spec** et porte en §8 le chemin du plan et la branche ; l'index garde le statut produit.
+
 **Traçabilité.** Les branches citées dans les fiches sont annotées « Branche (historique) » quand
 le travail est clos. Ne jamais citer de SHA ni figer un décompte de commits : décrire le jalon.
 Détail et justification : cf. `CLAUDE.md` §Workflow git.
