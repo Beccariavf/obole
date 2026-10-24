@@ -1,7 +1,7 @@
 # #11 — Retry SQLite sur `database is locked`
 
-> **Statut :** à faire · **Priorité :** 🔵 Q3 (urgent, pas important — à expédier)
-> **Impact Pernod :** 🟢 · **Branche proposée :** `fix/sqlite-retry` · **Taille :** ~½ session
+> **Statut :** en cours — revue approuvée, PR draft à relire · **Priorité :** 🔵 Q3 (urgent, pas important — à expédier)
+> **Impact Pernod :** 🟢 · **Branche :** `fix/sqlite-retry` · **Taille :** ~½ session
 
 ---
 
@@ -38,11 +38,11 @@ analyse.
 
 ## 5. Critères d'acceptation
 
-- [ ] Les écritures retentent sur `database is locked`
-- [ ] Les constantes de retry sont dans `config.py`
-- [ ] Test : verrou temporaire → succès après retry
-- [ ] Test : verrou permanent → erreur remontée, pas de blocage
-- [ ] La suite hors réseau reste verte (`pytest -m "not network" -q`)
+- [x] Les écritures retentent sur `database is locked`
+- [x] Les constantes de retry sont dans `config.py`
+- [x] Test : verrou temporaire → succès après retry
+- [x] Test : verrou permanent → erreur remontée, pas de blocage
+- [x] La suite hors réseau reste verte (`pytest -m "not network" -q`)
 
 ## 6. Invariants préservés
 
@@ -57,4 +57,9 @@ analyse.
 
 ## 8. Note de reprise
 
-_(vide — chantier non commencé)_
+**Plan :** `aidd_docs/tasks/2026_10/2026_10_24_sqlite-retry/` — `plan.md` `reviewed`, revue
+approuvée au tour 2. **Implémenté :** retry au niveau de la connexion
+(`execute`/`executemany`/`executescript`), constantes `SQLITE_WRITE_RETRIES` (3) et
+`SQLITE_WRITE_BACKOFF_S`, trois tests (`tests/test_cache_retry.py`). **Vérifié :** 1 179 tests
+hors réseau, 579 tests front, lint et types verts. **Reste :** relire la PR draft, fusionner sur
+`main`, puis passer le statut de l'index à « fait ».

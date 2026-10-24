@@ -43,6 +43,9 @@ flowchart LR
   avec un timestamp.
 - TTL : prix 1 jour, comptes et identité 7 jours, absence de comptes 6 heures (cache
   négatif), recherche 1 jour.
+- Écritures : retry borné sur `database is locked` (`config.SQLITE_WRITE_RETRIES`,
+  back-off linéaire) — un verrou temporaire ne fait pas échouer une analyse ; un verrou
+  permanent remonte après un nombre borné de tentatives.
 - `OBOLE_CACHE_DB` redirige la base (tests, e2e) ; `OBOLE_DATA_DIR` déplace les données
   utilisateur hors du paquet installé.
 - Le schéma est versionné par `config.SCHEMA_VERSION` et des migrations dans

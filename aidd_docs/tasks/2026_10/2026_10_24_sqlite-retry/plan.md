@@ -1,6 +1,6 @@
 ---
 objective: "Une écriture SQLite concurrente ne doit plus échouer sur un verrou temporaire, et un verrou permanent doit remonter une erreur claire après un nombre borné de tentatives."
-status: implemented
+status: reviewed
 ---
 
 # Plan: Retry SQLite sur `database is locked`
@@ -24,5 +24,5 @@ status: implemented
 | Decision | Why |
 | --- | --- |
 | Retry au niveau de `Connection.execute` | couvre toutes les écritures (une trentaine de fonctions) sans les décorer une à une ; `BEGIN IMMEDIATE` et `COMMIT` des migrations passent aussi par là |
-| Back-off linéaire borné, constantes dans `config.py` | pas de nombre magique ; un verrou permanent échoue en moins d'une seconde |
+| Back-off linéaire borné, constantes dans `config.py` | pas de nombre magique ; un verrou permanent échoue après 3 tentatives (≈ 15 s au pire, dominé par `busy_timeout` 5 s) |
 | Aucun changement du modèle de concurrence | le `ThreadPoolExecutor` du screener reste ; on amortit seulement le verrou |

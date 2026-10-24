@@ -69,7 +69,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 08 | Renforcer le garde-fou Pernod (5 mesures) | 🟡 Q2 | 🟢 | 20 min | **fait** | [→](chantiers/08-gardefou-pernod.md) |
 | 09 | **MCP — surface IA** (projet PRD §12) | 🟡 Q2 | 🟢 | 3 jalons + extensions | **fait** (09.0 → 09.4 ✅) | [→](chantiers/09-mcp.md) |
 | 10 | Consolidation documentaire (source unique de la doc) | 🟡 Q2 | 🟢 | 1-2 sessions | à faire | [→](chantiers/10-consolidation-doc.md) |
-| 11 | Retry SQLite sur `database is locked` | 🔵 Q3 | 🟢 | ½ session | à faire | [→](chantiers/11-sqlite-retry.md) |
+| 11 | Retry SQLite sur `database is locked` | 🔵 Q3 | 🟢 | ½ session | en cours — PR draft | [→](chantiers/11-sqlite-retry.md) |
 | 12 | Cache `pickle` → format inspectable | ⚪ Q4 | 🟢 | 1 session | **abandonné** | [→](chantiers/12-pickle-q4.md) |
 | 13 | UX du screener (capi, plein écran, filtres, ancre) | 🔵 Q3 | 🟢 | 1 session | **fait** | [→](chantiers/13-screener-ux.md) |
 | 14 | Score composite du screener (classement par compromis) | 🔵 Q3 | 🟠 | 1 session | **fait** | [→](chantiers/14-screener-score.md) |
