@@ -1,7 +1,7 @@
 # #09.3 — MCP · Thèse d'entreprise (`write_thesis` + persistance)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟢 · **Branche :** `feat/mcp-these` · **Taille :** ~1 session
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/mcp-these` · **Taille :** ~1 session
 > **Fiche parente :** #09 (MCP — surface IA) · **Précédent :** `mcp/02-screener-fr.md`
 
 ---
@@ -62,7 +62,7 @@ lister, relire et supprimer.
 
 ## 8. Note de reprise
 
-**Livré (mergé sur `main`).** Jalon 09.3 complet, réancré sur le code réel (existant) :
+**Livré.** Jalon 09.3 complet, réancré sur le code réel (existant) :
 
 - **Schéma 3 → 4** : `config.SCHEMA_VERSION = 4`, `_migrate_3_to_4` (`data/cache.py`) créant
   `theses(id, ticker UNIQUE, content, created_at, updated_at)`. Accesseurs `get/list/save/delete_thesis`

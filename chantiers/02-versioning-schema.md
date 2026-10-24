@@ -1,7 +1,7 @@
 # #02 — Versioning du schéma SQLite
 
-> **Statut :** **fait** (branche `feat/schema-versioning`) · **Priorité :** 🟡 Q2 (importante, non urgente — cas (c) évolutivité)
-> **Impact Pernod :** 🟢 · **Branche (mergée) :** `feat/schema-versioning` · **Taille :** ~½ session
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 (importante, non urgente — cas (c) évolutivité)
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/schema-versioning` · **Taille :** ~½ session
 > **Prérequis de :** #03 (sauvegarde)
 
 ---

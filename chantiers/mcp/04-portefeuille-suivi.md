@@ -1,7 +1,7 @@
 # #09.4 — MCP · Portefeuille (MCP-B) et points de contrôle suivis
 
-> **Statut :** **fait** (mergé sur `main`) · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟢 · **Branche :** `feat/mcp-portefeuille-suivi` · **Taille :** ~1 session
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/mcp-portefeuille-suivi` · **Taille :** ~1 session
 > **Fiche parente :** #09 (MCP — surface IA) · **Précédent :** `mcp/03-these-entreprise.md`
 
 ---
@@ -94,7 +94,7 @@ navigateur, et sans que le serveur n'analyse aucun document (c'est l'IA qui stru
 
 ## 8. Note de reprise
 
-**Livré (branche `feat/mcp-portefeuille-suivi`, mergée sur `main` en `922380f`).**
+**Livré** (branche `feat/mcp-portefeuille-suivi`).
 
 Décisions :
 
@@ -104,8 +104,8 @@ Décisions :
 - **D4 — discoverabilité du résumé** : les périodes et benchmarks ne sont pas codés en dur dans
   la docstring, ils sont injectés depuis `config.py` (motif `screener.py`), pour rester alignés
   sur la route `GET /api/portfolio/benchmarks` (test de dérive dédié).
-- **D2 — pas de point de départ sur `feat/mcp-payload-lean`** : cette branche est en retard de
-  28 commits et son commit `35d3add` supprime massivement le front (`web/thesis.js`,
+- **D2 — pas de point de départ sur `feat/mcp-payload-lean`** : cette branche était très en
+  retard sur `main` et supprimait massivement le front (`web/thesis.js`,
   `markdown.js`, `suivi.js`, `checkpoints`, `test_checkpoints.py`…) et **restreint `save_thesis`
   aux objets JSON** (fin du markdown) — rupture de parité thèse MCP ↔ API. Écartée.
 - **D3 — état vérifié (déjà couvert)** : la thèse (création + modification) est un **upsert**

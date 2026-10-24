@@ -1,7 +1,7 @@
 # #17.3 — Portefeuille · Risque (drawdown, corrélation)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/portefeuille-risque` (à créer au commit) · **Taille :** ~1 session
+> **Branche :** `feat/portefeuille-risque` · **Taille :** ~1 session
 > **Fiche parente :** #17 · **Précédent :** `02-positions.md` · **Suivant :** `04-performance.md`
 
 ---

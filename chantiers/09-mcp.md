@@ -1,6 +1,6 @@
 # #09 — MCP (surface de pilotage IA)
 
-> **Statut :** en cours (09.0, 09.1, 09.2, 09.3, 09.4 ✅) · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Statut :** **fait** (09.0, 09.1, 09.2, 09.3, 09.4 ✅) · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
 > **Impact Pernod :** 🟢 · **Branche proposée :** `feat/mcp-socle` · **Taille :** 3 jalons + extensions
 > **Fiche parente :** — (chantier racine) · **Dépend de :** #15 (`services/`)
 > **Source :** `PRD.md` §12 (Projet MCP) et §10 (feuille de route, lignes MCP-A → MCP-E)
@@ -102,7 +102,6 @@ nouvelles fonctionnalités** d'Obole, chacun avec sa propre fiche au moment de l
 **MCP-E Monte-Carlo** (sans fiche), et l'**évaluation « attentes vs réalisé »** des thèses
 (schéma `5 → 6`), explicitement reportée comme fonctionnalité ultérieure.
 
-**Historique.** Jalon 09.0 (socle, merge `c626208`) → 09.1 (outils de lecture,
-commit `59c33b7` sur `feat/mcp-lecture`) → 09.2 (screener FR, branche
-`feat/mcp-screener`) → 09.3 (thèse d'entreprise, branche `feat/mcp-these`, mergée sur `main`)
-→ **09.4 (portefeuille MCP-B + points de contrôle, branche `feat/mcp-portefeuille-suivi`)**.
+**Historique.** Jalon 09.0 (socle) → 09.1 (outils de lecture) → 09.2 (screener FR) → 09.3
+(thèse d'entreprise) → **09.4 (portefeuille MCP-B + points de contrôle)**. Seuls les jalons font
+foi : cf. `CLAUDE.md` §Workflow git pour la traçabilité des branches.

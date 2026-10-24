@@ -1,7 +1,7 @@
 # #17 — Portefeuille (positions, risque, performance, dividendes)
 
-> **Statut :** à faire · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 (indirect — J4 touche le graphe héro de la fiche) · **Branche :** `feat/portefeuille` · **Taille :** 6 jalons
+> **Statut :** en cours — J0, J1, J3, J4, J5, J6, J7 ✅ · **J2 (positions) restant** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Impact Pernod :** 🟠 (indirect — J4 touche le graphe héro de la fiche) · **Branche :** `feat/portefeuille` · **Taille :** 7 jalons
 > **Fiche parente :** — (chantier racine) · **Dépend de :** #15 (`services/`), #16 (patron rail)
 > **Cible MCP :** **MCP-B** (`PRD.md` §10, §12.2 famille 2 n°3) — le portefeuille est
 > **acté** au PRD, mais il n'avait **aucune fiche** : c'est celle-ci.
@@ -185,7 +185,7 @@ et critères d'acceptation propres.
   **yield on cost** portefeuille + par ligne, proposition « as-tu reçu ça ? ».
   → fiche `portefeuille/05-dividendes.md`
 
-> **Hors de ces 6 jalons (rattaché au chantier #09).** La **surface MCP-B** (outils d'import et
+> **Hors des 7 jalons (rattaché au chantier #09).** La **surface MCP-B** (outils d'import et
 > de lecture adossés à `services/portfolio.py`) n'est pas développée dans cette branche, mais
 > l'architecture la prépare (§4.5).
 >
@@ -195,7 +195,7 @@ et critères d'acceptation propres.
 
 ## 8. Note de reprise
 
-**État au démarrage (branche `feat/portefeuille` créée depuis `main` propre).** Aucun code écrit.
+**État au démarrage** (`feat/portefeuille` créée depuis `main` propre). Aucun code écrit.
 Les décisions de cadrage sont tranchées :
 
 | Sujet | Décision |
@@ -211,9 +211,9 @@ Les décisions de cadrage sont tranchées :
 **Prochaine action.** J0 : ajouter la migration 1→2 et les 3 tables dans `data/cache.py`, créer
 `data/portfolio.py` (validation) et étendre `data/backup.py`, avec leurs tests.
 
-**Prérequis réglé.** Le travail non commité de `feat/resume-fiche` (étape 2 du #16) a été commité,
-mergé `--no-ff` sur `main` et la branche supprimée — `feat/portefeuille` part donc d'une base
-propre (règle d'or : un chantier par branche).
+**Prérequis réglé.** Le travail non commité de `feat/resume-fiche` (étape 2 du #16) a été commité
+puis intégré sur `main` avant d'ouvrir `feat/portefeuille` — c'est reparti d'une base propre (règle
+d'or : un chantier par branche).
 
 **Mise à jour (après J3 et J6).** Deux jalons livrés depuis :
 
@@ -226,7 +226,7 @@ propre (règle d'or : un chantier par branche).
   drawdown (aire rouge + benchmark) et matrice de corrélation (heatmap divergente triée par
   clustering, adaptative), sur la portée compte/étiquette. Outil MCP `get_portfolio_risk`.
 
-Reste : J2 (Positions), J4 (Performance, seul jalon 🟠 — graphe héro), J5 (Dividendes).
+Reste : **J2 (Positions)** — seul jalon non livré.
 
 **Ordre des onglets (retour utilisateur).** Réordonnés pour la logique de lecture
 **Résumé → Risque → Performance → Dividende → Positions** : les vues d'analyse d'abord, la

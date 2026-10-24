@@ -1,7 +1,7 @@
 # #01 — Observabilité (logs structurés, `/api/health`)
 
-> **Statut :** **fait** (branche `feat/observability`) · **Priorité :** 🟡 Q2 (importante, non urgente — cas (c) évolutivité)
-> **Impact Pernod :** 🟢 · **Branche (mergée) :** `feat/observability` · **Taille :** ~1 session
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 (importante, non urgente — cas (c) évolutivité)
+> **Impact Pernod :** 🟢 · **Branche (historique) :** `feat/observability` · **Taille :** ~1 session
 
 ---
 

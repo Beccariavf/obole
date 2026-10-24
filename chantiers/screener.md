@@ -1,11 +1,9 @@
 # Screener Obole — plan de construction (document de reprise)
 
 > **Priorité :** 🔵 Q3 (urgent, pas important — extension d'un outil qui fonctionne)
-> **Impact Pernod :** 🟠 · **Branche :** `feat/screener-j6` (J6 restant)
+> **Impact Pernod :** 🟠 · **Branche :** `feat/screener-j6` (J6 restant, à créer)
 
-> **Statut :** en cours, branche `feat/screener-j5` (J0–J5 + retour sans re-scan consolidés,
-> via les branches `feat/screener-j3` / `feat/screener-j4` / `feat/screener-retour` /
-> `feat/screener-j5`).
+> **Statut :** en cours — J0–J5 + retour sans re-scan consolidés ; **J6 (extension Europe) restant**.
 > Reprise possible à n'importe quel jalon.
 > Ce fichier est la **mémoire de session** du screener : tout le plan, l'architecture et les
 > critères de validation y sont inscrits pour être repris (et validés) étape par étape.
@@ -256,8 +254,8 @@ Preuve de liaison front↔back.
 
 ## 7. Note de reprise (à la prochaine session)
 
-1. Checkout `feat/screener-j5` (travail consolidé : J0 → J5 + retour sans re-scan),
-   ou repli `feat/screener` puis fusion du jalon.
+1. Le travail consolidé (J0 → J5 + retour sans re-scan) est sur `main` ; repartir d'une branche
+   neuve `feat/screener-j6` pour le jalon restant.
 2. Lire ce fichier : le jalon courant est marqué ci-dessus.
 3. **J0 à J5 + retour sont validés.** J5 (coût & robustesse) : scan **parallèle**
    (`ThreadPoolExecutor`, `config.SCREEN_WORKERS` = 8), cache SQLite **WAL + busy_timeout**

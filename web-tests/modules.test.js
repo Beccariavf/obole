@@ -14,6 +14,7 @@ import { settingsMixin } from "../src/obole/web/settings.js";
 import { sectionsMixin } from "../src/obole/web/sections.js";
 import { summaryMixin } from "../src/obole/web/summary.js";
 import { portfolioMixin } from "../src/obole/web/portfolio.js";
+import { portfolioDividendsMixin } from "../src/obole/web/portfolio-dividends.js";
 import { dividendMixin } from "../src/obole/web/dividend.js";
 import { valorisationMixin } from "../src/obole/web/valorisation.js";
 import { thesisMixin } from "../src/obole/web/thesis.js";
@@ -38,6 +39,7 @@ const MIXINS = {
   "sections.js": sectionsMixin,
   "summary.js": summaryMixin,
   "portfolio.js": portfolioMixin,
+  "portfolio-dividends.js": portfolioDividendsMixin,
   "dividend.js": dividendMixin,
   "valorisation.js": valorisationMixin,
   "thesis.js": thesisMixin,
@@ -84,5 +86,29 @@ describe("découpage du front (modules ES)", () => {
   it("les seuils vivent dans thresholds.js, pas dans app.js", () => {
     const app = readFileSync(join(WEB_DIR, "app.js"), "utf8");
     expect(app).not.toMatch(/DISTANCE_SIGMA_LABELS|RATIO_THRESHOLDS\s*=/);
+  });
+
+  // Anti-dérive : un nouveau module ne doit pas pouvoir apparaître sans être
+  // déclaré ici (un mixin) ou rangé dans les utilitaires ci-dessous. Sans cette
+  // comparaison, `MIXINS` est une liste morte et un module oublié passe muet.
+  it("aucun module du front n'est absent de MIXINS ou des utilitaires", () => {
+    const UTILITAIRES = new Set([
+      "api.js",
+      "markdown.js",
+      "theme.js",
+      "thresholds.js",
+      "util.js",
+    ]);
+    const modules = readdirSync(WEB_DIR).filter(
+      (f) => f.endsWith(".js") && f !== "app.js",
+    );
+    const inconnus = modules.filter((f) => !(f in MIXINS) && !UTILITAIRES.has(f));
+    expect(inconnus, `modules non déclarés : ${inconnus.join(", ")}`).toEqual([]);
+  });
+
+  it("chaque module déclaré dans MIXINS existe sur le disque", () => {
+    const modules = new Set(readdirSync(WEB_DIR).filter((f) => f.endsWith(".js")));
+    const fantomes = Object.keys(MIXINS).filter((f) => !modules.has(f));
+    expect(fantomes, `modules fantômes : ${fantomes.join(", ")}`).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 # #17.6 — Portefeuille · Étiquettes (portefeuilles virtuels)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/portefeuille-tags` (à créer au commit) · **Taille :** 1 session
+> **Branche :** `feat/portefeuille-tags` · **Taille :** 1 session
 > **Fiche parente :** #17 · **Précédent :** `01-resume.md` · **Suivant :** `03-risque.md`
 
 ---

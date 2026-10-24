@@ -67,26 +67,26 @@ chantier est classé selon ce qu'il risque de casser :
 | 06 | Source unique des seuils (`/api/meta`) | 🔵 Q3 | 🟠 | 1 session | **fait** | [→](chantiers/06-seuils-source-unique.md) |
 | 07 | Tests manquants (`data/indices.py`, couverture) | 🔵 Q3 | 🟢 | ½ session | à faire | [→](chantiers/07-tests-manquants.md) |
 | 08 | Renforcer le garde-fou Pernod (5 mesures) | 🟡 Q2 | 🟢 | 20 min | **fait** | [→](chantiers/08-gardefou-pernod.md) |
-| 09 | **MCP — surface IA** (projet PRD §12) | 🟡 Q2 | 🟢 | 3 jalons + extensions | en cours (09.0 → 09.4 ✅) | [→](chantiers/09-mcp.md) |
+| 09 | **MCP — surface IA** (projet PRD §12) | 🟡 Q2 | 🟢 | 3 jalons + extensions | **fait** (09.0 → 09.4 ✅) | [→](chantiers/09-mcp.md) |
 | 10 | Consolidation documentaire (source unique de la doc) | 🟡 Q2 | 🟢 | 1-2 sessions | à faire | [→](chantiers/10-consolidation-doc.md) |
 | 11 | Retry SQLite sur `database is locked` | 🔵 Q3 | 🟢 | ½ session | à faire | [→](chantiers/11-sqlite-retry.md) |
 | 12 | Cache `pickle` → format inspectable | ⚪ Q4 | 🟢 | 1 session | **abandonné** | [→](chantiers/12-pickle-q4.md) |
 | 13 | UX du screener (capi, plein écran, filtres, ancre) | 🔵 Q3 | 🟢 | 1 session | **fait** | [→](chantiers/13-screener-ux.md) |
 | 14 | Score composite du screener (classement par compromis) | 🔵 Q3 | 🟠 | 1 session | **fait** | [→](chantiers/14-screener-score.md) |
 | 15 | Finir `services/` (extraire le cas d'usage screener) | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/15-services-screener.md) |
-| 16 | Refonte de la fiche entreprise (rail de sections) | 🟡 Q2 | 🟠 | 7 étapes | en cours (É2 ✅) | [→](chantiers/16-refonte-fiche.md) |
-| 17 | Portefeuille (positions, risque, performance, dividendes) | 🟡 Q2 | 🟠 | 6 jalons | en cours (J1, J3 ✅ · J6 ✅ · J7 ✅) | [→](chantiers/17-portefeuille.md) |
+| 16 | Refonte de la fiche entreprise (rail de sections) | 🟡 Q2 | 🟠 | 7 étapes | **fait** (É0 → É7 ✅) | [→](chantiers/16-refonte-fiche.md) |
+| 17 | Portefeuille (positions, risque, performance, dividendes) | 🟡 Q2 | 🟠 | 7 jalons | en cours — **J2 (positions) restant**, le reste ✅ | [→](chantiers/17-portefeuille.md) |
 | 18 | Quantitatif : cartes, axe honnête, comparateur | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/18-quantitatif-fiche.md) |
 | 19 | Section Dividende (rendements continus, zoom) | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/19-section-dividende.md) |
 | 20 | Section Valorisation (calculatrice de prix juste) | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/20-valorisation-fiche.md) |
 | 21 | **Thèse & Société** (document markdown + profil société) | 🟡 Q2 | 🟠 | 7 jalons | **fait** | [→](chantiers/21-these-societe.md) |
-| 21.1 | Suivi : points de contrôle persistés + carte Thèse | 🟡 Q2 | 🟠 | 1 session | **fait** (branche `feat/these-suivi`) | [→](chantiers/21-these-societe.md#11-extension-211--bande-suivi) |
+| 21.1 | Suivi : points de contrôle persistés + carte Thèse | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/21-these-societe.md#11-extension-211--bande-suivi) |
 | 21.2 | Replier le plan de la thèse | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/21-these-societe.md#12-extension-212--replier-le-plan-de-la-thèse) |
-| 21.3 | Poignée de bord du plan (ouverture/fermeture en cours de lecture) | 🟡 Q2 | 🟢 | 1 session | **fait** (branche `feat/these-suivi`) | [→](chantiers/21-these-societe.md#13-extension-213--poignée-de-bord-du-plan) |
-| 21.4 | Densité « Suivi » & « Profil société » | 🟡 Q2 | 🟢 | 1 session | **fait** (branche `feat/these-suivi`) | [→](chantiers/21-these-societe.md#14-extension-214--densité-suivi--profil-société) |
-| 22 | Document financier CSV exhaustif (toutes les métriques) | 🟡 Q2 | 🟠 | 1 session | **fait** (branche `feat/csv-comptes-complet`) | [→](chantiers/22-csv-comptes.md) |
-| 23 | Import CSV robuste + staging piloté par l'IA | 🟡 Q2 | 🟢 | 2 sessions | **fait** (branche `feat/import-csv-ia`) | [→](chantiers/23-import-csv-ia.md) |
-| 24 | **Calendrier du portefeuille en séances** + contexte unique | 🔴 Q3 | 🟠 | 2 sessions | **fait** (branche `fix/portefeuille-calendrier`) | [→](chantiers/24-calendrier-portefeuille.md) |
+| 21.3 | Poignée de bord du plan (ouverture/fermeture en cours de lecture) | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/21-these-societe.md#13-extension-213--poignée-de-bord-du-plan) |
+| 21.4 | Densité « Suivi » & « Profil société » | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/21-these-societe.md#14-extension-214--densité-suivi--profil-société) |
+| 22 | Document financier CSV exhaustif (toutes les métriques) | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/22-csv-comptes.md) |
+| 23 | Import CSV robuste + staging piloté par l'IA | 🟡 Q2 | 🟢 | 2 sessions | **fait** | [→](chantiers/23-import-csv-ia.md) |
+| 24 | **Calendrier du portefeuille en séances** + contexte unique | 🔴 Q3 | 🟠 | 2 sessions | **fait** | [→](chantiers/24-calendrier-portefeuille.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)
@@ -125,8 +125,8 @@ chantier est classé selon ce qu'il risque de casser :
 3. ~~**#02** — prérequis technique de #03.~~ ✅ fait
 4. ~~**#01** — débloque le diagnostic de tous les autres.~~ ✅ fait
 5. ~~**#05** — à faire **avant** d'étendre le back (sinon la dette grandit avec le MCP).~~ ✅ fait
-6. **#17** — le Portefeuille (fiche prête, branche `feat/portefeuille`) : prépare MCP-B.
-7. **#09** — la valeur produit, quand le socle est sain.
+6. **#17** — le Portefeuille : reste **J2 (positions)**. MCP-B est déjà livré (#09.4).
+7. ~~**#09** — la valeur produit, quand le socle est sain.~~ ✅ fait
 8. Le reste (Q3) en batch, #12 abandonné.
 
 ---
@@ -143,3 +143,7 @@ idée → fiche créée depuis _gabarit.md + ligne dans l'index (statut : à fai
 
 **En fin de session**, toujours : mettre à jour le **statut** dans l'index et la **note de reprise**
 dans la fiche. C'est ce qui permet de reprendre trois semaines plus tard sans rien réexpliquer.
+
+**Traçabilité.** Les branches citées dans les fiches sont annotées « Branche (historique) » quand
+le travail est clos. Ne jamais citer de SHA ni figer un décompte de commits : décrire le jalon.
+Détail et justification : cf. `CLAUDE.md` §Workflow git.

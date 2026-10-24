@@ -1,7 +1,7 @@
 # #21 — Thèse & Société (document markdown + profil société)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche :** `feat/these-societe` · **Taille :** 7 jalons (~2 sessions)
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `feat/these-societe` · **Taille :** 7 jalons (~2 sessions)
 > **Fiche parente :** #09.3 (thèse MCP, socle serveur) · **Références produit :** `PRD.md` §8.3, §12.2/§12.4
 
 ---
@@ -195,7 +195,7 @@ hors archive), DCF et Monte-Carlo (famille 2 du MCP).
 
 ## 11. Extension 21.1 — bande « Suivi »
 
-> **Statut :** fait · **Branche :** `feat/these-suivi` · **Impact Pernod :** 🟠
+> **Statut :** fait · **Branche (historique) :** `feat/these-suivi` · **Impact Pernod :** 🟠
 > (schéma 4 → 5)
 
 ### 11.1 Motif
@@ -314,7 +314,7 @@ Deux défauts d'ergonomie après la livraison de #21 :
 
 ## 12. Extension 21.2 — replier le plan de la thèse
 
-> **Statut :** fait · **Branche :** `feat/these-suivi` · **Impact Pernod :** 🟢
+> **Statut :** fait · **Branche (historique) :** `feat/these-suivi` · **Impact Pernod :** 🟢
 > (front seul : ni schéma, ni route, ni sauvegarde)
 
 ### 12.1 Motif
@@ -427,7 +427,7 @@ Le test couvre en plus le repli du plan pendant l'édition (CA-PL11).
 
 ## 13. Extension 21.3 — poignée de bord du plan
 
-> **Statut :** fait · **Branche :** `feat/these-suivi` · **Impact Pernod :** 🟢
+> **Statut :** fait · **Branche (historique) :** `feat/these-suivi` · **Impact Pernod :** 🟢
 
 ### 13.1 Motif
 
@@ -565,7 +565,7 @@ est vérifié identique après exécution (thèse + points de contrôle).
 
 ## 14. Extension 21.4 — densité « Suivi » & « Profil société »
 
-> **Statut :** fait · **Branche :** `feat/these-suivi` · **Impact Pernod :** 🟢
+> **Statut :** fait · **Branche (historique) :** `feat/these-suivi` · **Impact Pernod :** 🟢
 
 ### 14.1 Motif
 

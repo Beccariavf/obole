@@ -28,7 +28,7 @@ aujourd'hui**, dont deux se contredisent :
 - `PRD.md:225` — cite `spike_calibration.py` à la racine ; le fichier vit dans `spikes/`
   (dossier exclu du lint).
 - **Le décompte de tests, lui, a déjà disparu** : une version antérieure du PRD annonçait un
-  nombre de tests non-network en dur (corrigé puis supprimé en `471f4a4`). C'est la meilleure
+  nombre de tests non-network en dur (corrigé puis retiré). C'est la meilleure
   preuve du problème : un chiffre recopié à la main dans de la prose se désynchronise à chaque
   session, et finit par être retiré plutôt que corrigé.
 

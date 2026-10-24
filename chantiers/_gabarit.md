@@ -4,6 +4,10 @@
 > **Branche proposée :** `type/slug-court` · **Taille :** ~1 session
 > **Fiche parente :** _(si sous-fiche — sinon supprimer cette ligne)_
 
+> **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
+> n'est annotée « Branche (historique) » qu'une fois le chantier **clos** (jamais tant qu'il reste
+> des jalons). Ne jamais citer de SHA — cf. `CLAUDE.md` §Workflow git.
+
 ---
 
 ## 1. Contexte

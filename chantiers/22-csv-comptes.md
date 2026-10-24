@@ -1,7 +1,7 @@
 # #22 — Document financier CSV exhaustif (toutes les métriques du tableau)
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟠
-> **Branche :** `feat/csv-comptes-complet` (fusionnée sur `main`) · **Taille :** ~1 session
+> **Branche (historique) :** `feat/csv-comptes-complet` · **Taille :** ~1 session
 
 ---
 
@@ -103,5 +103,5 @@ postes source éditables et ratios dérivés recalculés. La taxonomie est à **
 4. Libellés — retirés les compteurs sur-vendeurs (texte neutre).
 5. Config morte — `FUNDAMENTAL_METRIC_CATEGORIES` et le champ `category` retirés.
 
-**Reste à faire (fusion)** : fusion `--no-ff` faite sur `main` (`d638f22`) et poussée ; branche
-`feat/csv-comptes-complet` supprimée (locale + distante) — chantier clos.
+**Fusion** : faite sur `main` et poussée, branche `feat/csv-comptes-complet` supprimée (locale et
+distante) — chantier clos.

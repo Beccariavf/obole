@@ -43,14 +43,20 @@ moyen, rendement, secteur dominant) pour le lire comme une entreprise unique.
 
 ## 5. Critères d'acceptation
 
-- [ ] `positions_metrics` testé : achat unique, achats multiples (PRU pondéré), vente partielle
-      (plus-value réalisée), position soldée
+> **État vérifié (audit de cohérence, 2026/10/24).** Seul J2.1 est livré ; J2.2 et J2.3 ne le sont
+> pas. Le nom retenu est `engine/portfolio.py::positions_from_transactions` (et non
+> `positions_metrics`). La section `Positions` du front affiche pour l'instant
+> ticker · quantité · PRU · coût · réalisé · étiquette : **aucun cours, aucune valeur, aucun
+> poids, aucun secteur, aucun tri, aucun donut**.
+
+- [x] Positions testées : achat unique, achats multiples (PRU pondéré), vente partielle
+      (plus-value réalisée), position soldée — `tests/test_portfolio_engine.py` (14 tests)
 - [ ] Poids = valeur ligne / valeur totale ; somme des poids ≈ 100 %
 - [ ] Agrégats consolidés pondérés corrects (test sur fixture à 2-3 lignes)
 - [ ] Tableau triable ; donut de répartition rendu
 - [ ] Chaque ligne ouvre la fiche entreprise existante
-- [ ] Valeur non calculable affichée « -- »
-- [ ] Suite hors réseau verte
+- [ ] Valeur non calculable affichée « -- » (`portfolioMoney` renvoie aujourd'hui `—`, pas `--`)
+- [x] Suite hors réseau verte
 
 ## 6. Invariants préservés
 

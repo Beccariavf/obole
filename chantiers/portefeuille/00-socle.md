@@ -1,7 +1,7 @@
 # #17.0 — Portefeuille · Socle persistant + saisie
 
 > **Statut :** **fait** (J0) · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/portefeuille` · **Taille :** ~2 sessions
+> **Branche (historique) :** `feat/portefeuille` · **Taille :** ~2 sessions
 > **Fiche parente :** #17 (Portefeuille) · **Précédent :** — · **Suivant :** `01-resume.md`
 
 ---

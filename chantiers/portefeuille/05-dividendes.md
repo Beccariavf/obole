@@ -1,7 +1,7 @@
 # #17.5 — Portefeuille · Dividendes (reçus, rendement, yield on cost)
 
 > **Statut :** **fait** · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
-> **Branche :** `feat/portefeuille` · **Taille :** ~1-2 sessions
+> **Branche (historique) :** `feat/portefeuille` · **Taille :** ~1-2 sessions
 > **Fiche parente :** #17 · **Précédent :** `04-performance.md` · **Suivant :** —
 
 ---

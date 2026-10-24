@@ -1,7 +1,7 @@
 # #15 — Finir la couche `services/` (extraire le cas d'usage screener)
 
 > **Statut :** fait · **Priorité :** 🟡 Q2 (important — cas (c) évolutivité)
-> **Impact Pernod :** 🟠 · **Branche (mergée) :** `refactor/services-screener` · **Taille :** ~1 session
+> **Impact Pernod :** 🟠 · **Branche (historique) :** `refactor/services-screener` · **Taille :** ~1 session
 > **Fiche parente :** #05 (couche `services/`)
 
 ---
@@ -70,5 +70,5 @@ d'usage screener** vive dans `services/`, réutilisable par l'API et, à terme, 
 
 Fait : `services/screener.py` créé (127 l.), `api/app.py` allégé (~35 l. en moins), 5 tests service
 ajoutés. Suite hors réseau verte (`pytest -m "not network" -q`), `-m network` vert,
-`ruff check` + `ruff format --check` + `mypy` verts. Reste : commit
-+ merge `--no-ff`.
+`ruff check` + `ruff format --check` + `mypy` verts.
+Clos : travail intégré sur `main`.
