@@ -405,13 +405,25 @@ def _retry_locked(operation: Callable[[], T]) -> T:
 class _LockRetryingConnection(sqlite3.Connection):
     """Connexion qui retente une instruction bloquée par un verrou temporaire.
 
-    Le retry vit au niveau de `execute` : toutes les écritures de ce module
-    passent par là (y compris `BEGIN IMMEDIATE` / `COMMIT` des migrations), sans
-    décorer une à une la trentaine de fonctions d'écriture.
+    Le retry vit au niveau des méthodes d'exécution : toutes les écritures de ce
+    module passent par là (y compris `BEGIN IMMEDIATE` / `COMMIT` des migrations),
+    sans décorer une à une la trentaine de fonctions d'écriture.
+
+    Le `commit` implicite du `with _conn()` n'est pas retenté : en WAL, le verrou
+    d'écriture est acquis dès la première instruction, donc un `COMMIT` bloqué
+    n'est pas le cas réaliste.
     """
 
     def execute(self, sql: str, parameters: Any = (), /) -> sqlite3.Cursor:
         return _retry_locked(lambda: super(_LockRetryingConnection, self).execute(sql, parameters))
+
+    def executemany(self, sql: str, seq_of_parameters: Any, /) -> sqlite3.Cursor:
+        return _retry_locked(
+            lambda: super(_LockRetryingConnection, self).executemany(sql, seq_of_parameters)
+        )
+
+    def executescript(self, sql_script: str, /) -> sqlite3.Cursor:
+        return _retry_locked(lambda: super(_LockRetryingConnection, self).executescript(sql_script))
 
 
 def _conn() -> sqlite3.Connection:

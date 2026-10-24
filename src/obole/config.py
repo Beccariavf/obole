@@ -99,7 +99,7 @@ SQLITE_BUSY_TIMEOUT = 5000  # ms : attendre en WAL plutôt que lever « database
 # Retry des écritures sous contention (#11). `busy_timeout` amortit un verrou
 # court ; au-delà, l'instruction est rejouée avec un back-off linéaire. Un verrou
 # permanent doit remonter après un nombre borné de tentatives (pas de boucle infinie).
-SQLITE_WRITE_RETRIES = 5  # tentatives par instruction (dont la première)
+SQLITE_WRITE_RETRIES = 3  # tentatives par instruction : pire cas ≈ 3 × busy_timeout
 SQLITE_WRITE_BACKOFF_S = 0.05  # attente de base, multipliée par le numéro de tentative
 
 # --- Observabilité (#01) -----------------------------------------------------
