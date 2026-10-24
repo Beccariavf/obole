@@ -237,33 +237,30 @@ class TestNoDeadGitReferences:
     def test_no_merge_claim_without_merge(self) -> None:
         """Ne pas affirmer un merge `--no-ff` quand l'historique n'en contient aucun.
 
-        Les documents de méthode (`CLAUDE.md`, `CONTRIBUTING.md`, `CHANTIERS.md`,
-        `PRD.md`, `memory/vcs.md`) énoncent la **règle** ; les fiches de chantier
-        décrivent du **passé**. Ces dernières ne doivent donc pas affirmer avoir
-        mergé en `--no-ff`. Le motif porte sur le **texte joint** : une
-        revendication coupée sur deux lignes (`commit + merge\\n`--no-ff``) doit
-        être vue.
+        Les documents de méthode énoncent la **règle** ; seules les fiches de
+        chantier décrivent du **passé**. Ce sont donc elles, et elles seules, qui
+        ne doivent pas affirmer avoir mergé en `--no-ff`. Le motif porte sur le
+        **texte joint** : une revendication coupée sur deux lignes
+        (`commit + merge\\n`--no-ff``) doit être vue.
+
+        Un clone superficiel (`actions/checkout` par défaut) ne contient qu'un
+        commit : `git log --merges` y est vide même quand l'historique réel a des
+        merges. On s'abstient donc, plutôt que de produire un faux positif.
         """
         if not _git("rev-parse", "--git-dir").strip():
             pytest.skip("dépôt git absent — impossible de statuer sur les merges")
+        if _git("rev-parse", "--is-shallow-repository").strip() == "true":
+            pytest.skip("clone superficiel : impossible de statuer sur les merges")
         if _git("log", "--merges", "--oneline").strip():
             pytest.skip("l'historique contient des merges : la règle s'applique")
 
         claim = re.compile(r"merge\w*\s*`?\s*--no-ff", re.I)
-        conventions = {
-            ROOT / "CLAUDE.md",
-            ROOT / "CONTRIBUTING.md",
-            ROOT / "CHANTIERS.md",
-            ROOT / "PRD.md",
-            VCS_MD,
-        }
-        offenders = []
-        for path in DOC_FILES:
-            if not path.is_file() or path in conventions:
-                continue
-            text = path.read_text(encoding="utf-8")
-            if claim.search(text):
-                offenders.append(str(path.relative_to(ROOT)))
+        fiches = sorted((ROOT / "chantiers").rglob("*.md"))
+        offenders = [
+            str(path.relative_to(ROOT))
+            for path in fiches
+            if path.is_file() and claim.search(path.read_text(encoding="utf-8"))
+        ]
         assert not offenders, (
             "ces fiches affirment un merge `--no-ff` alors que l'historique n'en contient "
             "aucun : " + ", ".join(offenders)
