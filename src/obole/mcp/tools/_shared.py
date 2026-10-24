@@ -14,8 +14,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 VALID_VIEWS = ("summary", "full")
 
 
-def chart_enabled(view: str) -> bool:
-    """Traduit `view` en `include_chart`, en rejetant toute valeur inconnue.
+def validate_view(view: str) -> str:
+    """Valide `view` et le renvoie, en rejetant toute valeur inconnue.
 
     Lève `ToolError` si `view` n'est ni `"summary"` ni `"full"` : pas de repli
     silencieux (une IA qui demanderait `"Full"` doit être corrigée, pas servie
@@ -23,4 +23,9 @@ def chart_enabled(view: str) -> bool:
     """
     if view not in VALID_VIEWS:
         raise ToolError(f"view invalide : {view!r} (attendu : summary ou full)")
-    return view == "full"
+    return view
+
+
+def chart_enabled(view: str) -> bool:
+    """Traduit `view` en `include_chart` (validation partagée via `validate_view`)."""
+    return validate_view(view) == "full"

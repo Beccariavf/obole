@@ -23,7 +23,7 @@ from mcp.server import MCPServer
 
 from obole.mcp import tools as tools_pkg
 
-WRITING_PREFIXES = ("add_", "create_", "update_", "delete_", "save_", "propose_", "apply_")
+WRITING_PREFIXES = ("add_", "create_", "update_", "delete_", "save_", "propose_", "apply_", "remove_")
 
 TOOL_MODULES = (
     "stock",
@@ -35,6 +35,7 @@ TOOL_MODULES = (
     "portfolio",
     "checkpoints",
     "imports",
+    "watchlist",
 )
 
 
@@ -74,7 +75,13 @@ def _verb_names() -> set[str]:
 @pytest.mark.anyio
 async def test_nominal_exposes_write_tools():
     names = await _tool_names()
-    assert {"add_transaction", "save_thesis", "create_index"} <= names
+    assert {
+        "add_transaction",
+        "save_thesis",
+        "create_index",
+        "add_to_watchlist",
+        "remove_from_watchlist",
+    } <= names
 
 
 @pytest.mark.anyio
@@ -88,7 +95,13 @@ async def test_read_only_hides_write_tools(monkeypatch):
 async def test_read_only_keeps_read_tools(monkeypatch):
     monkeypatch.setenv("OBOLE_MCP_READ_ONLY", "1")
     names = await _tool_names()
-    assert {"get_stock_analysis", "screen_french_stocks", "list_positions"} <= names
+    assert {
+        "get_stock_analysis",
+        "screen_french_stocks",
+        "list_positions",
+        "get_watchlist",
+        "rank_watchlist",
+    } <= names
 
 
 def test_write_tools_covers_every_writing_verb():
