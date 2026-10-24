@@ -1,6 +1,29 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to the AI assistant when working with code in this repository.
+
+## Memory Management
+
+Project docs, memory, specs, and plans live in `aidd_docs/`.
+
+Read only task-relevant context and linked memory files; complete required reads.
+
+<!-- aidd_project_memory:start -->
+- `aidd_docs/memory/api.md`
+- `aidd_docs/memory/architecture.md`
+- `aidd_docs/memory/backlog.md`
+- `aidd_docs/memory/codebase-map.md`
+- `aidd_docs/memory/coding-assertions.md`
+- `aidd_docs/memory/data.md`
+- `aidd_docs/memory/design.md`
+- `aidd_docs/memory/ecosystem.md`
+- `aidd_docs/memory/project-brief.md`
+- `aidd_docs/memory/testing.md`
+- `aidd_docs/memory/vcs.md`
+<!-- aidd_project_memory:end -->
+
+- Load `aidd_docs/memory/external/*` only when asked.
+- Load `aidd_docs/memory/internal/*` when relevant.
 
 ## Projet
 
