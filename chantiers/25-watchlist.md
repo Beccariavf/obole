@@ -1,6 +1,6 @@
 # #25 — Watchlist à tiers, marges de sécurité et fenêtre de confiance
 
-> **Statut :** en cours · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 (important, non urgent — cas (c) évolutivité)
 > **Impact Pernod :** 🟠 · **Branche proposée :** `feat/watchlist` · **Taille :** 2-3 sessions
 > **Fiche parente :** — · **Dépend de :** #16 (rail), #20 (valorisation), #17 (portefeuille, lecture seule), #09 (MCP)
 
@@ -152,5 +152,4 @@ la table) effacerait les prix justes enregistrés. Le correctif demande une poli
 fenêtre avec les prix (cache chaud de la fiche) : réseau/`TickerNotFound` -> 422, jamais
 d'écriture partielle trompeuse.
 
-**Prochaine action.** Revue (`/05-review`), correction des constats, puis merge `--no-ff`
-et passage du statut à **fait**.
+**Prochaine action.** Aucune — revue passée (`review.md`, verdict approve), chantier clos.

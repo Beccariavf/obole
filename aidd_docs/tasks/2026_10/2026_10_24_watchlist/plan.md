@@ -1,6 +1,6 @@
 ---
 objective: "Tenir une watchlist en 3 tiers, classer les favorites par marge de sécurité (prix juste enregistré ou droite de référence), aligner le « Prix juste » du Résumé sur la fenêtre de confiance, et exposer la watchlist au MCP (lecture + appartenance, jamais la référence)."
-status: in-progress
+status: reviewed
 ---
 
 # Plan: Watchlist à tiers, marges et fenêtre de confiance

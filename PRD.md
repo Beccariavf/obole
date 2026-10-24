@@ -527,7 +527,8 @@ Les points ouverts sont reclassés **par niveau** (cf. §0).
 | Étape | Objectif | Dépend de | Statut |
 |---|---|---|---|
 | **J0** | Spike de calibration (Pernod `z=−3.81`) | — | ✅ |
-| **J1–J5** | Fiche valeur, watchlist, screener, indices | J0 | ✅ |
+| **J1–J5** | Fiche valeur, screener, indices | J0 | ✅ |
+| **#25** | Watchlist à tiers, marges de sécurité et fenêtre de confiance (+ MCP) | J1–J5 | ✅ |
 | **#15** | Couche `services/` (orchestration hors `api/`) | J1–J5 | ✅ |
 | **#06** | Source unique des seuils (`/api/meta`) | #15 | ✅ |
 | **#04** | Découpage du front (modules ES natifs) | #06 | ✅ |
