@@ -18,13 +18,13 @@
 - [x] Base v7 migrée sans perte — `tests/test_schema_migration.py::TestWatchlistMigration::test_v7_db_gains_tables_without_data_loss`
 - [x] `added_at` préservé au changement de tier — `tests/test_watchlist.py::TestWatchlistItems::test_tier_change_preserves_added_at`
 - [x] Registre de sauvegarde + archive v7 restaurable — `tests/test_backup.py::TestOlderArchive`, `TestBackupRegistry`
-- [x] Tests du domaine verts + ruff — `pytest -m "not network"` (1253 passed), `ruff check .`
+- [x] Tests du domaine verts + ruff — `pytest -m "not network"`, `ruff check .`
 - [x] Sans référence, « Prix juste » = droite 20 ans — `tests/test_analysis.py::TestFairPriceReference::test_no_reference_keeps_20y_default`
 - [x] Avec référence, droite de référence + note « prix bruts » — `tests/test_analysis.py::TestFairPriceReference::test_reference_drives_the_fair_price_and_the_note`
 - [x] Prix juste enregistré prioritaire — `tests/test_analysis.py::TestFairPriceReference::test_saved_fair_price_wins_over_reference`
 - [x] `windowed_analysis(ref_start=…)` tranche raw/adj — `tests/test_screen.py::TestWindowedAnalysis`
 - [x] `scan_parallel` conserve budget/timeout — `tests/test_screener_j5.py`, `tests/test_services_screener.py`
-- [x] Test réseau + mypy — `pytest -m network` (5 passed), `mypy` (39 files)
+- [x] Test réseau + mypy — `pytest -m network`, `mypy`
 - [x] `run()` trie par marge, absentes puis erreurs — `tests/test_watchlist.py::TestRun`
 - [x] Prix juste enregistré prioritaire + source de repli — `tests/test_watchlist.py::TestRun::test_rows_are_sorted_by_margin_with_saved_price`
 - [x] Erreurs de ticker isolées, tier conservé — `tests/test_watchlist.py::TestRun::test_error_row_keeps_tier_and_goes_last`
@@ -42,7 +42,7 @@
 - [x] Aucun seuil littéral, `app.js` < 500, fetch centralisé — `web-tests/watchlist.test.js`, `modules.test.js`
 - [x] Backend non-network + network — runs cités ci-dessus
 - [x] `ruff`, `ruff format --check`, `mypy` — vérifiés
-- [x] `npm test` (598) + `npm run test:e2e` (114) — vérifiés
+- [x] `npm test` + `npm run test:e2e` — vérifiés
 - [x] QA manuelle RI/BNP/CW8 sur serveur réel (schéma v8) — smoke API : refs, Résumé aligné, prix juste enregistré prioritaire, prix juste effacé → retour 20 ans
 - [x] Revue sans constat bloquant — ce rapport
 
