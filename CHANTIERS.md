@@ -87,6 +87,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 22 | Document financier CSV exhaustif (toutes les métriques) | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/22-csv-comptes.md) |
 | 23 | Import CSV robuste + staging piloté par l'IA | 🟡 Q2 | 🟢 | 2 sessions | **fait** | [→](chantiers/23-import-csv-ia.md) |
 | 24 | **Calendrier du portefeuille en séances** + contexte unique | 🔴 Q3 | 🟠 | 2 sessions | **fait** | [→](chantiers/24-calendrier-portefeuille.md) |
+| 25 | **Watchlist à tiers** + marges de sécurité + fenêtre de confiance + MCP | 🟡 Q2 | 🟠 | 2-3 sessions | en cours | [→](chantiers/25-watchlist.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)
