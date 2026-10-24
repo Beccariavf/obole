@@ -204,6 +204,34 @@ _CREATE_IMPORT_DRAFTS_INDEX = (
     "CREATE INDEX IF NOT EXISTS idx_import_drafts_status " "ON import_drafts (status, created_at)"
 )
 
+# --- Watchlist (#25) ---------------------------------------------------------
+# Trois rangs FIXES (`config.WATCH_TIERS`), une seule appartenance par ticker :
+# `ticker` est donc la clé primaire (pas de table de listes). `tier` est borné
+# en base par un CHECK — la validation métier vit dans `services/watchlist.py`,
+# mais le schéma refuse une valeur hors 1..3 même en écriture directe.
+_WATCHLIST_ITEMS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS watchlist_items (
+    ticker   TEXT PRIMARY KEY,
+    tier     INTEGER NOT NULL CHECK (tier BETWEEN 1 AND 3),
+    added_at REAL NOT NULL
+)
+"""
+_CREATE_WATCHLIST_ITEMS_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_watch_items_tier ON watchlist_items (tier, ticker)"
+)
+
+# Fenêtre de confiance PAR TITRE, indépendante de l'appartenance : retirer une
+# valeur de la watchlist ne détruit pas sa référence, et la fiche (comme le
+# Résumé) peut en lire une sans que le titre soit suivi. `ref_start` est une
+# date ISO (AAAA-MM-JJ), validée côté service.
+_TICKER_REFS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS ticker_refs (
+    ticker     TEXT PRIMARY KEY,
+    ref_start  TEXT NOT NULL,
+    updated_at REAL NOT NULL
+)
+"""
+
 
 # --- Versioning du schéma (#02) ---------------------------------------------
 # `PRAGMA user_version` porte le numéro de version réellement appliqué à la base.
@@ -323,6 +351,19 @@ def _migrate_6_to_7(conn: sqlite3.Connection) -> None:
     conn.execute(_CREATE_PORTFOLIO_TX_TAG_INDEX)
 
 
+def _migrate_7_to_8(conn: sqlite3.Connection) -> None:
+    """#25 : ajoute la watchlist (`watchlist_items`) et les références par titre.
+
+    Idempotent (`CREATE TABLE/INDEX IF NOT EXISTS`) : une base neuve passe par les
+    migrations successives, une base v7 existante ne reçoit que les deux nouvelles
+    tables — ses données sont préservées. Aucune écriture métier : la watchlist
+    démarre vide, et une valeur n'y entre que par un geste explicite (UI ou MCP).
+    """
+    conn.execute(_WATCHLIST_ITEMS_SCHEMA)
+    conn.execute(_CREATE_WATCHLIST_ITEMS_INDEX)
+    conn.execute(_TICKER_REFS_SCHEMA)
+
+
 # Migrations ordonnées : clé = version source, valeur = passage n -> n+1.
 # Ajouter une évolution de schéma = une entrée ici + incrémenter
 # `config.SCHEMA_VERSION`. Aucune rétro-compatibilité descendante (YAGNI).
@@ -334,6 +375,7 @@ MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     4: _migrate_4_to_5,
     5: _migrate_5_to_6,
     6: _migrate_6_to_7,
+    7: _migrate_7_to_8,
 }
 
 
@@ -731,6 +773,95 @@ def update_checkpoint(checkpoint_id: int, label: str, done: bool) -> None:
 def delete_checkpoint(checkpoint_id: int) -> None:
     with _conn() as conn:
         conn.execute("DELETE FROM checkpoints WHERE id=?", (checkpoint_id,))
+
+
+# --- Watchlist (#25) ---------------------------------------------------------
+# Tickers normalisés en majuscules (comme les thèses/checkpoints) : la couche
+# `services/` valide, ici on ne fait que du SQL confiné. `upsert_watch_item`
+# PRÉSERVE `added_at` quand seul le tier change — la date d'entrée dans la
+# watchlist reste la date du premier ajout.
+
+
+def list_watch_items() -> list[dict]:
+    """Valeurs suivies, triées par tier puis ticker (ordre stable de la liste)."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT ticker, tier, added_at FROM watchlist_items ORDER BY tier, ticker"
+        ).fetchall()
+    return [{"ticker": r[0], "tier": int(r[1]), "added_at": r[2]} for r in rows]
+
+
+def get_watch_item(ticker: str) -> dict | None:
+    """Une valeur suivie (ticker + tier + date d'ajout), ou None."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT ticker, tier, added_at FROM watchlist_items WHERE ticker=?",
+            (ticker.upper(),),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"ticker": row[0], "tier": int(row[1]), "added_at": row[2]}
+
+
+def upsert_watch_item(ticker: str, tier: int) -> None:
+    """Ajoute ou déplace une valeur ; `added_at` est conservé si elle existe déjà."""
+    key = ticker.upper()
+    with _conn() as conn:
+        row = conn.execute("SELECT ticker FROM watchlist_items WHERE ticker=?", (key,)).fetchone()
+        if row is None:
+            conn.execute(
+                "INSERT INTO watchlist_items (ticker, tier, added_at) VALUES (?,?,?)",
+                (key, tier, time.time()),
+            )
+        else:
+            conn.execute("UPDATE watchlist_items SET tier=? WHERE ticker=?", (tier, key))
+
+
+def delete_watch_item(ticker: str) -> bool:
+    """Retire une valeur. Renvoie True si une ligne existait."""
+    with _conn() as conn:
+        cur = conn.execute("DELETE FROM watchlist_items WHERE ticker=?", (ticker.upper(),))
+        return cur.rowcount > 0
+
+
+def count_watch_items() -> int:
+    """Nombre de valeurs suivies (plafond `config.WATCHLIST_MAX_ITEMS`)."""
+    with _conn() as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM watchlist_items").fetchone()[0])
+
+
+def get_ticker_ref(ticker: str) -> str | None:
+    """Date de début de la fenêtre de confiance d'un titre (ISO), ou None."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT ref_start FROM ticker_refs WHERE ticker=?", (ticker.upper(),)
+        ).fetchone()
+    return None if row is None else str(row[0])
+
+
+def set_ticker_ref(ticker: str, ref_start: str) -> None:
+    """Enregistre (remplace) la référence d'un titre. `ref_start` est validée côté service."""
+    key = ticker.upper()
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO ticker_refs (ticker, ref_start, updated_at) VALUES (?,?,?) "
+            "ON CONFLICT(ticker) DO UPDATE SET ref_start=excluded.ref_start, "
+            "updated_at=excluded.updated_at",
+            (key, ref_start, time.time()),
+        )
+
+
+def clear_ticker_ref(ticker: str) -> None:
+    """Efface la référence d'un titre (retour à la fenêtre 20 ans par défaut)."""
+    with _conn() as conn:
+        conn.execute("DELETE FROM ticker_refs WHERE ticker=?", (ticker.upper(),))
+
+
+def list_ticker_refs() -> dict[str, str]:
+    """Toutes les références `{ticker: ref_start}` (une seule requête pour le scan)."""
+    with _conn() as conn:
+        rows = conn.execute("SELECT ticker, ref_start FROM ticker_refs ORDER BY ticker").fetchall()
+    return {r[0]: r[1] for r in rows}
 
 
 # --- Brouillons d'import (#23) ----------------------------------------------

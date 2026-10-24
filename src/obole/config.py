@@ -116,7 +116,7 @@ HEALTH_FAILURE_WINDOW_S = 300
 # Une base d'une version antérieure est mise à niveau automatiquement à la
 # première ouverture de la base ; `PRAGMA user_version` porte la version
 # réellement appliquée.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # --- Méthode « droite d'Obole » ---------------------------------------------
 # Horizons pour le potentiel annualisé.
@@ -131,6 +131,25 @@ TREND_MA_LONG = 200
 # « Des droites trop longues peuvent mal renseigner sur les évolutions futures. »
 REGRESSION_YEARS_DEFAULT = 20
 REGRESSION_YEARS_FINANCIAL = 30
+
+# Nombre minimal de points pour qu'une régression soit fiable. SOURCE UNIQUE :
+# `engine.regression.fit_log_regression` l'applique, et le front/MCP le lisent
+# via `/api/meta` (`watch.min_ref_points`) pour désactiver une action en amont.
+REGRESSION_MIN_POINTS = 30
+
+# --- Watchlist (#25) ---------------------------------------------------------
+# Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
+# aides vivent ici (source unique) et sont servis par `/api/meta` — le front et
+# le MCP n'en dupliquent aucun.
+WATCH_TIERS = (
+    {"id": 1, "label": "Tier 1", "hint": "Conviction la plus forte — à acheter en priorité"},
+    {"id": 2, "label": "Tier 2", "hint": "À suivre de près"},
+    {"id": 3, "label": "Tier 3", "hint": "Veille — opportunité à confirmer"},
+)
+# Garde-fou de volume : la watchlist déclenche N analyses à la demande (pool
+# borné du screener). Au-delà, on refuse l'ajout plutôt que de laisser un scan
+# runaway se former par accumulation.
+WATCHLIST_MAX_ITEMS = 200
 
 # --- Portefeuille : benchmarks (#17.1) ---------------------------------------
 # Liste curée d'ETF UCITS cotés en EUR (historique long vérifié sur Yahoo), pour

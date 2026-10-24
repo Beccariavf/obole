@@ -131,6 +131,19 @@ _TABLE_COLUMNS: dict[str, dict[str, tuple[type, ...]]] = {
         "created_at": (int, float),
         "applied_at": (int, float, type(None)),
     },
+    # Watchlist (#25) : valeurs suivies (un tier par ticker) et fenêtres de
+    # confiance par titre. Les deux tables sont des données utilisateur
+    # irremplaçables (choix de suivi + jugement de confiance), donc sauvegardées.
+    "watchlist_items": {
+        "ticker": (str,),
+        "tier": (int,),
+        "added_at": (int, float),
+    },
+    "ticker_refs": {
+        "ticker": (str,),
+        "ref_start": (str,),
+        "updated_at": (int, float),
+    },
 }
 
 _TABLE_NAMES = tuple(_TABLE_COLUMNS)
@@ -151,6 +164,7 @@ _TABLE_SINCE: dict[int, tuple[str, ...]] = {
     4: ("theses",),
     5: ("checkpoints",),
     6: ("import_drafts",),
+    8: ("watchlist_items", "ticker_refs"),
 }
 
 # Colonnes introduites APRÈS la création de leur table (hors baseline) :
