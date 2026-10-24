@@ -145,8 +145,10 @@ dépendance réactive, ouvrir la modale avant la fin de `init()` laissait les li
 repli silencieux) ; le classement choisit la fenêtre effective via `reference_window` pour
 que le Résumé et la watchlist ne divergent pas. (3) `initRange` ouvre la fiche sur la
 référence ; après définition/effacement, la fiche est **rechargée** pour que la carte
-« Prix juste » suive. (4) `valuation_settings` manquait au registre de sauvegarde depuis #20 :
-il y est entré avec le schéma v8 (archive v7 restaurable). (5) Le PUT de référence valide la
+« Prix juste » suive. (4) `valuation_settings` reste **hors** du registre de sauvegarde : l'y
+ajouter maintenant ferait qu'une restauration d'archive ancienne (qui ne contient pas
+la table) effacerait les prix justes enregistrés. Le correctif demande une politique
+« préserver si absente » dans `restore_archive` — gap connu, hors #25. (5) Le PUT de référence valide la
 fenêtre avec les prix (cache chaud de la fiche) : réseau/`TickerNotFound` -> 422, jamais
 d'écriture partielle trompeuse.
 

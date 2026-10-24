@@ -15,7 +15,8 @@
   <script defer src="/static/vendor/alpine-3.14.1.min.js"></script>
 </head>
 <body>
-<div class="wrap" x-data="obole" x-init="init()">
+<div class="wrap" x-data="obole" x-init="init()"
+     @keydown.escape.window="watchPopoverOpen = false; watchRefOpen = false">
 
   <!-- Recherche -->
   <div class="searchbar">
@@ -1802,7 +1803,7 @@
         </div>
       </div>
 
-      <div class="wl-empty" x-show="!watchLoading && !watchRows.length">
+      <div class="wl-empty" x-show="!watchLoading && watchSearched && !watchRows.length">
         <p>Ta watchlist est vide.</p>
         <p class="wl-hint">Ouvre une fiche et clique l’étoile pour choisir un tier de conviction.</p>
       </div>

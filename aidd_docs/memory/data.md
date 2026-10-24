@@ -63,7 +63,9 @@ flowchart LR
 ## Sauvegarde
 
 - `data/backup.py` exporte et restaure les données utilisateur en JSON (hors cache),
-  y compris `watchlist_items`, `ticker_refs` et `valuation_settings` (le prix juste est
-  une décision de l'utilisateur). Une archive v7 reste restaurable (tables absentes
-  traitées comme vides).
+  y compris `watchlist_items` et `ticker_refs`. Une archive v7 reste restaurable (tables
+  absentes traitées comme vides). `valuation_settings` reste **hors** du registre de
+  sauvegarde : l'y ajouter exigerait de préserver la table lors d'une restauration
+  d'archive ancienne (sinon les prix justes enregistrés seraient effacés) — gap connu,
+  hors #25.
 - `cache.sqlite*`, `logs/`, `thesis_assets/` et `exemple/` sont hors dépôt (`.gitignore`).

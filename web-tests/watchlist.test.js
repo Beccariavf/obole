@@ -31,6 +31,13 @@ describe("source unique des seuils watchlist (/api/meta)", () => {
     expect(app.WATCH_MAX_ITEMS).toBe(meta.watch.max_items);
   });
 
+  it("la barre de tiers attend les métadonnées (dépendance réactive)", () => {
+    // Sans `metaReady`, ouvrir la modale avant la fin de init() laissait les
+    // libellés vides : la méthode DOIT dépendre de la propriété réactive.
+    expect(component({ metaReady: false }).watchTierList()).toEqual([]);
+    expect(component({ metaReady: true }).watchTierList()).toEqual(meta.watch.tiers);
+  });
+
   it("watchlist.js ne code aucun de ces nombres en dur", () => {
     const src = readWatchlistSource();
     expect(src).toContain("WATCH_MIN_REF_POINTS");

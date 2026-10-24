@@ -39,7 +39,8 @@ def windowed_analysis(
     `config.REGRESSION_MIN_POINTS` points lève aussi `ValueError` (jamais de
     repli silencieux). `screen_stock` les isole ; la watchlist aussi.
     """
-    analysis = analyze(ticker, prices)
+    # La fenêtre est validée AVANT l'analyse : une référence trop courte échoue
+    # sans payer le coût de l'analyse complète (identité + comptes + séries).
     raw, adj = _window_series(prices, regression_window, ref_start)
     if ref_start is not None and len(raw) < config.REGRESSION_MIN_POINTS:
         # Une fenêtre de confiance trop courte doit être REFUSÉE, pas dégradée en
@@ -50,6 +51,7 @@ def windowed_analysis(
             f"Historique insuffisant sur la fenêtre de référence ({len(raw)} points, "
             f"{config.REGRESSION_MIN_POINTS} minimum)"
         )
+    analysis = analyze(ticker, prices)
     _recompute_window(analysis, raw, adj)
     return analysis
 

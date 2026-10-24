@@ -255,6 +255,17 @@ class TestItems:
         assert wl.remove("ri.pa") is True
         assert wl.remove("RI.PA") is False
 
+    def test_tier_change_keeps_the_reference(self):
+        """La référence est un réglage par titre, indépendant de l'appartenance."""
+        from obole.services import watchlist as wl
+
+        cache.set_ticker_ref("RI.PA", "2012-01-04")
+        wl.set_tier("RI.PA", 1)
+        wl.set_tier("RI.PA", 3)
+        assert cache.get_ticker_ref("RI.PA") == "2012-01-04"
+        wl.remove("RI.PA")
+        assert cache.get_ticker_ref("RI.PA") == "2012-01-04"
+
     def test_list_state_shape(self):
         from obole.services import watchlist as wl
 
@@ -422,3 +433,14 @@ class TestStockState:
         assert state["ref_stats"] is not None
         payload = wl.decorate_stock_payload({"kind_payload": "stock"}, "RI.PA", prices)
         assert payload["watch"]["tier"] == 2
+
+    def test_corrupted_reference_is_muted_not_crashing(self):
+        """Une date illisible en base ne casse ni la fiche ni le classement."""
+        from tests.test_analysis import _make_prices
+
+        from obole.services import watchlist as wl
+
+        cache.set_ticker_ref("RI.PA", "pas-une-date")
+        state = wl.stock_state("RI.PA", _make_prices(length=3000))
+        assert state["ref"] == {"start": "pas-une-date"}
+        assert state["ref_stats"] is None

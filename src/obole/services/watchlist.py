@@ -134,7 +134,12 @@ def ref_stats(raw, start: str) -> dict | None:
     le classement lisent les mêmes nombres. `line`/`trend_gap_pct` sont la valeur
     de la droite au dernier point ; `z` en est la distance en σ.
     """
-    window = window_since(raw, start).dropna()
+    try:
+        window = window_since(raw, start).dropna()
+    except (TypeError, ValueError):
+        # Date corrompue en base (écrite hors service) : pas de statistiques, la
+        # fiche et le classement restent servis (la référence est simplement muette).
+        return None
     window = window[window > 0]
     if len(window) < config.REGRESSION_MIN_POINTS:
         return None
