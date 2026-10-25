@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: sourcer le Pot. 5A sur la valorisation enregistrée

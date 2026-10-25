@@ -5,6 +5,7 @@
 // (étoile, modale, référence) sont couverts par l'e2e, routes interceptées.
 import { describe, expect, it } from "vitest";
 import { chartsMixin } from "../src/obole/web/charts.js";
+import { potSourceLabel } from "../src/obole/web/watchlist.js";
 import {
   loadApp,
   metaFromConfig,
@@ -68,16 +69,26 @@ describe("libellés et badges", () => {
     const regression = component().watchRowTitle({
       ref_start: "2016-10-25",
       fair_price_source: "regression",
+      pot_5y_source: "regression",
       target_yield: 12,
     });
     expect(regression).toContain("total return");
     expect(regression).toContain("12 %/an");
+    expect(regression).toContain("Pot. 5A : droite total-return");
     const saved = component().watchRowTitle({
       ref_is_default: true,
       fair_price_source: "saved",
+      pot_5y_source: "valuation",
     });
     expect(saved).toContain("total return");
     expect(saved).toContain("Prix juste enregistré");
+    expect(saved).toContain("Pot. 5A : estimation de la valorisation");
+  });
+
+  it("la source du Pot. 5A est lisible", () => {
+    expect(potSourceLabel({ pot_5y_source: "valuation" })).toBe("valo");
+    expect(potSourceLabel({ pot_5y_source: "regression" })).toBe("droite");
+    expect(potSourceLabel({})).toBe("—");
   });
 
   it("watchCoverage compte les prix justes réellement définis", () => {

@@ -35,6 +35,8 @@ const RUN = {
       pente_pct: 5,
       pot_5y_pct: 8,
       pot_10y_pct: 6,
+      pot_5y_source: "valuation",
+      pot_10y_source: "regression",
       trend_bullish: true,
       warnings: [],
       error: null,
@@ -60,6 +62,8 @@ const RUN = {
       pente_pct: 4,
       pot_5y_pct: 5,
       pot_10y_pct: 4,
+      pot_5y_source: "regression",
+      pot_10y_source: "regression",
       trend_bullish: true,
       warnings: [],
       error: null,
@@ -124,6 +128,10 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(aiSelect).toHaveValue("3");
   await expect(page.locator(".wl-tier-btn", { hasText: "Tier 2" })).toContainText("0");
   await expect(page.locator(".wl-tier-btn", { hasText: "Tier 3" })).toContainText("1");
+
+  // Source du Pot. 5A : valorisation enregistrée vs droite total-return.
+  await expect(rows.nth(0).locator("td").nth(7)).toContainText("valo");
+  await expect(rows.nth(1).locator("td").nth(7)).toContainText("droite");
   await expect(rows.nth(1)).toContainText("objectif 12 %/an");
   await expect(rows.nth(1)).toContainText("-25 %");
   // Le label de position σ est rendu par `scored` (exposé à Alpine) : sans lui,

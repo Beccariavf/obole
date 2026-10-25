@@ -1748,7 +1748,7 @@
                 <th :class="watchSortClass('trend_gap_pct')" @click="toggleWatchSort('trend_gap_pct')"
                     title="Trier par écart à la droite">Écart à la droite</th>
                 <th :class="watchSortClass('pot_5y_pct')" @click="toggleWatchSort('pot_5y_pct')"
-                    title="Trier par potentiel 5 ans">Pot. 5A</th>
+                    title="Potentiel 5 ans — valorisation enregistrée si elle a un prix juste, sinon droite total-return">Pot. 5A</th>
                 <th></th>
               </tr>
             </thead>
@@ -1797,7 +1797,12 @@
                       <span class="wl-hint" x-text="r.ecart_type_pct == null ? '' : 'σ ' + fmt(r.ecart_type_pct) + ' %'"></span>
                     </div>
                   </td>
-                  <td class="cell-val" x-text="watchPct(r.pot_5y_pct)"></td>
+                  <td class="cell-val">
+                    <div class="wl-cell-stack">
+                      <span x-text="watchPct(r.pot_5y_pct)"></span>
+                      <span class="wl-hint" x-text="watchPotSourceLabel(r)"></span>
+                    </div>
+                  </td>
                   <td class="idx-actions">
                     <span class="chip warn" x-show="r.error" :title="r.error" x-text="'⚠'"></span>
                     <button class="btn small ghost" @click.stop="removeWatchRow(r)" title="Retirer de la watchlist">✕</button>
@@ -1824,6 +1829,8 @@
         contre l’objectif enregistré (badge <b>calc</b>) ou, à défaut, le <b>prix d’entrée à
         12 %/an</b> jusqu’à la droite à 5 ans (badge <b>droite</b>). La fiche garde la droite
         brute de valorisation : ses KPI peuvent donc différer de la watchlist.
+        <b>Pot. 5A</b> : estimation de la valorisation enregistrée si elle a un prix juste
+        (badge <b>valo</b>), sinon potentiel total-return de la droite (badge <b>droite</b>).
       </p>
     </div>
   </div>

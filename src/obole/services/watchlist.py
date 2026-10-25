@@ -264,6 +264,19 @@ def _saved_target(saved: dict | None) -> float | None:
         return None
 
 
+def _saved_dividend(saved: dict | None) -> float:
+    """Dividende retenu par la valorisation enregistrée (0 si décoché/absent)."""
+    if not saved or not saved.get("include_dividends"):
+        return 0.0
+    raw = saved.get("dividend_yield")
+    if raw is None:
+        return 0.0
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _error_row(ticker: str, tier: int, message: str) -> WatchlistRow:
     """Ligne d'erreur : le tier est conservé, la valeur reste retirable."""
     return WatchlistRow(ticker=ticker.upper(), tier=tier, error=message)
@@ -309,10 +322,31 @@ def _row_from_analysis(
     fair: float | None
     source: str
     target: float | None
+    warnings = list(analysis.warnings)
+    pot_5y_source = "regression" if pot_5y is not None else None
     if saved_fair is not None:
         # La cible enregistrée prime : elle est déjà exprimée dans l'échelle du
-        # cours brut de la calculatrice.
+        # cours brut de la calculatrice. Le Pot. 5A suit cette valorisation si
+        # elle est exploitable (#26), sinon on retombe sur la droite.
         fair, source, target = saved_fair, "saved", _saved_target(saved)
+        if target is not None:
+            valuation_pot = valuation_calc.estimated_return_from_fair(
+                saved_fair,
+                raw_last,
+                target,
+                config.VALUATION_HORIZON_YEARS,
+                _saved_dividend(saved),
+            )
+        else:
+            valuation_pot = None
+        if valuation_pot is not None:
+            pot_5y = valuation_pot
+            pot_5y_source = "valuation"
+        else:
+            warnings.append(
+                "Valorisation enregistrée sans prix juste exploitable — "
+                "Pot. 5A sur la droite total-return"
+            )
     elif regression is not None and adj_last > 0:
         # Prix d'entrée qui donne exactement 12 %/an jusqu'à la droite à 5 ans.
         # Même formule que `engine.valuation_calc.target_entry_price` (avec un
@@ -325,6 +359,7 @@ def _row_from_analysis(
     else:
         fair, source, target = None, "regression", None
 
+    pot_10y_source = "regression" if pot_10y is not None else None
     margin = valuation_calc.safety_margin(fair, raw_last)
     return WatchlistRow(
         ticker=ident.ticker,
@@ -347,8 +382,10 @@ def _row_from_analysis(
         pente_pct=pente,
         pot_5y_pct=pot_5y,
         pot_10y_pct=pot_10y,
+        pot_5y_source=pot_5y_source,
+        pot_10y_source=pot_10y_source,
         trend_bullish=analysis.indicators.trend.good,
-        warnings=list(analysis.warnings),
+        warnings=warnings,
     )
 
 

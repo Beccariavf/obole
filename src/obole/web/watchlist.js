@@ -20,6 +20,12 @@ export function fairPriceSourceLabel(row) {
   return row.fair_price_source === "saved" ? "calc" : "droite";
 }
 
+export function potSourceLabel(row) {
+  if (row?.pot_5y_source === "valuation") return "valo";
+  if (row?.pot_5y_source === "regression") return "droite";
+  return "—";
+}
+
 export function watchCoverage(rows) {
   const list = rows || [];
   return {
@@ -111,6 +117,10 @@ export const watchlistMixin = {
     return fairPriceSourceLabel(row);
   },
 
+  watchPotSourceLabel(row) {
+    return potSourceLabel(row);
+  },
+
   watchRowTitle(row) {
     if (!row) return "";
     const parts = [];
@@ -120,6 +130,11 @@ export const watchlistMixin = {
     if (row.fair_price_source === "saved") parts.push("Prix juste enregistré (calculatrice)");
     else if (row.fair_price_source === "regression") {
       parts.push("Prix juste = droite projetée 5 ans, actualisée à 12 %/an (total return)");
+    }
+    if (row.pot_5y_source === "valuation") {
+      parts.push("Pot. 5A : estimation de la valorisation enregistrée");
+    } else if (row.pot_5y_source === "regression") {
+      parts.push("Pot. 5A : droite total-return");
     }
     if (row.warnings?.length) parts.push(row.warnings.join(" · "));
     return parts.join(" — ");

@@ -283,6 +283,8 @@ class ScreenResult:
     ecart_type_pct: float | None = None  # volatilité, %
     pot_5y_pct: float | None = None
     pot_10y_pct: float | None = None
+    pot_5y_source: str | None = None  # "valuation" | "regression" | None
+    pot_10y_source: str | None = None  # "regression" aujourd'hui
     trend_bullish: bool | None = None
 
     # Fondamentaux (None si comptes indisponibles).
@@ -366,6 +368,8 @@ class WatchlistRow:
     pente_pct: float | None = None
     pot_5y_pct: float | None = None
     pot_10y_pct: float | None = None
+    pot_5y_source: str | None = None  # "valuation" | "regression" | None
+    pot_10y_source: str | None = None  # "regression" aujourd'hui
     trend_bullish: bool | None = None
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
