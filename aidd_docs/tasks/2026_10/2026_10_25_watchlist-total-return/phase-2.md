@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 2 — Front
 
 ## Scope

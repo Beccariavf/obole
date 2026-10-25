@@ -48,7 +48,7 @@ const RUN = {
       price: 100,
       fair_price: 80,
       fair_price_source: "regression",
-      target_yield: null,
+      target_yield: 12,
       safety_margin_pct: -25,
       margin_good: false,
       ref_start: "2006-10-24",
@@ -102,7 +102,7 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(page.locator(".wl-tier-btn", { hasText: "Tous" })).toContainText("2");
   await expect(page.locator(".wl-tier-btn", { hasText: "Tier 1" })).toContainText("1");
   await expect(page.locator(".wl-tier-btn", { hasText: "Tier 2" })).toContainText("1");
-  await expect(page.locator(".wl-coverage")).toContainText("Prix justes définis : 1/2");
+  await expect(page.locator(".wl-coverage")).toContainText("Prix justes enregistrés : 1/2");
 
   // Deux lignes, badges de source distincts, marges colorées.
   const rows = page.locator(".wl-table tbody tr");
@@ -112,9 +112,11 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(rows.nth(0)).toContainText("16,67 %");
   await expect(rows.nth(1)).toContainText("AI.PA");
   await expect(rows.nth(1)).toContainText("droite");
+  await expect(rows.nth(1)).toContainText("objectif 12 %/an");
   await expect(rows.nth(1)).toContainText("-25 %");
-  // Le repli affiche la même valeur que l'écart à la droite (par construction).
-  await expect(rows.nth(1)).toContainText("-25 %");
+  // Le label de position σ est rendu par `scored` (exposé à Alpine) : sans lui,
+  // l'expression échouait et la cellule restait muette.
+  await expect(rows.nth(0).locator(".wl-z-label")).toContainText("Sous-cotée");
 
   // Tri : 1er clic = décroissant (ordre serveur), 2e = ascendant (la plus faible).
   const marginTh = page.locator(".wl-table thead th", { hasText: "Marge sécurité" });

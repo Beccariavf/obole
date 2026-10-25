@@ -64,6 +64,22 @@ describe("libellés et badges", () => {
     expect(app.fairPriceSourceLabel({ fair_price: null, fair_price_source: null })).toBe("—");
   });
 
+  it("le titre de ligne annonce le total-return et le prix juste 12 %", () => {
+    const regression = component().watchRowTitle({
+      ref_start: "2016-10-25",
+      fair_price_source: "regression",
+      target_yield: 12,
+    });
+    expect(regression).toContain("total return");
+    expect(regression).toContain("12 %/an");
+    const saved = component().watchRowTitle({
+      ref_is_default: true,
+      fair_price_source: "saved",
+    });
+    expect(saved).toContain("total return");
+    expect(saved).toContain("Prix juste enregistré");
+  });
+
   it("watchCoverage compte les prix justes réellement définis", () => {
     expect(
       app.watchCoverage([

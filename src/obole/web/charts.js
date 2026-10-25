@@ -14,6 +14,10 @@ import { CURSOR_MARGIN_R } from "./cursor.js";
 export const NON_CHART_TYPES = new Set(["cagr", "kpi"]);
 
 export const chartsMixin = {
+  // Exposé à Alpine : la modale watchlist affiche le label/couleur de la
+  // position σ via `scored(r.z, 'distance')`. Sans cette propriété, l'expression
+  // Alpine échouait (« scored is not defined ») et le label restait vide.
+  scored,
   fmt(v) { return v == null ? "—" : Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 2 }); },
 
   fmtCap(v) {
