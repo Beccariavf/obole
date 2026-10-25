@@ -1,6 +1,6 @@
 ---
 objective: "Quand la watchlist est ouverte, chaque valeur affiche son tier réel, la vue cadrans hiérarchise les convictions par tier, le jeu de comparaisons propose des tiers cohérents avec les choix, et le Pot. 5A d'une valeur avec prix juste enregistré vient de sa valorisation enregistrée, pas de la droite."
-status: in-progress
+status: reviewed
 ---
 
 # Plan: watchlist cadrans, jeu de convictions et Pot. 5A de valorisation

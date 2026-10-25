@@ -1,6 +1,6 @@
 # #26 — Watchlist 2.0 : vue cadrans, jeu de convictions, Pot. 5A de valorisation
 
-> **Statut :** planifié · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟠
+> **Statut :** **fait** · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟠
 > **Branche proposée :** `feat/watchlist-cadrans-conviction` · **Taille :** 4-5 sessions
 > **Plan :** `aidd_docs/tasks/2026_10/2026_10_25_watchlist-cadrans-conviction/`
 > **Fiche parente :** #25 / #25.1 / #25.2
@@ -98,17 +98,17 @@ elle existe, sinon droite total-return.
 
 ## 5. Critères d'acceptation
 
-- [ ] AMUN (Tier 2) affiche Tier 2 dans le select ; le filtre/compteur et la fiche sont
+- [x] AMUN (Tier 2) affiche Tier 2 dans le select ; le filtre/compteur et la fiche sont
       cohérents ; changer vers Tier 3 met tout à jour.
-- [ ] VIE (prix juste enregistré) : Pot. 5A = **estimation valorisation** (≈ 9,8 % avec la
+- [x] VIE (prix juste enregistré) : Pot. 5A = **estimation valorisation** (≈ 9,8 % avec la
       valorisation actuelle), badge « valo » ; la marge reste contre le prix juste.
-- [ ] AMUN/ACA (sans prix juste) : Pot. 5A = droite total-return, badge « droite ».
-- [ ] La fiche reste en vue référence brute ; la valorisation enregistrée prime.
-- [ ] Vue cadrans : 3 colonnes, cadrans de marge, cartes complètes, bascule tableau,
+- [x] AMUN/ACA (sans prix juste) : Pot. 5A = droite total-return, badge « droite ».
+- [x] La fiche reste en vue référence brute ; la valorisation enregistrée prime.
+- [x] Vue cadrans : 3 colonnes, cadrans de marge, cartes complètes, bascule tableau,
       responsive, états vides, aucun nouveau seuil en dur.
-- [ ] Jeu : 12 comparaisons, résultat avec tiers suggérés, application, annulation,
+- [x] Jeu : 12 comparaisons, résultat avec tiers suggérés, application, annulation,
       rejouer, moins de 2 valeurs → désactivé.
-- [ ] Tests backend (dont réseau), front, e2e Chromium + WebKit ; aucun schéma ;
+- [x] Tests backend (dont réseau), front, e2e Chromium + WebKit ; aucun schéma ;
       calibration Pernod inchangée.
 
 ## 6. Décisions structurantes
@@ -149,7 +149,34 @@ elle existe, sinon droite total-return.
 
 ## 9. Note de reprise
 
-**Plan prêt, non implémenté.** Décisions à valider : (a) effectifs conservés vs seuils
-absolus pour les tiers suggérés ; (b) Pot. 5A dérivé du prix juste enregistré vs
-recalcul avec la métrique courante ; (c) cadrans par défaut vs tableau. Prochaine action :
-validation du plan, puis `/02-implement`.
+**J1 → J5 exécutés.** Mesures sur le serveur réel (derniers cours au 23/10) :
+
+- **Tier** : AMUN affiche Tier 2 dans son select (3/1/0), le filtre et les compteurs sont
+  cohérents. Cause : `:value` du select évalué avant les options `x-for` ; correctif
+  `:selected` par option.
+- **Pot. 5A** : VIE 9,77 % `valo`, ELEC 8,24 % `valo` ; ACA 8,36 % `droite`, AMUN 4,22 %
+  `droite`. Le prix juste/marge enregistrés sont inchangés (VIE 28,89 / −11,08 %).
+- **Cadrans** : 3 colonnes ; moyennes Tier 1 −16,47 %, Tier 2 −43,3 %, Tier 3 vide ;
+  cartes avec marge, z, Pot. 5A/source, prix juste/source, tier, Voir ; bascule Tableau.
+- **Jeu** : 12 comparaisons minimum, résultat classé (VIE 100, ACA 67, ELEC 33, AMUN 0 lors
+  du test), effectifs 3/1/0 conservés ; aucune écriture réelle pendant la QA visuelle.
+
+**Décisions.** Le Pot. 5A d'une valeur valorisée est dérivé du **prix juste enregistré**
+(et de la cible/dividende), pas de la métrique courante : `projeté = prix juste ×
+(1 + (cible − dividende)/100)^5`, puis `(projeté/cours)^(1/5) − 1 + dividende`. Le jeu est
+front-only (Elo, prior du tier, paires les moins comparées, score percentile, tiers
+suggérés à effectifs constants) et applique les changements via la route tier existante.
+
+**Pièges.** (1) Le serveur cache `index.html`/CSS ; redémarrer après une modification de
+l'index (le CSS non versionné est relu, l'index non). (2) Un serveur e2e ancien peut servir
+un HTML périmé : vérifier le port/base URL ou repartir d'un serveur frais ; pour la suite
+complète, arrêter le serveur réel et utiliser un `OBOLE_CACHE_DB` jetable. (3) Les nouveaux
+modules doivent être déclarés dans `modules.test.js` (`watchlist-dials.js` utilitaire,
+`conviction.js` utilitaire, `conviction-mixin.js` mixin). (4) Le label σ utilise `scored`
+exposé à Alpine ; le Pot. 5A utilise `watchPotSourceLabel` (méthode, pas l'export direct).
+(5) Avec deux valeurs, l'unique paire est rejouée (aucune autre paire possible). (6)
+« Appliquer les tiers » fait N appels séquentiels : une erreur au milieu laisse les
+changements déjà appliqués ; l'UI le signale.
+
+**Prochaine action.** Revue puis merge (le plan est en `implemented`, la fiche/index en
+`fait`).
