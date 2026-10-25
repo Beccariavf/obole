@@ -45,7 +45,14 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   La vue par défaut est un **tableau de bord de trois colonnes de tier** (#26) : cadran de
   marge moyenne par tier (SVG 180°, bleu/rouge), cartes avec cadran de marge, z, Pot. 5A et
   sa source, prix juste et sa source, sélecteur de tier, ouverture. Bascule Tableau pour le
-  tri dense. Le **jeu de convictions** est un duel plein écran (deux cartes, VS, progression,
+  tri dense.
+  Depuis #26.1, la carte est compacte (118 px, tête de tier 41 px) : mini-cadran 44 px
+  **décoratif**, valeur de marge en texte HTML (un `<text>` SVG serait illisible à cette
+  taille), métriques en 2 colonnes (Prix juste pleine largeur), pied 24 px. Le titre n'est
+  plus un bouton : « Voir » est la seule ouverture ; le ✕ est nommé ; les sections ont un
+  `h4`/`aria-labelledby`. À 390 px, les métriques passent à 1 colonne et l'en-tête de modale
+  se replie. Les règles sont scopées sous `.wl-card`/`.wl-tier-head` (le duel garde ses
+  cadrans). Le **jeu de convictions** est un duel plein écran (deux cartes, VS, progression,
   12 minimum) puis un résultat (rang, tiers actuel/suggéré, conviction 0–100, Δ).
 
 ## Accessibility

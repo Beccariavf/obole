@@ -1,6 +1,6 @@
 ---
 objective: "La vue cadrans conserve toutes ses informations et son mini-cadran par carte, mais la carte passe de 209 px à ≤130 px et la tête de tier de 86 px à ≤50 px, sans backend ni changement de données."
-status: implemented
+status: reviewed
 ---
 
 # Plan: cadrans compacts (option A)

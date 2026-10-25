@@ -161,6 +161,11 @@ elle existe, sinon droite total-return.
 - **Jeu** : 12 comparaisons minimum, résultat classé (VIE 100, ACA 67, ELEC 33, AMUN 0 lors
   du test), effectifs 3/1/0 conservés ; aucune écriture réelle pendant la QA visuelle.
 
+**Compact (#26.1).** La carte cadrans est passée de 209 à 118 px, la tête de tier de 86 à
+41 px : mini-cadran 44 décoratif, marge en HTML, métriques 2 colonnes, pied 24, titre en span
+(Voir seule ouverture), ✕ nommé, sections titrées. L'option B (barre inline) reste
+documentée mais non implémentée.
+
 **Décisions.** Le Pot. 5A d'une valeur valorisée est dérivé du **prix juste enregistré**
 (et de la cible/dividende), pas de la métrique courante : `projeté = prix juste ×
 (1 + (cible − dividende)/100)^5`, puis `(projeté/cours)^(1/5) − 1 + dividende`. Le jeu est
