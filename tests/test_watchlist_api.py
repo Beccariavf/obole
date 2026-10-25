@@ -177,7 +177,15 @@ class TestStockPayload:
         assert watch["tier"] == 2
         assert watch["ref"] == {"start": prices.raw.index[1000].date().isoformat()}
         assert watch["ref_stats"] is not None
-        assert set(watch["ref_stats"]) >= {"line", "z", "ecart_type_pct", "trend_gap_pct"}
+        assert set(watch["ref_stats"]) >= {
+            "a",
+            "b",
+            "sigma",
+            "line",
+            "z",
+            "ecart_type_pct",
+            "trend_gap_pct",
+        }
 
     def test_watch_block_empty_when_not_followed(self, client):
         r, _ = self._get_stock(client)

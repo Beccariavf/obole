@@ -80,6 +80,17 @@ export const searchMixin = {
       } else {
         this.data = await api.stock(raw);
       }
+      // #25.1 : une référence persistée est une droite de VALORISATION (prix
+      // bruts). On ouvre la fiche sur cette vue — dividendes off, synchro on,
+      // pas de fenêtre fixe — pour que la droite, les KPI et la watchlist lisent
+      // la même régression. L'utilisateur peut ensuite recocher les dividendes
+      // ou décocher la synchro pour explorer (le KPI redevient live).
+      if (this.data?.watch?.ref?.start) {
+        this.withDividends = false;
+        this.syncRegression = true;
+        this.winLocked = false;
+        this._winPrevSync = null;
+      }
       this.initRange();
       this.compareKeys = [];  // nouvelle fiche : comparateur remis à zéro
       // Les marqueurs de transactions ne se chargent qu'à l'activation de la case

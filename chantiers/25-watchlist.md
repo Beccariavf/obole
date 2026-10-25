@@ -152,4 +152,12 @@ la table) effacerait les prix justes enregistrés. Le correctif demande une poli
 fenêtre avec les prix (cache chaud de la fiche) : réseau/`TickerNotFound` -> 422, jamais
 d'écriture partielle trompeuse.
 
+**Corrections post-livraison (#25.1).** La fiche d'un titre référencé s'ouvre désormais en
+**prix bruts + synchro** et utilise la **régression persistée** (`ref_stats.a/b/sigma`) quand
+la plage visible est la référence : la droite, les KPI (`z`, σ, performance, `Pot. 5A`) et la
+watchlist lisent la même régression (avant, sur ACA : 7,6 % en fiche contre 2,9 % en
+watchlist, parce que la fiche régressait l'ajusté sur la série décimée). `_downsample`
+conserve le dernier point (le graphe s'arrêtait au 19 oct./15,30 € au lieu du 23 oct./14,92 €).
+La ligne de watchlist porte la pente brute ; le popover de référence est en items bloc.
+
 **Prochaine action.** Aucune — revue passée (`review.md`, verdict approve), chantier clos.

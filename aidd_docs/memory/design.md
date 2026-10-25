@@ -34,7 +34,10 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   juste** est un badge neutre (`calc` / `droite`) — jamais une couleur de jugement ; la
   marge et l'écart suivent la polarité bleu/rouge. L'**étoile** du header est l'action
   d'appartenance (popover des 3 tiers), le **chip de référence** de la barre de période
-  porte la fenêtre de confiance (prix bruts) et ses stats (`z`, σ).
+  porte la fenêtre de confiance (prix bruts) et ses stats (`z`, σ). Son popover est en
+  **items bloc** (libellé + date sur deux lignes), pas la grille des tiers : une grille
+  16 px/1fr sans colonne de coche cassait les libellés en un mot par ligne. Une fiche qui a
+  une référence s'ouvre en **prix bruts** (vue référence), dividendes décochés.
 
 ## Accessibility
 

@@ -37,3 +37,7 @@ La surface HTTP : son style, ses ressources et ses contrats.
   marge est `engine.valuation_calc.safety_margin` et la fenêtre de confiance
   `services.analysis.reference_window` (référence persistée sinon 20 ans). Les routes de
   référence ne sont pas exposées en écriture MCP (jugement humain).
+- `GET /api/stock` expose `watch.ref_stats` (`start`, `end`, `n_points`, `a`, `b`, `sigma`,
+  `line`, `z`, `ecart_type_pct`, `trend_gap_pct`, `pente_pct`) : `a`/`b`/`sigma` permettent
+  au front de retracer exactement la droite persistée quand la fenêtre affichée est la
+  référence.
