@@ -1787,14 +1787,6 @@ select.pf-ctl {
   background: var(--card);
   background: color-mix(in srgb, var(--card) 65%, var(--bg));
 }
-.wl-tier-head {
-  display: flex; justify-content: space-between; gap: 8px;
-  align-items: flex-start; border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
-}
-.wl-tier-name { font-size: 13px; font-weight: 700; }
-.wl-tier-hint { font-size: 11px; color: var(--text-soft); }
-.wl-tier-dial { text-align: center; flex: 0 0 auto; }
 .wl-dial { width: 100%; max-width: 116px; height: auto; display: block; margin: 0 auto; }
 .wl-dial-card { max-width: 92px; }
 .wl-dial-track { fill: none; stroke: var(--border); stroke-width: 8; stroke-linecap: round; }
@@ -1805,24 +1797,77 @@ select.pf-ctl {
 .wl-dial-text { font-size: 13px; font-weight: 700; fill: var(--text); }
 .wl-dial-card .wl-dial-text { font-size: 12px; }
 .wl-dial-label { display: block; font-size: 10px; color: var(--text-soft); margin-top: -2px; }
+
+.wl-tier-head {
+  display: flex; justify-content: space-between; gap: 8px;
+  align-items: center; border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.wl-tier-name { margin: 0; font-size: 12px; font-weight: 700; line-height: 1.2; }
+.wl-tier-hint { font-size: 11px; color: var(--text-soft); }
+.wl-tier-dial { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; text-align: left; }
+.wl-tier-dial .wl-dial { width: 58px; flex: 0 0 58px; max-width: 58px; }
+.wl-tier-dial-texts { display: flex; flex-direction: column; gap: 1px; min-width: 0; white-space: nowrap; }
+.wl-tier-dial .wl-dial-text { font-size: 15px; line-height: 1.1; white-space: nowrap; }
+.wl-tier-dial .wl-dial-label { margin-top: 0; font-size: 9.5px; white-space: nowrap; }
+
+/* Carte compacte (#26.1) : le mini-cadran est décoratif, la marge est du texte. */
 .wl-card {
-  border: 1px solid var(--border); border-radius: 10px; padding: 9px;
-  display: flex; flex-direction: column; gap: 7px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px; background: var(--card);
 }
 .wl-card.row-error { opacity: .7; }
-.wl-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.wl-card-head {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 24px;
+  align-items: center; gap: 8px; min-height: 28px;
+}
+.wl-dial-mini { width: 44px; height: 26px; }
 .wl-card-title {
   display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
-  background: none; border: 0; padding: 0; color: var(--text); text-align: left;
-  cursor: pointer; min-width: 0;
+  min-width: 0; color: var(--text);
 }
-.wl-card-title:disabled { cursor: default; }
-.wl-card-title .screen-name { font-size: 11px; }
-.wl-card-dial { text-align: center; }
-.wl-card-metrics { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
-.wl-card-metric { display: flex; align-items: center; gap: 5px; min-width: 0; }
-.wl-card-k { color: var(--text-soft); min-width: 62px; flex: 0 0 auto; }
+.wl-card-title .screen-ticker { line-height: 1.15; }
+.wl-card-title .screen-name {
+  font-size: 10.5px; line-height: 1.2; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wl-card-margin { display: flex; flex-direction: column; align-items: flex-end; gap: 0; white-space: nowrap; }
+.wl-card-margin > span { font-size: 12px; font-weight: 700; line-height: 1.15; }
+.wl-card-margin .good { color: var(--good); }
+.wl-card-margin .bad { color: var(--bad); }
+.wl-card-margin .neutral { color: var(--text); }
+.wl-card-margin small { font-size: 9px; font-weight: 400; line-height: 1.1; color: var(--text-soft); }
+.wl-card .wl-card-x {
+  width: 24px; height: 24px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 12px;
+}
+.wl-card-metrics {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 10px; font-size: 11px; line-height: 1.35;
+}
+.wl-card-metric { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.wl-card-metric:nth-child(3) { grid-column: 1 / -1; }
+.wl-card .wl-card-k { min-width: 54px; }
+.wl-card .wl-src { font-size: 9px; line-height: 12px; }
 .wl-card-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.wl-card .wl-tier-select { height: 24px; font-size: 11px; }
+.wl-card-foot .btn.small { height: 24px; padding: 2px 10px; font-size: 11.5px; }
+.wl-card .wl-tier-select:focus-visible,
+.wl-card-foot .btn:focus-visible,
+.wl-card-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wl-tier-empty {
+  color: var(--text-soft); font-size: 11.5px; text-align: center; padding: 14px 0;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+@media (max-width: 700px) {
+  .modal-watchlist .idx-head { flex-wrap: wrap; gap: 6px; }
+  .modal-watchlist .idx-head-actions { flex-wrap: wrap; gap: 6px; }
+  .modal-watchlist .idx-head-actions .btn { white-space: nowrap; }
+}
+@media (max-width: 520px) {
+  .wl-card-metrics { grid-template-columns: 1fr; }
+  .wl-card-metric:nth-child(3) { grid-column: auto; }
+}
 .wl-tier-empty {
   color: var(--text-soft); font-size: 11.5px; text-align: center; padding: 14px 0;
   border: 1px dashed var(--border); border-radius: 8px;
