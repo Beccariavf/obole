@@ -38,6 +38,10 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   **items bloc** (libellé + date sur deux lignes), pas la grille des tiers : une grille
   16 px/1fr sans colonne de coche cassait les libellés en un mot par ligne. Une fiche qui a
   une référence s'ouvre en **prix bruts** (vue référence), dividendes décochés.
+  La watchlist est en **total-return** (dividendes réinvestis) : σ/écart/Pot. 5A sont lus
+  sur la droite ajustée ; le prix juste d'une ligne sans valorisation enregistrée est le
+  prix d'entrée à 12 %/an jusqu'à la droite à 5 ans. La légende du tableau le dit
+  explicitement, et rappelle que la fiche garde la droite brute de valorisation.
 
 ## Accessibility
 

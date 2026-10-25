@@ -1,6 +1,6 @@
 ---
 objective: "La ligne de watchlist est en total-return (dividendes réinvestis) et, sans prix juste enregistré, son prix juste est le prix d'entrée à 12 %/an jusqu'à la droite à 5 ans."
-status: in-progress
+status: implemented
 ---
 
 # Plan: watchlist total-return + prix juste 12 %
