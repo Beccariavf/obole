@@ -1825,46 +1825,45 @@
       <div class="wl-board" :class="{ 'wl-board-single': watchTierFilter != null }"
            x-show="watchRows.length && watchView === 'cadrans'">
         <template x-for="g in watchTierGroups()" :key="g.id">
-          <section class="wl-tier-col">
+          <section class="wl-tier-col" :aria-labelledby="'wl-tier-' + g.id">
             <header class="wl-tier-head">
               <div>
-                <div class="wl-tier-name" x-text="g.label"></div>
+                <h4 class="wl-tier-name" :id="'wl-tier-' + g.id" x-text="g.label"></h4>
                 <div class="wl-tier-hint"
                      x-text="g.rows.length === 1 ? '1 valeur' : g.rows.length + ' valeurs'"></div>
               </div>
               <div class="wl-tier-dial">
-                <svg viewBox="0 0 100 58" class="wl-dial" role="img"
-                     :aria-label="'Marge moyenne du tier : ' + (g.avg == null ? 'aucune valeur' : watchPct(g.avg))">
+                <svg viewBox="0 0 100 58" class="wl-dial" aria-hidden="true" focusable="false">
                   <path class="wl-dial-track" :d="watchDialTrack()"></path>
                   <path class="wl-dial-value" :class="watchDialTone(g.avg)" :d="watchDialPath(g.avg)"></path>
-                  <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
-                        x-text="g.avg == null ? '—' : watchPct(g.avg)"></text>
                 </svg>
-                <span class="wl-dial-label">marge moyenne</span>
+                <div class="wl-tier-dial-texts">
+                  <span class="wl-dial-text" x-text="g.avg == null ? '—' : watchPct(g.avg)"></span>
+                  <span class="wl-dial-label">marge moyenne</span>
+                </div>
               </div>
             </header>
 
             <template x-for="r in g.rows" :key="r.ticker">
               <article class="wl-card" :class="{ 'row-error': r.error }">
                 <div class="wl-card-head">
-                  <button type="button" class="wl-card-title" @click="openWatchRow(r)"
-                          :disabled="!!r.error">
-                    <span class="screen-ticker" x-text="r.ticker"></span>
-                    <span class="screen-name" x-text="r.name || '—'"></span>
-                  </button>
-                  <button type="button" class="btn small ghost" @click.stop="removeWatchRow(r)"
-                          title="Retirer de la watchlist">✕</button>
-                </div>
-
-                <div class="wl-card-dial">
-                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
-                       :aria-label="'Marge de sécurité : ' + watchPct(r.safety_margin_pct)">
+                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-mini"
+                       aria-hidden="true" focusable="false">
                     <path class="wl-dial-track" :d="watchDialTrack()"></path>
                     <path class="wl-dial-value" :class="watchDialTone(r.safety_margin_pct)"
                           :d="watchDialPath(r.safety_margin_pct)"></path>
-                    <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
-                          x-text="watchPct(r.safety_margin_pct)"></text>
                   </svg>
+                  <span class="wl-card-title">
+                    <span class="screen-ticker" x-text="r.ticker"></span>
+                    <span class="screen-name" x-text="r.name || '—'" :title="r.name || ''"></span>
+                  </span>
+                  <span class="wl-card-margin">
+                    <span :class="polarity(r.margin_good)" x-text="watchPct(r.safety_margin_pct)"></span>
+                    <small>marge</small>
+                  </span>
+                  <button type="button" class="btn small ghost wl-card-x" @click.stop="removeWatchRow(r)"
+                          :aria-label="'Retirer ' + r.ticker + ' de la watchlist'"
+                          title="Retirer de la watchlist">✕</button>
                 </div>
 
                 <div class="wl-card-metrics">

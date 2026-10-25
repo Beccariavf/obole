@@ -207,6 +207,29 @@ test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => 
   );
   await expect(page.locator(".wl-tier-col").nth(1).locator(".wl-card select")).toHaveValue("2");
 
+  // Carte compacte : hauteur, sémantique de tier et nom accessible du ✕.
+  const firstCard = page.locator(".wl-card").first();
+  expect(await firstCard.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(130);
+  expect(
+    await page.locator(".wl-tier-head").first().evaluate((el) => el.getBoundingClientRect().height),
+  ).toBeLessThanOrEqual(50);
+  await expect(page.locator(".wl-tier-col").first().locator("h4")).toHaveText("Tier 1");
+  await expect(firstCard.locator(".wl-card-x")).toHaveAttribute("aria-label", /Retirer RI\.PA/);
+
+  // Voir ouvre la fiche ; le retour rouvre la watchlist.
+  await firstCard.locator(".wl-card-foot .btn", { hasText: "Voir" }).click();
+  await expect(page.locator(".header")).toBeVisible();
+  await page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" }).click();
+  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+
+  // ✕ retire la carte (dialog accepté, DELETE intercepté).
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.route(/\/api\/watchlist\/items\/RI\.PA$/, (route) =>
+    route.fulfill({ json: { status: "removed" } }),
+  );
+  await page.locator(".wl-card").first().locator(".wl-card-x").click();
+  await expect(page.locator(".wl-card")).toHaveCount(1);
+
   await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
   await expect(page.locator(".wl-table")).toBeVisible();
   await expect(page.locator(".wl-board")).toBeHidden();
@@ -219,6 +242,13 @@ test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => 
     (el) => getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length,
   );
   expect(columns).toBe(1);
+  const tableButton = page.locator(".wl-view-toggle button", { hasText: "Tableau" });
+  await expect(tableButton).toBeVisible();
+  const tableBox = await tableButton.boundingBox();
+  expect(tableBox.x + tableBox.width).toBeLessThanOrEqual(390);
+  expect(
+    await page.locator(".wl-card").first().evaluate((el) => el.getBoundingClientRect().height),
+  ).toBeLessThanOrEqual(150);
 });
 
 test("watchlist : état vide", async ({ page }) => {
