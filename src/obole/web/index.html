@@ -1760,11 +1760,12 @@
                     <span class="screen-name" x-text="r.name || '—'"></span>
                   </td>
                   <td class="cell-val" @click.stop>
-                    <select class="wl-tier-select" :value="r.tier"
+                    <select class="wl-tier-select"
                             @change="moveWatchRow(r, $event.target.value)"
                             :title="'Tier de conviction — ' + (watchTierLabel(r.tier) || '')">
                       <template x-for="t in watchTierList()" :key="t.id">
-                        <option :value="t.id" x-text="t.label"></option>
+                        <option :value="t.id" :selected="Number(t.id) === Number(r.tier)"
+                                x-text="t.label"></option>
                       </template>
                     </select>
                   </td>

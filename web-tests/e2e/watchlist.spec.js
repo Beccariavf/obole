@@ -112,6 +112,18 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(rows.nth(0)).toContainText("16,67 %");
   await expect(rows.nth(1)).toContainText("AI.PA");
   await expect(rows.nth(1)).toContainText("droite");
+
+  // Le select doit afficher le tier réel de la ligne (et non la 1re option).
+  const aiSelect = rows.nth(1).locator("select");
+  await expect(aiSelect).toHaveValue("2");
+  await expect(aiSelect.locator("option:checked")).toHaveText("Tier 2");
+  await page.route(/\/api\/watchlist\/items\/AI\.PA$/, (route) =>
+    route.fulfill({ json: { item: { ticker: "AI.PA", tier: 3 } } }),
+  );
+  await aiSelect.selectOption("3");
+  await expect(aiSelect).toHaveValue("3");
+  await expect(page.locator(".wl-tier-btn", { hasText: "Tier 2" })).toContainText("0");
+  await expect(page.locator(".wl-tier-btn", { hasText: "Tier 3" })).toContainText("1");
   await expect(rows.nth(1)).toContainText("objectif 12 %/an");
   await expect(rows.nth(1)).toContainText("-25 %");
   // Le label de position σ est rendu par `scored` (exposé à Alpine) : sans lui,
