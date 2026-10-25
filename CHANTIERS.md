@@ -89,6 +89,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 24 | **Calendrier du portefeuille en séances** + contexte unique | 🔴 Q3 | 🟠 | 2 sessions | **fait** | [→](chantiers/24-calendrier-portefeuille.md) |
 | 25 | **Watchlist à tiers** + marges de sécurité + fenêtre de confiance + MCP | 🟡 Q2 | 🟠 | 2-3 sessions | **fait** | [→](chantiers/25-watchlist.md) |
 | 25.1 | Watchlist : lier la référence à la performance 5 ans + popover | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/25.1-watchlist-reference.md) |
+| 25.2 | Watchlist en total-return + prix juste à 12 % sur la droite | 🟡 Q2 | 🟠 | 1 session | en cours | [→](chantiers/25.2-watchlist-total-return.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)
