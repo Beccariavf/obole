@@ -1,6 +1,6 @@
 ---
 objective: "Quand une valeur a une référence persistée, la fiche affiche la même droite et les mêmes lectures que la watchlist (prix bruts, régression serveur), le dernier point du graphe est le dernier cours réel, et le popover de référence est lisible."
-status: in-progress
+status: reviewed
 ---
 
 # Plan: cohérence référence / performance 5 ans + popover

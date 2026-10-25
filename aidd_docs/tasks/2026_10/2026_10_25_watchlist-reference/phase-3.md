@@ -15,4 +15,4 @@
 - [x] Popover lisible : items ≤ 50 px, libellés sur une/deux lignes, stats en bas.
 - [x] E2E Chromium + WebKit verts.
 - [x] Captures après jointes ; comparaison avec les captures avant.
-- [ ] Doc à jour ; revue sans constat bloquant ; merge.
+- [x] Doc à jour ; revue sans constat bloquant ; merge.
