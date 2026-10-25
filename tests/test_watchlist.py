@@ -163,6 +163,11 @@ class TestRefStats:
         assert stats["line"] == pytest.approx(expected.fitted_now)
         assert stats["z"] == pytest.approx(reg.distance_sigma(expected, float(window.iloc[-1])))
         assert stats["ecart_type_pct"] == pytest.approx(expected.ecart_type_size * 100)
+        # Paramètres de la droite persistée : le front trace EXACTEMENT la
+        # référence avec eux (#25.1), sans re-fit sur la série décimée.
+        assert stats["a"] == pytest.approx(expected.a)
+        assert stats["b"] == pytest.approx(expected.b)
+        assert stats["sigma"] == pytest.approx(expected.sigma)
 
     def test_too_short_returns_none(self):
         from obole.services import watchlist as wl
@@ -277,7 +282,7 @@ class TestItems:
         assert state["refs"] == {"RI.PA": "2012-01-04"}
 
 
-def _fake_windowed_analysis(ticker, price, line, sigma=0.25, trend=True):
+def _fake_windowed_analysis(ticker, price, line, sigma=0.25, trend=True, slope=0.0):
     """StockAnalysis minimal dont la régression de fenêtre est contrôlée."""
     import math
     from datetime import date
@@ -292,8 +297,8 @@ def _fake_windowed_analysis(ticker, price, line, sigma=0.25, trend=True):
     )
 
     regression = RegressionResult(
-        a=math.log(line),
-        b=0.0,
+        a=math.log(line) - slope * 10.0,
+        b=slope,
         sigma=sigma,
         t_now=10.0,
         fitted_now=line,
@@ -389,6 +394,23 @@ class TestRun:
         with pytest.raises(ValueError):
             wl.run(tier=4)
 
+    def test_pente_is_the_reference_slope(self, monkeypatch):
+        """La pente de la ligne est celle de la droite brute, pas la perf ajustée."""
+        import math
+
+        from obole.services import watchlist as wl
+
+        cache.upsert_watch_item("AAA.PA", 1)
+        self._setup(
+            monkeypatch,
+            # (prix, ligne, sigma, tendance, pente log)
+            analyses={"AAA.PA": (100.0, 90.0, 0.25, True, 0.03)},
+        )
+        row = wl.run().rows[0]
+        assert row.pente_pct == pytest.approx((math.exp(0.03) - 1) * 100)
+        # La perf ajustée du payload (5.0) n'est PAS utilisée pour la pente.
+        assert row.pente_pct != pytest.approx(5.0)
+
     def test_window_is_passed_from_reference(self, monkeypatch):
         """Une référence persistée est utilisée (ref_start), sinon 20 ans."""
         from tests.test_analysis import _make_prices
@@ -431,6 +453,7 @@ class TestStockState:
         assert state["tier"] == 2
         assert state["ref"] == {"start": "2005-01-03"}
         assert state["ref_stats"] is not None
+        assert {"a", "b", "sigma", "line", "z"} <= set(state["ref_stats"])
         payload = wl.decorate_stock_payload({"kind_payload": "stock"}, "RI.PA", prices)
         assert payload["watch"]["tier"] == 2
 

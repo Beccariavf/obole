@@ -153,6 +153,12 @@ def ref_stats(raw, start: str) -> dict | None:
         "start": regression.start.isoformat(),
         "end": regression.end.isoformat(),
         "n_points": regression.n_points,
+        # Paramètres de la régression (unités log) : le front les utilise pour
+        # tracer EXACTEMENT la droite de référence quand la fenêtre affichée est
+        # celle-ci, au lieu de recalculer la régression sur la série décimée (#25.1).
+        "a": regression.a,
+        "b": regression.b,
+        "sigma": regression.sigma,
         "line": line,
         "z": reg.distance_sigma(regression, price),
         "ecart_type_pct": regression.ecart_type_size * 100,
@@ -300,7 +306,7 @@ def _row_from_analysis(
         trend_gap_pct=trend_gap,
         z=z,
         ecart_type_pct=(regression.ecart_type_size * 100) if regression else None,
-        pente_pct=analysis.indicators.perf_passee.value,
+        pente_pct=(regression.perf_annual * 100) if regression else None,
         pot_5y_pct=analysis.indicators.potential_5y.value,
         pot_10y_pct=analysis.indicators.potential_10y.value,
         trend_bullish=analysis.indicators.trend.good,

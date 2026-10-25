@@ -128,11 +128,20 @@ def _moving_average(series: pd.Series, window: int) -> pd.Series:
 
 
 def _downsample(series: pd.Series, max_points: int = 1200) -> pd.Series:
-    """Réduit le nombre de points pour un tracé léger (sobriété + perf front)."""
+    """Réduit le nombre de points pour un tracé léger (sobriété + perf front).
+
+    Le **dernier point est toujours conservé** : sans lui, le graphe et les
+    indicateurs live s'arrêtaient quelques séances avant le dernier cours (le
+    marqueur « prix · σ » contredisait l'en-tête, et les KPI live divergeaient
+    des valeurs serveur). Le premier point l'est déjà (`iloc[::step]`).
+    """
     if len(series) <= max_points:
         return series
     step = len(series) // max_points
-    return series.iloc[::step]
+    out = series.iloc[::step]
+    if len(out) and out.index[-1] != series.index[-1]:
+        out = pd.concat([out, series.iloc[[-1]]])
+    return out
 
 
 def _vals(s: pd.Series) -> list:

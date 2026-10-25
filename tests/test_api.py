@@ -165,6 +165,30 @@ class TestGetStock:
             if exp is not None and pd.notna(exp):
                 assert g is not None and abs(g - round(float(exp), 4)) < 1e-4
 
+    def test_chart_payload_keeps_the_last_point(self):
+        """La décimation conserve le dernier cours (marqueur et KPI live)."""
+        from obole.services.serialize import _downsample
+
+        prices = _make_prices(length=3000)
+        down = _downsample(prices.raw)
+        assert down.index[0] == prices.raw.index[0]
+        assert down.index[-1] == prices.raw.index[-1]
+
+        payload = chart_payload(prices)
+        assert payload["dates"][-1] == prices.raw.index[-1].strftime("%Y-%m-%d")
+        assert payload["price_raw"][-1] == round(float(prices.raw.iloc[-1]), 4)
+        assert payload["price_adj"][-1] == round(float(prices.adjusted.iloc[-1]), 4)
+
+    def test_downsample_does_not_duplicate_last_point(self):
+        """Quand le dernier point tombe déjà sur le pas, on ne l'ajoute pas deux fois."""
+        from obole.services.serialize import _downsample
+
+        prices = _make_prices(length=2401)  # pas = 2, dernier index 2400 = déjà inclus
+        down = _downsample(prices.raw, max_points=1200)
+        assert len(down) == 1201
+        assert down.index[-1] == prices.raw.index[-1]
+        assert down.index.is_unique
+
     def test_chart_payload_dividend_yield_aligned(self):
         """Les rendements continus sont décimés sur le MÊME index que le cours."""
         from obole.models import Fundamentals
