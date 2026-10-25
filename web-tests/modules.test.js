@@ -20,6 +20,7 @@ import { valorisationMixin } from "../src/obole/web/valorisation.js";
 import { thesisMixin } from "../src/obole/web/thesis.js";
 import { checkpointsMixin } from "../src/obole/web/suivi.js";
 import { watchlistMixin } from "../src/obole/web/watchlist.js";
+import { convictionMixin } from "../src/obole/web/conviction-mixin.js";
 import { obole } from "../src/obole/web/app.js";
 
 // #04 : découpage du front en modules ES natifs. Ce test verrouille la
@@ -46,6 +47,7 @@ const MIXINS = {
   "thesis.js": thesisMixin,
   "suivi.js": checkpointsMixin,
   "watchlist.js": watchlistMixin,
+  "conviction-mixin.js": convictionMixin,
 };
 
 describe("découpage du front (modules ES)", () => {
@@ -58,7 +60,7 @@ describe("découpage du front (modules ES)", () => {
 
   it("le composant obole assemble tous les mixins", () => {
     const comp = obole();
-    for (const m of ["load", "searchScreener", "openIndices", "drawChart", "doExport", "openEvents", "openSettings", "setSection", "onHashChange", "openPortfolio", "setPortfolioSection", "loadThesis", "startThesisEdit", "thesisToggleTask", "loadCheckpoints", "cpAdd", "cpToggle", "openDrafts", "applyDraft", "rejectDraft"]) {
+    for (const m of ["load", "searchScreener", "openIndices", "drawChart", "doExport", "openEvents", "openSettings", "setSection", "onHashChange", "openPortfolio", "setPortfolioSection", "loadThesis", "startThesisEdit", "thesisToggleTask", "loadCheckpoints", "cpAdd", "cpToggle", "openDrafts", "applyDraft", "rejectDraft", "openConviction"]) {
       expect(comp[m], `obole() doit exposer ${m}`).toBeTypeOf("function");
     }
     expect(comp.metaReady).toBe(false);
@@ -101,6 +103,7 @@ describe("découpage du front (modules ES)", () => {
       "thresholds.js",
       "util.js",
       "watchlist-dials.js",
+      "conviction.js",
     ]);
     const modules = readdirSync(WEB_DIR).filter(
       (f) => f.endsWith(".js") && f !== "app.js",

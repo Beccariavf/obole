@@ -1707,6 +1707,8 @@
             <button type="button" class="btn small" :class="{ active: watchView === 'table' }"
                     @click="watchView = 'table'" :aria-pressed="watchView === 'table'">Tableau</button>
           </div>
+          <button class="btn small" @click="openConviction()" :disabled="watchRows.length < 2"
+                  title="Comparer deux valeurs pour affiner tes tiers">Tester mes convictions</button>
           <button class="btn small ghost" @click="refreshWatchlist()" :disabled="watchLoading"
                   title="Relancer le classement">↻</button>
           <button class="btn small ghost" @click="closeWatchlist()">✕</button>
@@ -1921,6 +1923,120 @@
         <b>Pot. 5A</b> : estimation de la valorisation enregistrée si elle a un prix juste
         (badge <b>valo</b>), sinon potentiel total-return de la droite (badge <b>droite</b>).
       </p>
+    </div>
+  </div>
+
+  <!-- Jeu de convictions (#26) : deux valeurs, un choix, un classement. Aucune
+       écriture avant « Appliquer les tiers » (route tier existante). -->
+  <div class="modal-overlay" x-show="convictionOpen" @click.self="closeConviction()">
+    <div class="modal modal-conviction"
+         @keydown.escape.window="convictionOpen && closeConviction()"
+         @keydown.left.prevent="convictionPair && chooseConviction(convictionPair[0])"
+         @keydown.right.prevent="convictionPair && chooseConviction(convictionPair[1])">
+      <div class="cv-screen" x-show="!convictionResult">
+        <div class="idx-head">
+          <h3>Tester mes convictions</h3>
+          <div class="idx-head-actions">
+            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
+          </div>
+        </div>
+        <div class="cv-progress-row">
+          <div class="cv-progress"><div class="cv-progress-bar" :style="'width:' + convictionProgress() + '%'"></div></div>
+          <span x-text="convictionCount + ' / ' + convictionMin() + ' minimum'"></span>
+        </div>
+        <p class="cv-prompt">Choisis celle en laquelle tu as le plus de conviction.</p>
+
+        <div class="cv-duel" x-show="convictionPair">
+          <template x-for="ticker in (convictionPair || [])" :key="ticker">
+            <div class="cv-side">
+              <button type="button" class="cv-card" :class="{ picked: convictionLastChoice === ticker }"
+                      @click="chooseConviction(ticker)">
+                <span class="cv-card-head">
+                  <span class="screen-ticker" x-text="ticker"></span>
+                  <span class="screen-name" x-text="convictionRow(ticker)?.name || '—'"></span>
+                  <span class="chip" x-text="'Tier ' + (convictionRow(ticker)?.tier ?? '—')"></span>
+                </span>
+                <span class="cv-card-dial">
+                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
+                       :aria-label="'Marge de sécurité : ' + watchPct(convictionRow(ticker)?.safety_margin_pct)">
+                    <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                    <path class="wl-dial-value" :class="watchDialTone(convictionRow(ticker)?.safety_margin_pct)"
+                          :d="watchDialPath(convictionRow(ticker)?.safety_margin_pct)"></path>
+                    <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
+                          x-text="watchPct(convictionRow(ticker)?.safety_margin_pct)"></text>
+                  </svg>
+                </span>
+                <span class="cv-card-metrics">
+                  <span class="cv-metric"><span class="wl-card-k">Position σ</span>
+                    <span x-text="convictionRow(ticker)?.z == null ? '—' : fmt(convictionRow(ticker).z) + ' σ'"></span></span>
+                  <span class="cv-metric"><span class="wl-card-k">Pot. 5A</span>
+                    <span x-text="watchPct(convictionRow(ticker)?.pot_5y_pct)"></span>
+                    <span class="wl-src" :class="'wl-src-' + (convictionRow(ticker)?.pot_5y_source || 'none')"
+                          x-text="watchPotSourceLabel(convictionRow(ticker))"></span></span>
+                  <span class="cv-metric"><span class="wl-card-k">Prix juste</span>
+                    <span x-text="convictionRow(ticker)?.fair_price == null ? '—' : fmt(convictionRow(ticker).fair_price)"></span></span>
+                </span>
+                <span class="cv-choice">Je choisis</span>
+              </button>
+            </div>
+          </template>
+          <div class="cv-vs">VS</div>
+        </div>
+
+        <div class="cv-foot">
+          <button class="btn small ghost" :disabled="!convictionCount" @click="undoConviction()">Annuler la dernière</button>
+          <button class="btn small" :disabled="!convictionCanFinish()" @click="finishConviction()">Voir le résultat</button>
+        </div>
+        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
+      </div>
+
+      <div class="cv-screen" x-show="convictionResult">
+        <div class="idx-head">
+          <h3>Ton classement de conviction</h3>
+          <div class="idx-head-actions">
+            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
+          </div>
+        </div>
+        <div class="cv-result-actions">
+          <button class="btn small" :disabled="!convictionChanges().length || convictionApplied || convictionBusy"
+                  @click="applyConvictionTiers()">Appliquer les tiers</button>
+          <button class="btn small ghost" @click="replayConviction()">Rejouer</button>
+          <button class="btn small ghost" @click="closeConviction()">Fermer</button>
+        </div>
+        <p class="idx-hint" x-show="convictionApplied">Tiers appliqués.</p>
+        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
+        <div class="cv-result">
+          <table class="cell-table screen-table cv-result-table">
+            <thead>
+              <tr><th>Rang</th><th>Entreprise</th><th>Tier actuel</th><th>Tier suggéré</th><th>Conviction</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+              <template x-for="(r, index) in (convictionResult?.rows || [])" :key="r.ticker">
+                <tr>
+                  <td x-text="index + 1"></td>
+                  <td>
+                    <span class="screen-ticker" x-text="r.ticker"></span>
+                    <span class="screen-name" x-text="r.name || '—'"></span>
+                  </td>
+                  <td x-text="'Tier ' + r.current_tier"></td>
+                  <td x-text="'Tier ' + r.suggested_tier"></td>
+                  <td class="cv-score">
+                    <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
+                         :aria-label="'Conviction ' + r.score + ' sur 100'">
+                      <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                      <path class="cv-dial-value" :d="watchDialPath(r.score, 0, 100)"></path>
+                      <text class="wl-dial-text" x="50" y="50" text-anchor="middle" x-text="r.score"></text>
+                    </svg>
+                  </td>
+                  <td x-text="r.current_tier === r.suggested_tier ? '=' : (r.suggested_tier < r.current_tier ? '↑' : '↓')"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <p class="wl-legend">Effectifs par tier conservés ; basé sur
+          <span x-text="convictionResult?.comparisons || 0"></span> comparaisons.</p>
+      </div>
     </div>
   </div>
 

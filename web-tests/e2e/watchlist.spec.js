@@ -71,6 +71,35 @@ const RUN = {
   ],
 };
 
+const RUN_GAME = {
+  generated_at: 1700000000,
+  count: 4,
+  rows: [
+    RUN.rows[0],
+    RUN.rows[1],
+    {
+      ...RUN.rows[0],
+      ticker: "MC.PA",
+      name: "LVMH",
+      tier: 1,
+      safety_margin_pct: -10,
+      z: 0.3,
+      pot_5y_pct: 6,
+      pot_5y_source: "regression",
+    },
+    {
+      ...RUN.rows[1],
+      ticker: "OR.PA",
+      name: "L'Oréal",
+      tier: 3,
+      safety_margin_pct: -30,
+      z: 1.4,
+      pot_5y_pct: 3,
+      pot_5y_source: "regression",
+    },
+  ],
+};
+
 async function routeWatchlist(page, { run = RUN, items = null } = {}) {
   const state = {
     tiers: TIERS,
@@ -227,6 +256,65 @@ test("étoile : ajout puis retrait, sans recharger la fiche", async ({ page }) =
   await star.click();
   await page.locator(".watch-pop-item", { hasText: "Retirer de la watchlist" }).click();
   await expect(star).toContainText("Watchlist");
+});
+
+test("watchlist : jeu de convictions, résultat et application", async ({ page }) => {
+  await routeWatchlist(page, {
+    run: RUN_GAME,
+    items: RUN_GAME.rows.map((row) => ({ ticker: row.ticker, tier: row.tier, added_at: 1 })),
+  });
+  await page.goto("/");
+  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
+  await expect(page.locator(".modal.modal-conviction")).toBeVisible();
+
+  const cards = page.locator(".cv-card");
+  await expect(cards).toHaveCount(2);
+  // Annulation : deux choix, un retour arrière, puis la suite.
+  await cards.first().click();
+  await page.waitForTimeout(30);
+  await cards.first().click();
+  await page.waitForTimeout(30);
+  await expect(page.locator(".cv-progress-row")).toContainText("2 / 12 minimum");
+  await page.locator(".cv-foot .btn", { hasText: "Annuler la dernière" }).click();
+  await expect(page.locator(".cv-progress-row")).toContainText("1 / 12 minimum");
+  // On fait gagner les valeurs des tiers bas (AI, OR) pour forcer un reclassement.
+  for (let round = 0; round < 11; round += 1) {
+    const count = await cards.count();
+    let picked = false;
+    let bestTier = -1;
+    for (let index = 0; index < count; index += 1) {
+      const text = await cards.nth(index).innerText();
+      const match = text.match(/Tier (\d)/);
+      const tier = match ? Number(match[1]) : 0;
+      if (tier > bestTier) {
+        bestTier = tier;
+        picked = index;
+      }
+    }
+    await cards.nth(picked).click();
+    await page.waitForTimeout(25);
+  }
+  await expect(page.locator(".cv-progress-row")).toContainText("12 / 12 minimum");
+  await page.locator(".cv-foot .btn", { hasText: "Voir le résultat" }).click();
+  await expect(page.locator(".cv-result-table tbody tr")).toHaveCount(4);
+
+  const calls = [];
+  await page.route(/\/api\/watchlist\/items\/[^/]+$/, async (route) => {
+    const ticker = decodeURIComponent(route.request().url().split("/").pop());
+    const tier = route.request().postDataJSON().tier;
+    calls.push({ ticker, tier });
+    await route.fulfill({ json: { item: { ticker, tier } } });
+  });
+  const apply = page.locator(".cv-result-actions .btn", { hasText: "Appliquer les tiers" });
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await expect(page.locator(".modal.modal-conviction")).toContainText("Tiers appliqués");
+  expect(calls.length).toBeGreaterThan(0);
+
+  await page.locator(".cv-result-actions .btn", { hasText: "Fermer" }).click();
+  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".modal.modal-conviction")).toBeHidden();
 });
 
 test("référence : le chip propose de définir la fenêtre affichée", async ({ page }) => {
