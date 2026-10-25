@@ -44,6 +44,30 @@ export const chartsMixin = {
     return 0;
   },
 
+  // Référence persistée (#25.1) : ne s'applique QUE si la fenêtre visible est
+  // exactement celle de la référence, en prix bruts et synchro. Dans ce cas la
+  // droite affichée est la régression serveur (a, b, σ, start) — même source que
+  // la watchlist — au lieu d'un re-fit sur la série décimée.
+  referenceRegression() {
+    const watch = this.data?.watch;
+    const stats = watch?.ref_stats;
+    const start = watch?.ref?.start;
+    if (!start || !stats) return null;
+    if (stats.a == null || stats.b == null || stats.sigma == null || !stats.start) return null;
+    if (!this.syncRegression || this.withDividends) return null;
+    const idx = this.idxForDate(start);
+    if (idx == null) return null;
+    const [s, e] = this.visibleRange();
+    if (s !== idx || e !== this.maxIdx()) return null;
+    return {
+      a: stats.a,
+      b: stats.b,
+      sigma: stats.sigma,
+      start: stats.start,
+      end: stats.end || this.data.chart.dates[this.maxIdx()],
+    };
+  },
+
   // --- Slider de période à deux poignées -----------------------------------
 
   maxIdx() { return this.data ? this.data.chart.dates.length - 1 : 0; },
@@ -239,9 +263,13 @@ export const chartsMixin = {
   // fenêtre de calcul de la droite : en mode figé, la droite couvre tout
   // l'historique mais on lit le cours/σ à l'extrémité de la sous-période zoomée.
 
-  computeLive(a, b, sigma, t0, allDates, series, obsIdx) {
-    const lastPrice = series[obsIdx] ?? this.data.identity.last_price;
-    const tNow = (new Date(allDates[obsIdx]) - t0) / (365.25 * 864e5);
+  computeLive(a, b, sigma, t0, allDates, series, obsIdx, obsOverride = null) {
+    // `obsOverride` (#25.1) : quand la fenêtre affichée EST la référence, on lit
+    // au dernier cours réel (identité + ref_stats.end) et non au dernier point
+    // décimé — la décimée peut avoir quelques séances de retard.
+    const obsDate = obsOverride?.date ?? allDates[obsIdx];
+    const lastPrice = obsOverride?.price ?? series[obsIdx] ?? this.data.identity.last_price;
+    const tNow = (new Date(obsDate) - t0) / (365.25 * 864e5);
     const z = (Math.log(lastPrice) - (a + b * tNow)) / sigma;
     const perf = (Math.exp(b) - 1) * 100;
     const ecart = (Math.exp(sigma) - 1) * 100;
@@ -321,29 +349,42 @@ export const chartsMixin = {
     // 20 ans (30 pour les financières) avant aujourd'hui, DIVIDENDES INCLUS.
     // Mode synchro : droite sur la plage visible, série selon la case.
     const series = (this.syncRegression && !this.withDividends) ? c.price_raw : c.price_adj;
+    const refReg = this.referenceRegression();
 
-    let calcStart, calcEnd;
-    if (this.syncRegression) {
-      calcStart = i0;
-      calcEnd = i1;
+    let a, b, sigma, t0;
+    if (refReg) {
+      // Fenêtre = référence persistée : la droite est celle que la watchlist
+      // utilise (régression serveur), pas un re-fit de la série décimée.
+      ({ a, b, sigma } = refReg);
+      t0 = new Date(refReg.start);
     } else {
-      calcEnd = allDates.length - 1;
-      calcStart = this.fixedWindowStart(allDates, calcEnd);
-    }
+      let calcStart, calcEnd;
+      if (this.syncRegression) {
+        calcStart = i0;
+        calcEnd = i1;
+      } else {
+        calcEnd = allDates.length - 1;
+        calcStart = this.fixedWindowStart(allDates, calcEnd);
+      }
 
-    const t0 = new Date(allDates[calcStart]);
-    const times = [], prices = [];
-    for (let i = calcStart; i <= calcEnd; i++) {
-      if (series[i] == null || series[i] <= 0) continue;
-      times.push((new Date(allDates[i]) - t0) / (365.25 * 864e5));
-      prices.push(series[i]);
+      t0 = new Date(allDates[calcStart]);
+      const times = [], prices = [];
+      for (let i = calcStart; i <= calcEnd; i++) {
+        if (series[i] == null || series[i] <= 0) continue;
+        times.push((new Date(allDates[i]) - t0) / (365.25 * 864e5));
+        prices.push(series[i]);
+      }
+      ({ a, b, sigma } = olsLog(times, prices));
     }
-    const { a, b, sigma } = olsLog(times, prices);
 
     // --- Indicateurs lus au dernier point VISIBLE (i1), sur la droite ----
     // calculée ci-dessus. En mode figé, la droite est sur la fenêtre 20/30 ans
     // mais on observe le bout de la sous-période zoomée (exploration détaillée).
-    this.computeLive(a, b, sigma, t0, allDates, series, i1);
+    // Vue référence : on lit au dernier cours réel (identité + ref_stats.end).
+    const obs = refReg
+      ? { price: this.data.identity.last_price, date: refReg.end }
+      : null;
+    this.computeLive(a, b, sigma, t0, allDates, series, i1, obs);
 
     // β (amplitude) & ρ (solidité) A~B : recalculés sur la fenêtre VISIBLE [i0, i1]
     // (et non calcStart/calcEnd), pour suivre ce qu'on regarde. Ratio uniquement.

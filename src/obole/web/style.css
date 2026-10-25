@@ -1716,8 +1716,18 @@ select.pf-ctl {
 }
 .watch-ref-btn:hover { border-color: var(--accent); color: var(--accent); }
 .watch-ref-btn.set { color: var(--accent); border-color: var(--accent); background: var(--good-bg); }
-.watch-ref-pop { width: 308px; }
-.watch-ref-stats { margin: 4px 8px 2px; font-size: 11px; color: var(--text-soft); display: flex; gap: 6px; }
+.watch-ref-pop { width: 320px; }
+/* Items du popover de référence : layout BLOC (la grille 16px/1fr des items de
+   tiers n'a pas de colonne « coche » ici, elle cassait les libellés en un mot
+   par ligne). La définition tient sur deux lignes : libellé + date. */
+.watch-pop-item.watch-ref-item { display: block; padding: 8px 10px; }
+.watch-ref-define { display: block; font-weight: 600; font-size: 13px; }
+.watch-ref-date { display: block; font-size: 11.5px; color: var(--text-soft); margin-top: 1px; }
+.watch-ref-hint { margin: 0 8px 6px; font-size: 11.5px; line-height: 1.4; color: var(--text-soft); }
+.watch-ref-stats {
+  margin: 4px 8px 2px; padding-top: 6px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-soft); display: flex; gap: 6px;
+}
 
 /* Modale : barre de tiers + tableau dense (même langage que le screener). */
 .wl-tiers { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0 2px; }

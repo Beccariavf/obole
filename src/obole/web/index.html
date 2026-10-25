@@ -154,15 +154,20 @@
               <div class="watch-ref-pop" x-show="watchRefOpen" @click.outside="watchRefOpen = false"
                    role="menu" aria-label="Fenêtre de confiance">
                 <div class="watch-pop-title">Fenêtre de confiance (prix bruts)</div>
-                <button type="button" class="watch-pop-item" :disabled="!canDefineWatchRef() || watchRefBusy"
+                <p class="watch-ref-hint">Depuis cette date jusqu’au dernier cours. Sert à la
+                  watchlist et au « Prix juste » du Résumé.</p>
+                <button type="button" class="watch-pop-item watch-ref-item"
+                        :disabled="!canDefineWatchRef() || watchRefBusy"
                         @click="defineWatchRef()"
                         :title="canDefineWatchRef() ? 'Utiliser la fenêtre affichée comme référence (jusqu’au dernier cours)' : 'Place la poignée droite sur le dernier cours — au moins le minimum de points requis'">
-                  Définir depuis le <span x-text="watchRefStartDate() || '—'"></span>
+                  <span class="watch-ref-define">Définir la fenêtre affichée</span>
+                  <span class="watch-ref-date" x-text="'depuis le ' + (watchRefStartDate() || '—')"></span>
                 </button>
-                <button type="button" class="watch-pop-item" :disabled="!watchRefStart()"
-                        @click="applyWatchRef()">Voir la référence</button>
-                <button type="button" class="watch-pop-item danger" :disabled="!watchRefStart() || watchRefBusy"
-                        @click="clearWatchRef()">Effacer la référence</button>
+                <button type="button" class="watch-pop-item watch-ref-item" :disabled="!watchRefStart()"
+                        @click="applyWatchRef()"><span>Voir la référence</span></button>
+                <button type="button" class="watch-pop-item watch-ref-item danger"
+                        :disabled="!watchRefStart() || watchRefBusy"
+                        @click="clearWatchRef()"><span>Effacer la référence</span></button>
                 <p class="watch-ref-stats" x-show="watchRefStats()">
                   <span x-text="'z ' + fmt(watchRefStats()?.z) + ' σ'"></span>
                   <span x-text="'· σ ' + fmt(watchRefStats()?.ecart_type_pct) + ' %'"></span>

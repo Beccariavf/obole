@@ -383,6 +383,9 @@ export const watchlistMixin = {
         return;
       }
       this.watchRefOpen = false;
+      // La référence était la raison de la vue prix bruts : on revient à la
+      // vue par défaut (dividendes réinvestis) avant de recharger.
+      this.withDividends = true;
       await this.load();
     } catch {
       this.watchRefError = "Effacement impossible (réseau).";

@@ -4,6 +4,7 @@
 // les méthodes de calcul de la fenêtre de référence du mixin. Les appels HTTP
 // (étoile, modale, référence) sont couverts par l'e2e, routes interceptées.
 import { describe, expect, it } from "vitest";
+import { chartsMixin } from "../src/obole/web/charts.js";
 import {
   loadApp,
   metaFromConfig,
@@ -206,5 +207,79 @@ describe("fenêtre de confiance", () => {
     const c = component();
     expect(c.watchPct(12.5)).toBe("12.5 %");
     expect(c.watchPct(null)).toBe("—");
+  });
+});
+
+describe("vue référence (#25.1)", () => {
+  const DATES = ["2016-10-25", "2017-01-02", "2026-10-23"];
+  const STATS = {
+    a: 2.3328840116708416,
+    b: 0.034087336184301896,
+    sigma: 0.19578419787352636,
+    start: "2016-10-25",
+    end: "2026-10-23",
+    line: 14.490946258046199,
+    z: 0.14903420088401007,
+    ecart_type_pct: 21.62644045663633,
+    trend_gap_pct: -2.9608405869941823,
+    pente_pct: 3.4674967345825314,
+  };
+
+  function refComponent(overrides = {}) {
+    return {
+      ...chartsMixin,
+      syncRegression: true,
+      withDividends: false,
+      data: {
+        chart: { dates: DATES },
+        identity: { last_price: 14.92 },
+        watch: { ref: { start: "2016-10-25" }, ref_stats: { ...STATS } },
+      },
+      ...overrides,
+    };
+  }
+
+  it("ne s'active que si la plage EST la référence, en prix bruts et synchro", () => {
+    const ref = refComponent().referenceRegression();
+    expect(ref).not.toBeNull();
+    expect(ref.a).toBe(STATS.a);
+    expect(ref.b).toBe(STATS.b);
+    expect(ref.sigma).toBe(STATS.sigma);
+
+    expect(refComponent({ withDividends: true }).referenceRegression()).toBeNull();
+    expect(refComponent({ syncRegression: false }).referenceRegression()).toBeNull();
+    expect(
+      refComponent({ rangeStart: 1, rangeEnd: 2 }).referenceRegression(),
+    ).toBeNull();
+    // Paramètres absents (ancien payload) : pas de branche serveur.
+    expect(
+      refComponent({
+        data: {
+          chart: { dates: DATES },
+          identity: { last_price: 14.92 },
+          watch: { ref: { start: "2016-10-25" }, ref_stats: { line: 14.49 } },
+        },
+      }).referenceRegression(),
+    ).toBeNull();
+    // Pas de référence du tout.
+    expect(
+      refComponent({ data: { chart: { dates: DATES }, identity: { last_price: 14.92 } } })
+        .referenceRegression(),
+    ).toBeNull();
+  });
+
+  it("les KPI de référence sont ceux de la droite persistée, au dernier cours réel", () => {
+    const c = refComponent({ rangeStart: 0, rangeEnd: 2 });
+    const ref = c.referenceRegression();
+    c.computeLive(ref.a, ref.b, ref.sigma, new Date(ref.start), DATES, [10, 11, 14.92], 2, {
+      price: 14.92,
+      date: ref.end,
+    });
+    // Mêmes valeurs que ref_stats (aux arrondis d'affichage : 2 déc. pour z,
+    // 1 déc. pour les potentiels).
+    expect(c.live.distance_sigma.value).toBe(0.15);
+    expect(c.live.potential_5y.value).toBe(2.9);
+    expect(c.live.ecart_type.value).toBe(21.6);
+    expect(c.live.perf_passee.value).toBe(3.5);
   });
 });

@@ -203,7 +203,7 @@ test("référence : le chip propose de définir la fenêtre affichée", async ({
   await expect(chip).toContainText("Réf. droite");
   await chip.click();
   await expect(page.locator(".watch-ref-pop")).toBeVisible();
-  const define = page.locator(".watch-ref-pop .watch-pop-item", { hasText: "Définir depuis le" });
+  const define = page.locator(".watch-ref-item", { hasText: "Définir la fenêtre affichée" });
   await expect(define).toBeEnabled();
   await define.click();
   // Le PUT portait bien une date ISO (la poignée gauche de la fenêtre affichée).
@@ -212,4 +212,84 @@ test("référence : le chip propose de définir la fenêtre affichée", async ({
   expect(calls[0].body.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   // La fiche s'est rechargée et reste utilisable (la route /api/stock est réelle).
   await expect(page.locator(".header")).toBeVisible();
+});
+
+test("référence : la fiche suit la droite persistée et le popover est lisible", async ({ page }) => {
+  // Injecte une référence cohérente sur ACA.PA sans écrire en base : on part du
+  // payload réel (cours, dates, derniers points) et on ajoute un bloc `watch`.
+  await page.route(/\/api\/stock\/ACA\.PA$/, async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const dates = body.chart.dates;
+    const lastDate = dates[dates.length - 1];
+    const refStart = dates[Math.floor(dates.length / 2)];
+    const price = body.identity.last_price;
+    const line = price * 0.97; // cours 3 % au-dessus de la droite
+    const b = Math.log(1.03); // +3 %/an
+    const sigma = 0.2;
+    const tEnd = (new Date(lastDate) - new Date(refStart)) / (365.25 * 864e5);
+    const a = Math.log(line) - b * tEnd;
+    body.watch = {
+      tier: 1,
+      ref: { start: refStart },
+      ref_stats: {
+        start: refStart,
+        end: lastDate,
+        n_points: 1000,
+        a,
+        b,
+        sigma,
+        line,
+        z: Math.log(price / line) / sigma,
+        ecart_type_pct: (Math.exp(sigma) - 1) * 100,
+        trend_gap_pct: ((line - price) / line) * 100,
+        pente_pct: (Math.exp(b) - 1) * 100,
+      },
+    };
+    await route.fulfill({ json: body });
+  });
+
+  await page.goto("/#ACA.PA/resume");
+  await expect(page.locator(".header")).toBeVisible();
+  await expect(page.locator(".watch-ref-btn")).toContainText("Réf.");
+
+  const state = await page.evaluate(() => {
+    const d = window.Alpine.$data(document.querySelector(".wrap"));
+    return {
+      withDividends: d.withDividends,
+      sync: d.syncRegression,
+      ref: d.referenceRegression(),
+      stats: d.data.watch.ref_stats,
+      live: d.live,
+      lastDate: d.data.chart.dates[d.maxIdx()],
+      price: d.data.identity.last_price,
+    };
+  });
+
+  // Vue référence : prix bruts + synchro, et la droite est celle du serveur.
+  expect(state.withDividends).toBe(false);
+  expect(state.sync).toBe(true);
+  expect(state.ref).not.toBeNull();
+  expect(state.ref.a).toBeCloseTo(state.stats.a, 10);
+  expect(state.lastDate).toBe(state.stats.end);
+
+  // KPI = formules de la droite persistée (et non un re-fit de la décimée).
+  const expectedZ = Math.log(state.price / state.stats.line) / state.stats.sigma;
+  const expectedPot5 =
+    ((state.stats.line * Math.exp(state.stats.b * 5)) / state.price) ** (1 / 5) - 1;
+  expect(state.live.distance_sigma.value).toBeCloseTo(expectedZ, 2);
+  expect(state.live.potential_5y.value).toBeCloseTo(expectedPot5 * 100, 1);
+  await expect(page.locator(".kpi", { hasText: "Potentiel / an (5 ans)" })).toContainText(
+    (expectedPot5 * 100).toFixed(1),
+  );
+  await expect(page.locator(".kpi", { hasText: "Performance passée" })).toContainText("3");
+
+  // Popover : items bloc lisibles (définition sur deux lignes, autres sur une).
+  await page.locator(".watch-ref-btn").click();
+  const define = page.locator(".watch-ref-item", { hasText: "Définir la fenêtre affichée" });
+  await expect(define).toContainText(`depuis le ${state.stats.start}`);
+  expect(await define.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThan(50);
+  const view = page.locator(".watch-ref-item", { hasText: "Voir la référence" });
+  expect(await view.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThan(40);
+  await page.screenshot({ path: "/tmp/watchlist-reference-e2e.png", fullPage: false });
 });
