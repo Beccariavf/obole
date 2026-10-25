@@ -9,8 +9,8 @@
 
 ## Acceptance
 
-- [ ] `_downsample` conserve premier et dernier point, sans doublon.
-- [ ] `chart_payload` : `dates[-1]` = dernier cours réel, `price_raw[-1]`/`price_adj[-1]` à jour.
-- [ ] `ref_stats` : `a/b/sigma` égaux à `fit_log_regression`.
-- [ ] Ligne de watchlist : pente = `regression_raw.perf_annual*100`.
-- [ ] Tests backend + réseau + ruff + mypy verts.
+- [x] `_downsample` conserve premier et dernier point, sans doublon.
+- [x] `chart_payload` : `dates[-1]` = dernier cours réel, `price_raw[-1]`/`price_adj[-1]` à jour.
+- [x] `ref_stats` : `a/b/sigma` égaux à `fit_log_regression`.
+- [x] Ligne de watchlist : pente = `regression_raw.perf_annual*100`.
+- [x] Tests backend + réseau + ruff + mypy verts.

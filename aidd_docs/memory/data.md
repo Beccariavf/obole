@@ -30,6 +30,9 @@ flowchart LR
 - Deux séries de prix, deux usages : `raw` (Close brut) pour la valorisation, `adjusted`
   (Adj Close, dividendes réinvestis) pour la performance passée. `analysis.py` fait donc
   deux régressions (`reg_raw`, `reg_adj`).
+- La décimation des séries de graphe (`services/serialize._downsample`) conserve le premier
+  **et le dernier** point : le dernier cours reste le point courant du graphe et des KPI
+  live (sinon ils s'arrêtaient quelques séances avant l'en-tête).
 
 ## Reproducibility
 

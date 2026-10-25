@@ -11,8 +11,8 @@
 
 ## Acceptance
 
-- [ ] Fenêtre = référence + brut + synchro → la droite/bandes sont les params serveur.
-- [ ] KPI = `ref_stats` (z, σ, perf, Pot. 5A), dernier cours réel.
-- [ ] Plage déplacée / dividendes / synchro off → live actuel, `referenceRegression()` nul.
-- [ ] Effacer la référence restaure la vue par défaut.
-- [ ] `npm test` vert.
+- [x] Fenêtre = référence + brut + synchro → la droite/bandes sont les params serveur.
+- [x] KPI = `ref_stats` (z, σ, perf, Pot. 5A), dernier cours réel.
+- [x] Plage déplacée / dividendes / synchro off → live actuel, `referenceRegression()` nul.
+- [x] Effacer la référence restaure la vue par défaut.
+- [x] `npm test` vert.

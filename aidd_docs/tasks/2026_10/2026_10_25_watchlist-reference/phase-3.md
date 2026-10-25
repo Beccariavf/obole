@@ -12,7 +12,7 @@
 
 ## Acceptance
 
-- [ ] Popover lisible : items ≤ 45 px, libellés sur une/deux lignes, stats en bas.
-- [ ] E2E Chromium + WebKit verts.
-- [ ] Captures après jointes ; comparaison avec les captures avant.
+- [x] Popover lisible : items ≤ 50 px, libellés sur une/deux lignes, stats en bas.
+- [x] E2E Chromium + WebKit verts.
+- [x] Captures après jointes ; comparaison avec les captures avant.
 - [ ] Doc à jour ; revue sans constat bloquant ; merge.
