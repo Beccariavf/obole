@@ -2,7 +2,11 @@
 
 Couche `services/` : orchestration partagée API ↔ MCP. Aucune formule propre :
 
-- le prix juste est **lu** de `valuation_settings` (jamais recalculé ici) ;
+- le prix juste **enregistré** est lu de `valuation_settings` (jamais dupliqué) ;
+  à défaut, le prix juste est dérivé de la droite **total-return** (prix
+  d'entrée à 12 %/an jusqu'à la droite à 5 ans), jamais stocké ;
+- la ligne est en **total-return** (`regression_adj`) ; la fiche garde la
+  droite brute de valorisation ;
 - la marge de sécurité est `engine.valuation_calc.safety_margin` ;
 - la fenêtre de confiance est choisie par `services.analysis.reference_window`
   (référence persistée sinon 20 ans) et les indicateurs de fenêtre viennent de
@@ -19,6 +23,7 @@ date et le plafond, et lève `ValueError` (l'API -> 422, le MCP -> `ToolError`).
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from datetime import date
@@ -270,31 +275,64 @@ def _row_from_analysis(
     analysis: StockAnalysis,
     effective_ref: str | None,
     saved: dict | None,
+    prices,
 ) -> WatchlistRow:
-    """Réduit une analyse fenêtrée à une ligne de classement (aucun calcul neuf)."""
+    """Réduit une analyse fenêtrée à une ligne de classement (aucun calcul neuf).
+
+    Depuis #25.2, la **ligne de watchlist est en total-return** : z, σ, pente,
+    écart et potentiels viennent de `regression_adj` (dividendes réinvestis) et
+    du dernier cours ajusté. Le cours affiché reste le cours brut. Sans prix
+    juste enregistré, le prix juste est le **prix d'entrée à 12 %/an** jusqu'à
+    la droite à 5 ans (`droite projetée / 1,12^5`), converti en unités du cours
+    brut ; la marge est alors comparable à celle de la calculatrice. Un prix
+    juste enregistré reste prioritaire (décision #25).
+    """
     ident = analysis.identity
-    regression = analysis.regression_raw
-    price = ident.last_price
-    line = regression.fitted_now if regression else None
-    z = reg.distance_sigma(regression, float(price)) if regression and price else None
-    trend_gap = (line - float(price)) / line * 100 if (line and price) else None
+    raw_last = float(prices.raw.iloc[-1])
+    adj_last = float(prices.adjusted.iloc[-1])
+    regression = analysis.regression_adj
+
+    line = z = trend_gap = sigma = pente = pot_5y = pot_10y = None
+    if regression is not None and adj_last > 0:
+        line_adj = regression.fitted_now
+        # Ligne à aujourd'hui, ramenée dans l'échelle du cours brut pour rester
+        # comparable au prix affiché ; z et l'écart sont des ratios, inchangés.
+        line = line_adj * raw_last / adj_last
+        z = reg.distance_sigma(regression, adj_last)
+        trend_gap = (line_adj - adj_last) / line_adj * 100
+        sigma = regression.ecart_type_size * 100
+        pente = regression.perf_annual * 100
+        pot_5y = reg.annualized_potential(regression, adj_last, config.POTENTIAL_HORIZONS[0]) * 100
+        pot_10y = reg.annualized_potential(regression, adj_last, config.POTENTIAL_HORIZONS[1]) * 100
 
     saved_fair = _saved_fair(saved)
     fair: float | None
     source: str
     target: float | None
     if saved_fair is not None:
+        # La cible enregistrée prime : elle est déjà exprimée dans l'échelle du
+        # cours brut de la calculatrice.
         fair, source, target = saved_fair, "saved", _saved_target(saved)
+    elif regression is not None and adj_last > 0:
+        # Prix d'entrée qui donne exactement 12 %/an jusqu'à la droite à 5 ans.
+        # Même formule que `engine.valuation_calc.target_entry_price` (avec un
+        # dividende nul : la droite ajustée inclut déjà les dividendes).
+        target = config.VALUATION_TARGET_YIELD_DEFAULT
+        horizon = config.VALUATION_HORIZON_YEARS
+        projected_adj = math.exp(regression.a + regression.b * (regression.t_now + horizon))
+        fair_adj = projected_adj / (1 + target / 100) ** horizon
+        fair, source = fair_adj * raw_last / adj_last, "regression"
     else:
-        fair, source, target = line, "regression", None
-    margin = valuation_calc.safety_margin(fair, price)
+        fair, source, target = None, "regression", None
+
+    margin = valuation_calc.safety_margin(fair, raw_last)
     return WatchlistRow(
         ticker=ident.ticker,
         tier=tier,
         name=ident.name,
         sector=ident.sector,
         currency=ident.currency,
-        price=price,
+        price=raw_last,
         fair_price=fair,
         fair_price_source=source if fair is not None else None,
         target_yield=target,
@@ -305,10 +343,10 @@ def _row_from_analysis(
         ref_line=line,
         trend_gap_pct=trend_gap,
         z=z,
-        ecart_type_pct=(regression.ecart_type_size * 100) if regression else None,
-        pente_pct=(regression.perf_annual * 100) if regression else None,
-        pot_5y_pct=analysis.indicators.potential_5y.value,
-        pot_10y_pct=analysis.indicators.potential_10y.value,
+        ecart_type_pct=sigma,
+        pente_pct=pente,
+        pot_5y_pct=pot_5y,
+        pot_10y_pct=pot_10y,
         trend_bullish=analysis.indicators.trend.good,
         warnings=list(analysis.warnings),
     )
@@ -360,7 +398,12 @@ def run(tier: int | None = None) -> WatchlistRun:
                     ticker, prices, regression_window=config.REGRESSION_YEARS_DEFAULT
                 )
             return ticker, _row_from_analysis(
-                ticker, tiers[ticker], analysis, effective_ref, saved.get(ticker)
+                ticker,
+                tiers[ticker],
+                analysis,
+                effective_ref,
+                saved.get(ticker),
+                prices,
             )
         # Données indisponibles : la ligne reste dans la table, en erreur.
         except (yahoo.TickerNotFound, ValueError, KeyError, IndexError) as exc:

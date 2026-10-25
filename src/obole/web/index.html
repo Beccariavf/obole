@@ -1720,9 +1720,9 @@
           </button>
         </template>
         <div class="wl-coverage">
-          <span x-text="'Prix justes définis : ' + watchCoverage().defined + '/' + watchCoverage().total"></span>
+          <span x-text="'Prix justes enregistrés : ' + watchCoverage().defined + '/' + watchCoverage().total"></span>
           <label class="wl-hide-fallback">
-            <input type="checkbox" x-model="watchHideFallback" /> masquer sans prix juste
+            <input type="checkbox" x-model="watchHideFallback" /> masquer sans prix juste enregistré
           </label>
           <span class="wl-generated" x-text="watchGeneratedLabel()"></span>
         </div>
@@ -1787,7 +1787,7 @@
                   <td class="cell-val" :class="polarity(scored(r.z, 'distance').good)">
                     <div class="wl-cell-stack">
                       <span x-text="r.z == null ? '—' : fmt(r.z) + ' σ'"></span>
-                      <span class="wl-hint" x-text="scored(r.z, 'distance').label || ''"></span>
+                      <span class="wl-hint wl-z-label" x-text="scored(r.z, 'distance').label || ''"></span>
                     </div>
                   </td>
                   <td class="cell-val" :class="polarity(r.trend_gap_pct == null ? null : r.trend_gap_pct > 0)">
@@ -1817,12 +1817,12 @@
       </div>
 
       <p class="wl-legend">
-        Marge = (prix juste − cours) / prix juste, contre l’objectif enregistré
-        (badge <b>calc</b>) ou, à défaut, la droite de référence (badge <b>droite</b>).
-        Position σ = écart à la droite en écarts-types ; Écart = (droite − cours) / droite.
-        Ces deux lectures historiques sont calculées sur les <b>prix bruts</b> et sur la
-        fenêtre de référence du titre (20 ans par défaut). Sans prix juste enregistré,
-        la marge coïncide avec l’écart à la droite.
+        Watchlist en <b>total-return</b> (dividendes réinvestis) : Position σ, Écart à la
+        droite et Pot. 5A/10A sont calculés sur la <b>droite ajustée</b>, sur la fenêtre de
+        référence du titre (20 ans par défaut). Marge = (prix juste − cours) / prix juste,
+        contre l’objectif enregistré (badge <b>calc</b>) ou, à défaut, le <b>prix d’entrée à
+        12 %/an</b> jusqu’à la droite à 5 ans (badge <b>droite</b>). La fiche garde la droite
+        brute de valorisation : ses KPI peuvent donc différer de la watchlist.
       </p>
     </div>
   </div>

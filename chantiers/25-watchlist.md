@@ -160,4 +160,11 @@ watchlist, parce que la fiche régressait l'ajusté sur la série décimée). `_
 conserve le dernier point (le graphe s'arrêtait au 19 oct./15,30 € au lieu du 23 oct./14,92 €).
 La ligne de watchlist porte la pente brute ; le popover de référence est en items bloc.
 
+**Vue total-return (#25.2).** La watchlist est passée en **dividendes réinvestis** (`z`, σ,
+écart, pente, `Pot. 5A/10A`) ; sans prix juste enregistré, son prix juste est le **prix
+d'entrée à 12 %/an** jusqu'à la droite à 5 ans, converti en unités du cours brut. La fiche
+reste en droite brute : les deux vues diffèrent volontairement. Corrigé au passage : le
+label σ de la modale (`scored` non exposé à Alpine) et les libellés « Prix justes
+enregistrés ».
+
 **Prochaine action.** Aucune — revue passée (`review.md`, verdict approve), chantier clos.

@@ -328,9 +328,19 @@ class TestRun:
     def _setup(self, monkeypatch, analyses, saved=None):
         from tests.test_analysis import _make_prices
 
+        from obole.models import PriceSeries
         from obole.services import watchlist as wl
 
-        prices = _make_prices(length=3000)
+        # Les analyses factices annoncent un dernier cours de 100 : on cale la
+        # série de prix sur ce cours pour que la conversion total-return
+        # (cours brut / cours ajusté) reste cohérente. L'ajusté vaut brut × 1,02.
+        base = _make_prices(length=3000)
+        factor = 100.0 / float(base.raw.iloc[-1])
+        prices = PriceSeries(
+            raw=base.raw * factor,
+            adjusted=base.adjusted * factor,
+            fetched_at=base.fetched_at,
+        )
         monkeypatch.setattr(wl.yahoo, "fetch_prices", lambda t: prices)
         monkeypatch.setattr(
             wl.analysis_service, "reference_window", lambda ticker, raw: (raw, None)
@@ -346,6 +356,8 @@ class TestRun:
         monkeypatch.setattr(wl.cache, "get_valuation_settings", lambda t: (saved or {}).get(t))
 
     def test_rows_are_sorted_by_margin_with_saved_price(self, monkeypatch):
+        import math
+
         from obole.services import watchlist as wl
 
         cache.upsert_watch_item("AAA.PA", 1)
@@ -362,12 +374,43 @@ class TestRun:
         assert aaa.safety_margin_pct == pytest.approx(16.666, rel=1e-3)
         assert aaa.target_yield == 12.0
         assert aaa.margin_good is True
-        # Repli : prix juste = droite (80), marge == écart à la droite.
+        # z et potentiel de la ligne sont en total-return (cours ajusté 102).
+        assert aaa.z == pytest.approx(math.log(102 / 120) / 0.25)
+        assert aaa.pot_5y_pct == pytest.approx(((120 / 102) ** (1 / 5) - 1) * 100)
+        # Repli : prix juste = droite projetée 5 ans / 1,12^5, en unités brutes ;
+        # la marge n'est plus l'écart à la droite.
         assert bbb.fair_price_source == "regression"
-        assert bbb.safety_margin_pct == pytest.approx(-25.0)
-        assert bbb.safety_margin_pct == pytest.approx(bbb.trend_gap_pct)
+        fair = (80 / 1.12**5) * 100 / 102
+        assert bbb.fair_price == pytest.approx(fair)
+        assert bbb.safety_margin_pct == pytest.approx((fair - 100) / fair * 100)
+        assert bbb.safety_margin_pct != pytest.approx(bbb.trend_gap_pct)
+        assert bbb.target_yield == 12.0
+        assert bbb.z == pytest.approx(math.log(102 / 80) / 0.25)
+        assert bbb.pot_5y_pct == pytest.approx(((80 / 102) ** (1 / 5) - 1) * 100)
         assert bbb.margin_good is False
         assert bbb.ref_is_default is True
+
+    def test_row_is_total_return_with_12pct_fallback(self, monkeypatch):
+        """Prix juste = prix d'entrée 12 %/an jusqu'à la droite à 5 ans."""
+        import math
+
+        from obole.services import watchlist as wl
+
+        cache.upsert_watch_item("AAA.PA", 1)
+        self._setup(monkeypatch, analyses={"AAA.PA": (100.0, 120.0)})
+        row = wl.run().rows[0]
+        assert row.price == 100.0
+        assert row.z == pytest.approx(math.log(102 / 120) / 0.25)
+        assert row.ecart_type_pct == pytest.approx((math.exp(0.25) - 1) * 100)
+        assert row.pente_pct == pytest.approx(0.0)
+        assert row.pot_5y_pct == pytest.approx(((120 / 102) ** (1 / 5) - 1) * 100)
+        assert row.target_yield == 12.0
+        assert row.fair_price_source == "regression"
+        fair = (120 / 1.12**5) * 100 / 102
+        assert row.fair_price == pytest.approx(fair)
+        assert row.safety_margin_pct == pytest.approx((fair - 100) / fair * 100)
+        assert row.ref_line == pytest.approx(120 * 100 / 102)
+        assert row.trend_gap_pct == pytest.approx((120 - 102) / 120 * 100)
 
     def test_error_row_keeps_tier_and_goes_last(self, monkeypatch):
         from obole.services import watchlist as wl
@@ -395,7 +438,7 @@ class TestRun:
             wl.run(tier=4)
 
     def test_pente_is_the_reference_slope(self, monkeypatch):
-        """La pente de la ligne est celle de la droite brute, pas la perf ajustée."""
+        """La pente de la ligne est celle de la droite total-return."""
         import math
 
         from obole.services import watchlist as wl

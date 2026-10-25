@@ -115,10 +115,12 @@ export const watchlistMixin = {
     if (!row) return "";
     const parts = [];
     if (row.error) parts.push(row.error);
-    if (row.ref_is_default) parts.push("Fenêtre 20 ans (défaut)");
-    else if (row.ref_start) parts.push(`Fenêtre depuis ${row.ref_start}`);
+    if (row.ref_is_default) parts.push("Fenêtre 20 ans (défaut) — total return");
+    else if (row.ref_start) parts.push(`Fenêtre depuis ${row.ref_start} — total return`);
     if (row.fair_price_source === "saved") parts.push("Prix juste enregistré (calculatrice)");
-    else if (row.fair_price_source === "regression") parts.push("Prix juste = droite de référence");
+    else if (row.fair_price_source === "regression") {
+      parts.push("Prix juste = droite projetée 5 ans, actualisée à 12 %/an (total return)");
+    }
     if (row.warnings?.length) parts.push(row.warnings.join(" · "));
     return parts.join(" — ");
   },

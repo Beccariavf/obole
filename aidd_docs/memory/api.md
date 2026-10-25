@@ -33,10 +33,15 @@ La surface HTTP : son style, ses ressources et ses contrats.
 - Les uploads sont plafonnés avant lecture (CSV, archive de sauvegarde, image de thèse).
 - La sérialisation vit dans `services/serialize.py`, partagée API ↔ MCP : `api/` ne
   contient pas de logique de présentation.
-- Watchlist : le prix juste est **lu** de `valuation_settings` (jamais recalculé) ; la
-  marge est `engine.valuation_calc.safety_margin` et la fenêtre de confiance
-  `services.analysis.reference_window` (référence persistée sinon 20 ans). Les routes de
-  référence ne sont pas exposées en écriture MCP (jugement humain).
+- Watchlist (#25/#25.2) : la ligne est en **total-return** (dividendes réinvestis,
+  `regression_adj`) ; le prix juste enregistré est **lu** de `valuation_settings` et prime ;
+  à défaut, le prix juste est le prix d'entrée à **12 %/an** jusqu'à la droite à 5 ans
+  (`fair_price_source="regression"`, `target_yield=12`), converti en unités du cours brut.
+  La marge est `engine.valuation_calc.safety_margin` et la fenêtre de confiance
+  `services.analysis.reference_window` (référence persistée sinon 20 ans). La marge de
+  repli ne coïncide donc plus avec `trend_gap_pct`. La fiche (`/api/stock`) garde la
+  droite **brute** de valorisation. Les routes de référence ne sont pas exposées en
+  écriture MCP (jugement humain).
 - `GET /api/stock` expose `watch.ref_stats` (`start`, `end`, `n_points`, `a`, `b`, `sigma`,
   `line`, `z`, `ecart_type_pct`, `trend_gap_pct`, `pente_pct`) : `a`/`b`/`sigma` permettent
   au front de retracer exactement la droite persistée quand la fenêtre affichée est la
