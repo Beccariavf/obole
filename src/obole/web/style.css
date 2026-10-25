@@ -1889,3 +1889,8 @@ select.pf-ctl {
   .cv-side:first-of-type, .cv-side:last-of-type { grid-column: 1; }
   .cv-vs { display: none; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-dial-value, .cv-progress-bar, .cv-card { transition: none; }
+  .cv-card:hover { transform: none; }
+}
