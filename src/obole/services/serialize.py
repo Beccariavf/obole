@@ -575,6 +575,10 @@ _WATCH_SUMMARY_FIELDS = (
     "trend_gap_pct",
     "z",
     "ecart_type_pct",
+    "pot_5y_pct",
+    "pot_10y_pct",
+    "pot_5y_source",
+    "pot_10y_source",
     "error",
 )
 

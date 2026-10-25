@@ -110,6 +110,35 @@ def estimated_return(
     return growth * 100 + dividend_yield_pct
 
 
+def estimated_return_from_fair(
+    fair_price: float | None,
+    price: float | None,
+    target_pct: float,
+    horizon: int,
+    dividend_yield_pct: float = 0.0,
+) -> float | None:
+    """Rendement annuel estimé à partir du **prix juste enregistré**, en %.
+
+    Inverse de `target_entry_price` : le prix juste est le prix d'entrée qui
+    atteint la cible ; la valeur projetée qu'il encode vaut donc
+    `fair × (1 + (cible − dividende)/100)^H`. Au cours actuel, le rendement de
+    cette valorisation (appréciation + dividende) est
+    `(projeté / cours)^(1/H) − 1 + dividende`.
+
+    Utilisé par la watchlist (#26) pour que le Pot. 5A d'une valeur valorisée
+    vienne de la valorisation enregistrée, pas de la droite de régression.
+    """
+    if fair_price is None or fair_price <= 0 or price is None or price <= 0 or horizon <= 0:
+        return None
+    net_target = (target_pct - dividend_yield_pct) / 100
+    if net_target <= -1:
+        return None
+    projected = fair_price * (1 + net_target) ** horizon
+    if projected <= 0:
+        return None
+    return ((projected / price) ** (1 / horizon) - 1) * 100 + dividend_yield_pct
+
+
 def target_entry_price(
     metric_value: float | None,
     growth_pct: float,

@@ -376,7 +376,9 @@ class TestRun:
         assert aaa.margin_good is True
         # z et potentiel de la ligne sont en total-return (cours ajusté 102).
         assert aaa.z == pytest.approx(math.log(102 / 120) / 0.25)
-        assert aaa.pot_5y_pct == pytest.approx(((120 / 102) ** (1 / 5) - 1) * 100)
+        # Prix juste enregistré -> Pot. 5A de la valorisation, pas de la droite.
+        assert aaa.pot_5y_pct == pytest.approx(((120 * 1.12**5 / 100) ** (1 / 5) - 1) * 100)
+        assert aaa.pot_5y_source == "valuation"
         # Repli : prix juste = droite projetée 5 ans / 1,12^5, en unités brutes ;
         # la marge n'est plus l'écart à la droite.
         assert bbb.fair_price_source == "regression"
@@ -387,6 +389,7 @@ class TestRun:
         assert bbb.target_yield == 12.0
         assert bbb.z == pytest.approx(math.log(102 / 80) / 0.25)
         assert bbb.pot_5y_pct == pytest.approx(((80 / 102) ** (1 / 5) - 1) * 100)
+        assert bbb.pot_5y_source == "regression"
         assert bbb.margin_good is False
         assert bbb.ref_is_default is True
 
@@ -404,6 +407,8 @@ class TestRun:
         assert row.ecart_type_pct == pytest.approx((math.exp(0.25) - 1) * 100)
         assert row.pente_pct == pytest.approx(0.0)
         assert row.pot_5y_pct == pytest.approx(((120 / 102) ** (1 / 5) - 1) * 100)
+        assert row.pot_5y_source == "regression"
+        assert row.pot_10y_source == "regression"
         assert row.target_yield == 12.0
         assert row.fair_price_source == "regression"
         fair = (120 / 1.12**5) * 100 / 102
@@ -436,6 +441,42 @@ class TestRun:
         assert wl.run(tier=3).rows == []
         with pytest.raises(ValueError):
             wl.run(tier=4)
+
+    def test_pot_5y_valorisation_with_dividend(self, monkeypatch):
+        """Le Pot. 5A dérivé du prix juste inclut le dividende enregistré."""
+        from obole.services import watchlist as wl
+
+        cache.upsert_watch_item("AAA.PA", 1)
+        self._setup(
+            monkeypatch,
+            analyses={"AAA.PA": (100.0, 120.0)},
+            saved={
+                "AAA.PA": {
+                    "fair_price": 120.0,
+                    "target_yield": 12.0,
+                    "dividend_yield": 5.0,
+                    "include_dividends": True,
+                }
+            },
+        )
+        row = wl.run().rows[0]
+        expected = ((120 * 1.07**5 / 100) ** (1 / 5) - 1) * 100 + 5
+        assert row.pot_5y_pct == pytest.approx(expected)
+        assert row.pot_5y_source == "valuation"
+
+    def test_pot_5y_saved_without_target_falls_back(self, monkeypatch):
+        """Une valorisation sans cible exploitable retombe sur la droite, avec warning."""
+        from obole.services import watchlist as wl
+
+        cache.upsert_watch_item("AAA.PA", 1)
+        self._setup(
+            monkeypatch,
+            analyses={"AAA.PA": (100.0, 120.0)},
+            saved={"AAA.PA": {"fair_price": 120.0}},
+        )
+        row = wl.run().rows[0]
+        assert row.pot_5y_source == "regression"
+        assert any("Valorisation enregistrée" in w for w in row.warnings)
 
     def test_pente_is_the_reference_slope(self, monkeypatch):
         """La pente de la ligne est celle de la droite total-return."""

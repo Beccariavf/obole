@@ -839,6 +839,7 @@ select.pf-ctl {
    layout est commune, donc factorisée pour qu'une correction profite à tous. */
 .modal.modal-screen,
 .modal.modal-watchlist,
+.modal.modal-conviction,
 .modal.modal-portfolio,
 .modal.modal-indices,
 .modal.modal-detail,
@@ -852,6 +853,7 @@ select.pf-ctl {
 }
 .modal-screen .idx-head,
 .modal-watchlist .idx-head,
+.modal-conviction .idx-head,
 .modal-portfolio .idx-head,
 .modal-indices .idx-head,
 .modal-detail .idx-head,
@@ -1758,6 +1760,80 @@ select.pf-ctl {
 }
 .wl-src-saved { color: var(--accent); background: var(--good-bg); }
 .wl-src-regression, .wl-src-none { color: var(--text-soft); background: var(--bg); }
+.wl-src-valuation { color: var(--accent); background: var(--good-bg); }
+.wl-view-toggle {
+  display: inline-flex; border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--card);
+}
+.wl-view-toggle .btn {
+  border: 0; border-radius: 0; background: transparent; color: var(--text);
+  height: 28px; padding: 3px 10px; font-size: 12px;
+}
+.wl-view-toggle .btn.active { background: var(--accent); color: var(--on-accent); }
+.wl-view-toggle .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Vue cadrans (#26) : trois colonnes de tier, un demi-cercle de marge par tier
+   et par carte. La grille se replie en 2 puis 1 colonne ; la carte reste
+   lisible sans dépendre d'un graphique externe. */
+.modal-watchlist .wl-board {
+  flex: 1; min-height: 0; overflow: auto; margin: 12px 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; align-content: start;
+}
+.modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+.wl-tier-col {
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  background: var(--card);
+  background: color-mix(in srgb, var(--card) 65%, var(--bg));
+}
+.wl-tier-head {
+  display: flex; justify-content: space-between; gap: 8px;
+  align-items: flex-start; border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.wl-tier-name { font-size: 13px; font-weight: 700; }
+.wl-tier-hint { font-size: 11px; color: var(--text-soft); }
+.wl-tier-dial { text-align: center; flex: 0 0 auto; }
+.wl-dial { width: 100%; max-width: 116px; height: auto; display: block; margin: 0 auto; }
+.wl-dial-card { max-width: 92px; }
+.wl-dial-track { fill: none; stroke: var(--border); stroke-width: 8; stroke-linecap: round; }
+.wl-dial-value { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke .15s; }
+.wl-dial-value.good { stroke: var(--good); }
+.wl-dial-value.bad { stroke: var(--bad); }
+.wl-dial-value.neutral { stroke: var(--text-soft); }
+.wl-dial-text { font-size: 13px; font-weight: 700; fill: var(--text); }
+.wl-dial-card .wl-dial-text { font-size: 12px; }
+.wl-dial-label { display: block; font-size: 10px; color: var(--text-soft); margin-top: -2px; }
+.wl-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px;
+  display: flex; flex-direction: column; gap: 7px; background: var(--card);
+}
+.wl-card.row-error { opacity: .7; }
+.wl-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.wl-card-title {
+  display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  background: none; border: 0; padding: 0; color: var(--text); text-align: left;
+  cursor: pointer; min-width: 0;
+}
+.wl-card-title:disabled { cursor: default; }
+.wl-card-title .screen-name { font-size: 11px; }
+.wl-card-dial { text-align: center; }
+.wl-card-metrics { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
+.wl-card-metric { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.wl-card-k { color: var(--text-soft); min-width: 62px; flex: 0 0 auto; }
+.wl-card-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.wl-tier-empty {
+  color: var(--text-soft); font-size: 11.5px; text-align: center; padding: 14px 0;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+@media (max-width: 1100px) {
+  .modal-watchlist .wl-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .modal-watchlist .wl-board { grid-template-columns: 1fr; }
+}
 .wl-tier-select {
   font-size: 12px; color: var(--text); background: var(--card);
   border: 1px solid var(--border); border-radius: 7px; padding: 3px 4px; cursor: pointer;
@@ -1770,4 +1846,51 @@ select.pf-ctl {
 }
 @media (max-width: 1000px) {
   .wl-coverage { margin-left: 0; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+}
+
+/* --- Jeu de convictions (#26) --------------------------------------------- */
+.cv-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.cv-progress-row { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-soft); }
+.cv-progress { flex: 1; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.cv-progress-bar { height: 100%; background: var(--accent); transition: width .2s; }
+.cv-prompt { text-align: center; font-size: 16px; color: var(--text-soft); margin: 8px 0; }
+.cv-duel {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px; align-items: center; align-content: center; margin: 8px 0;
+  flex: 1; min-height: 0;
+}
+.cv-side { min-width: 0; }
+.cv-side:first-of-type { grid-column: 1; }
+.cv-side:last-of-type { grid-column: 3; }
+.cv-vs { grid-column: 2; grid-row: 1; font-size: 13px; font-weight: 800; color: var(--text-soft); }
+.cv-card {
+  display: flex; flex-direction: column; gap: 10px; align-items: stretch;
+  width: 100%; padding: 16px; background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 14px; cursor: pointer;
+  text-align: left; transition: border-color .15s, transform .15s, background .15s;
+}
+.cv-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.cv-card.picked { border-color: var(--good); background: var(--good-bg); }
+.cv-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cv-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.cv-card-dial { display: block; text-align: center; }
+.cv-card-metrics { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.cv-metric { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.cv-choice { align-self: flex-start; font-weight: 700; color: var(--accent); font-size: 13px; }
+.cv-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto; flex-wrap: wrap; }
+.cv-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cv-result { flex: 1; min-height: 0; overflow: auto; }
+.cv-result-table td { vertical-align: middle; }
+.cv-score { width: 86px; }
+.cv-score .wl-dial { max-width: 82px; }
+.cv-dial-value { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; }
+@media (max-width: 800px) {
+  .cv-duel { grid-template-columns: 1fr; }
+  .cv-side:first-of-type, .cv-side:last-of-type { grid-column: 1; }
+  .cv-vs { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-dial-value, .cv-progress-bar, .cv-card { transition: none; }
+  .cv-card:hover { transform: none; }
 }

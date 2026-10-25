@@ -42,6 +42,11 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   sur la droite ajustée ; le prix juste d'une ligne sans valorisation enregistrée est le
   prix d'entrée à 12 %/an jusqu'à la droite à 5 ans. La légende du tableau le dit
   explicitement, et rappelle que la fiche garde la droite brute de valorisation.
+  La vue par défaut est un **tableau de bord de trois colonnes de tier** (#26) : cadran de
+  marge moyenne par tier (SVG 180°, bleu/rouge), cartes avec cadran de marge, z, Pot. 5A et
+  sa source, prix juste et sa source, sélecteur de tier, ouverture. Bascule Tableau pour le
+  tri dense. Le **jeu de convictions** est un duel plein écran (deux cartes, VS, progression,
+  12 minimum) puis un résultat (rang, tiers actuel/suggéré, conviction 0–100, Δ).
 
 ## Accessibility
 

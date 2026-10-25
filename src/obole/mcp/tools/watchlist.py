@@ -72,6 +72,9 @@ def rank_watchlist(
       la fenêtre de confiance du titre (`ref_start`, sinon 20 ans ;
       `ref_is_default=true`). La fiche garde, elle, la droite brute de
       valorisation : les `z`/potentiels peuvent différer de la watchlist.
+    - `pot_5y_pct` : **estimation de la valorisation enregistrée** quand elle a un
+      prix juste (`pot_5y_source="valuation"`) ; sinon potentiel total-return de
+      la droite (`pot_5y_source="regression"`). `pot_10y_pct` reste la droite.
 
     `margin_good` porte la polarité (True = marge positive), `error` isole un
     ticker indisponible. Les lignes sont triées par marge décroissante, les

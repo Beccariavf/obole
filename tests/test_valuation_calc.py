@@ -87,6 +87,36 @@ def test_target_entry_price_est_inverse_de_estimated_return():
     assert back == pytest.approx(target, abs=1e-9)
 
 
+def test_estimated_return_from_fair_est_inverse_de_target_entry_price():
+    # Le prix juste enregistré encode la valeur projetée : au cours actuel, le
+    # rendement dérivé doit être celui de la calculatrice (#26).
+    metric, growth, multiple, horizon, target, div = 5.0, 5.0, 20.0, 5, 12.0, 4.0
+    fair = vc.target_entry_price(metric, growth, multiple, horizon, target, div)
+    assert fair is not None
+    for price in (fair * 0.8, fair, fair * 1.2):
+        expected = vc.estimated_return(metric, price, growth, multiple, horizon, div)
+        assert vc.estimated_return_from_fair(fair, price, target, horizon, div) == pytest.approx(
+            expected, abs=1e-9
+        )
+    # Au prix juste, le rendement est exactement la cible.
+    assert vc.estimated_return_from_fair(fair, fair, target, horizon, div) == pytest.approx(target)
+
+
+@pytest.mark.parametrize(
+    "fair,price,target,horizon,div",
+    [
+        (None, 100.0, 12.0, 5, 0.0),
+        (0.0, 100.0, 12.0, 5, 0.0),
+        (100.0, None, 12.0, 5, 0.0),
+        (100.0, 0.0, 12.0, 5, 0.0),
+        (100.0, 100.0, 12.0, 0, 0.0),
+        (100.0, 100.0, 100.0, 5, 200.0),
+    ],
+)
+def test_estimated_return_from_fair_invalide(fair, price, target, horizon, div):
+    assert vc.estimated_return_from_fair(fair, price, target, horizon, div) is None
+
+
 def test_target_entry_price_nominal():
     # Valeur projetée = 5 × 1,02^5 × 1,3 = 7,228 ; cible 12 %, div 8,9 % →
     # net = 3,1 % → 7,228 / 1,031^5 = 6,20.

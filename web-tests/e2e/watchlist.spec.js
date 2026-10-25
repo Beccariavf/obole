@@ -35,6 +35,8 @@ const RUN = {
       pente_pct: 5,
       pot_5y_pct: 8,
       pot_10y_pct: 6,
+      pot_5y_source: "valuation",
+      pot_10y_source: "regression",
       trend_bullish: true,
       warnings: [],
       error: null,
@@ -60,9 +62,40 @@ const RUN = {
       pente_pct: 4,
       pot_5y_pct: 5,
       pot_10y_pct: 4,
+      pot_5y_source: "regression",
+      pot_10y_source: "regression",
       trend_bullish: true,
       warnings: [],
       error: null,
+    },
+  ],
+};
+
+const RUN_GAME = {
+  generated_at: 1700000000,
+  count: 4,
+  rows: [
+    RUN.rows[0],
+    RUN.rows[1],
+    {
+      ...RUN.rows[0],
+      ticker: "MC.PA",
+      name: "LVMH",
+      tier: 1,
+      safety_margin_pct: -10,
+      z: 0.3,
+      pot_5y_pct: 6,
+      pot_5y_source: "regression",
+    },
+    {
+      ...RUN.rows[1],
+      ticker: "OR.PA",
+      name: "L'Oréal",
+      tier: 3,
+      safety_margin_pct: -30,
+      z: 1.4,
+      pot_5y_pct: 3,
+      pot_5y_source: "regression",
     },
   ],
 };
@@ -97,6 +130,8 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
 
   await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
   await expect(page.locator(".modal.modal-watchlist h3")).toHaveText("Watchlist");
+  // La vue cadrans est le défaut ; ce test vérifie le tableau dense.
+  await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
 
   // Compteurs : tous + par tier (source = appartenance).
   await expect(page.locator(".wl-tier-btn", { hasText: "Tous" })).toContainText("2");
@@ -112,6 +147,22 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(rows.nth(0)).toContainText("16,67 %");
   await expect(rows.nth(1)).toContainText("AI.PA");
   await expect(rows.nth(1)).toContainText("droite");
+
+  // Le select doit afficher le tier réel de la ligne (et non la 1re option).
+  const aiSelect = rows.nth(1).locator("select");
+  await expect(aiSelect).toHaveValue("2");
+  await expect(aiSelect.locator("option:checked")).toHaveText("Tier 2");
+  await page.route(/\/api\/watchlist\/items\/AI\.PA$/, (route) =>
+    route.fulfill({ json: { item: { ticker: "AI.PA", tier: 3 } } }),
+  );
+  await aiSelect.selectOption("3");
+  await expect(aiSelect).toHaveValue("3");
+  await expect(page.locator(".wl-tier-btn", { hasText: "Tier 2" })).toContainText("0");
+  await expect(page.locator(".wl-tier-btn", { hasText: "Tier 3" })).toContainText("1");
+
+  // Source du Pot. 5A : valorisation enregistrée vs droite total-return.
+  await expect(rows.nth(0).locator("td").nth(7)).toContainText("valo");
+  await expect(rows.nth(1).locator("td").nth(7)).toContainText("droite");
   await expect(rows.nth(1)).toContainText("objectif 12 %/an");
   await expect(rows.nth(1)).toContainText("-25 %");
   // Le label de position σ est rendu par `scored` (exposé à Alpine) : sans lui,
@@ -138,6 +189,36 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" })).toBeVisible();
   await page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" }).click();
   await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+});
+
+test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => {
+  await routeWatchlist(page);
+  await page.goto("/");
+  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+
+  await expect(page.locator(".wl-board")).toBeVisible();
+  await expect(page.locator(".wl-tier-col")).toHaveCount(3);
+  await expect(page.locator(".wl-tier-col").nth(0)).toContainText("RI.PA");
+  await expect(page.locator(".wl-tier-col").nth(1)).toContainText("AI.PA");
+  await expect(page.locator(".wl-tier-col").nth(2)).toContainText("Aucune valeur");
+  // Le cadran du tier 1 (une valeur, marge 16,67 %) et le select de la carte AI.
+  await expect(page.locator(".wl-tier-col").nth(0).locator(".wl-dial-text").first()).toContainText(
+    "16,67 %",
+  );
+  await expect(page.locator(".wl-tier-col").nth(1).locator(".wl-card select")).toHaveValue("2");
+
+  await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
+  await expect(page.locator(".wl-table")).toBeVisible();
+  await expect(page.locator(".wl-board")).toBeHidden();
+  await page.locator(".wl-view-toggle button", { hasText: "Cadrans" }).click();
+  await expect(page.locator(".wl-board")).toBeVisible();
+
+  // En dessous de 900 px, le tableau de bord passe à une colonne.
+  await page.setViewportSize({ width: 390, height: 800 });
+  const columns = await page.locator(".wl-board").evaluate(
+    (el) => getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length,
+  );
+  expect(columns).toBe(1);
 });
 
 test("watchlist : état vide", async ({ page }) => {
@@ -175,6 +256,65 @@ test("étoile : ajout puis retrait, sans recharger la fiche", async ({ page }) =
   await star.click();
   await page.locator(".watch-pop-item", { hasText: "Retirer de la watchlist" }).click();
   await expect(star).toContainText("Watchlist");
+});
+
+test("watchlist : jeu de convictions, résultat et application", async ({ page }) => {
+  await routeWatchlist(page, {
+    run: RUN_GAME,
+    items: RUN_GAME.rows.map((row) => ({ ticker: row.ticker, tier: row.tier, added_at: 1 })),
+  });
+  await page.goto("/");
+  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
+  await expect(page.locator(".modal.modal-conviction")).toBeVisible();
+
+  const cards = page.locator(".cv-card");
+  await expect(cards).toHaveCount(2);
+  // Annulation : deux choix, un retour arrière, puis la suite.
+  await cards.first().click();
+  await page.waitForTimeout(30);
+  await cards.first().click();
+  await page.waitForTimeout(30);
+  await expect(page.locator(".cv-progress-row")).toContainText("2 / 12 minimum");
+  await page.locator(".cv-foot .btn", { hasText: "Annuler la dernière" }).click();
+  await expect(page.locator(".cv-progress-row")).toContainText("1 / 12 minimum");
+  // On fait gagner les valeurs des tiers bas (AI, OR) pour forcer un reclassement.
+  for (let round = 0; round < 11; round += 1) {
+    const count = await cards.count();
+    let picked = false;
+    let bestTier = -1;
+    for (let index = 0; index < count; index += 1) {
+      const text = await cards.nth(index).innerText();
+      const match = text.match(/Tier (\d)/);
+      const tier = match ? Number(match[1]) : 0;
+      if (tier > bestTier) {
+        bestTier = tier;
+        picked = index;
+      }
+    }
+    await cards.nth(picked).click();
+    await page.waitForTimeout(25);
+  }
+  await expect(page.locator(".cv-progress-row")).toContainText("12 / 12 minimum");
+  await page.locator(".cv-foot .btn", { hasText: "Voir le résultat" }).click();
+  await expect(page.locator(".cv-result-table tbody tr")).toHaveCount(4);
+
+  const calls = [];
+  await page.route(/\/api\/watchlist\/items\/[^/]+$/, async (route) => {
+    const ticker = decodeURIComponent(route.request().url().split("/").pop());
+    const tier = route.request().postDataJSON().tier;
+    calls.push({ ticker, tier });
+    await route.fulfill({ json: { item: { ticker, tier } } });
+  });
+  const apply = page.locator(".cv-result-actions .btn", { hasText: "Appliquer les tiers" });
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await expect(page.locator(".modal.modal-conviction")).toContainText("Tiers appliqués");
+  expect(calls.length).toBeGreaterThan(0);
+
+  await page.locator(".cv-result-actions .btn", { hasText: "Fermer" }).click();
+  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".modal.modal-conviction")).toBeHidden();
 });
 
 test("référence : le chip propose de définir la fenêtre affichée", async ({ page }) => {

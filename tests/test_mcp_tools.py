@@ -1434,6 +1434,8 @@ class TestWatchlistTools:
         assert payload["count"] == 1
         # Le résumé garde la décision, écarte le bruit de contexte.
         assert "safety_margin_pct" in row
+        assert "pot_5y_pct" in row
+        assert "pot_5y_source" in row
         assert "sector" not in row
         assert "warnings" not in row
 

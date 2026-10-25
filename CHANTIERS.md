@@ -90,6 +90,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 25 | **Watchlist à tiers** + marges de sécurité + fenêtre de confiance + MCP | 🟡 Q2 | 🟠 | 2-3 sessions | **fait** | [→](chantiers/25-watchlist.md) |
 | 25.1 | Watchlist : lier la référence à la performance 5 ans + popover | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/25.1-watchlist-reference.md) |
 | 25.2 | Watchlist en total-return + prix juste à 12 % sur la droite | 🟡 Q2 | 🟠 | 1 session | **fait** | [→](chantiers/25.2-watchlist-total-return.md) |
+| 26 | **Watchlist 2.0** : vue cadrans, jeu de convictions, Pot. 5A de valorisation | 🟡 Q2 | 🟠 | 4-5 sessions | **fait** | [→](chantiers/26-watchlist-cadrans-conviction.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)

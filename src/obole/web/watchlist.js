@@ -7,6 +7,14 @@
 // d'une référence, plafond) viennent de `/api/meta` via `thresholds.js`.
 import { api } from "./api.js";
 import { WATCH_MIN_REF_POINTS, WATCH_TIERS } from "./thresholds.js";
+import {
+  MARGIN_MAX,
+  MARGIN_MIN,
+  dialArc,
+  dialTone,
+  dialTrack,
+  tierAverageMargin,
+} from "./watchlist-dials.js";
 
 // --- Helpers purs (testés sans Alpine) --------------------------------------
 
@@ -18,6 +26,12 @@ export function tierLabel(tier, tiers = WATCH_TIERS) {
 export function fairPriceSourceLabel(row) {
   if (!row || row.fair_price == null) return "—";
   return row.fair_price_source === "saved" ? "calc" : "droite";
+}
+
+export function potSourceLabel(row) {
+  if (row?.pot_5y_source === "valuation") return "valo";
+  if (row?.pot_5y_source === "regression") return "droite";
+  return "—";
 }
 
 export function watchCoverage(rows) {
@@ -61,6 +75,7 @@ export const watchlistMixin = {
   watchTierFilter: null,
   watchHideFallback: false,
   watchSort: null, // {key, dir} ; null = ordre serveur (marge décroissante)
+  watchView: "cadrans", // "cadrans" | "table"
   // Étoile de la fiche
   watchPopoverOpen: false,
   // Fenêtre de confiance (barre de période)
@@ -111,6 +126,10 @@ export const watchlistMixin = {
     return fairPriceSourceLabel(row);
   },
 
+  watchPotSourceLabel(row) {
+    return potSourceLabel(row);
+  },
+
   watchRowTitle(row) {
     if (!row) return "";
     const parts = [];
@@ -120,6 +139,11 @@ export const watchlistMixin = {
     if (row.fair_price_source === "saved") parts.push("Prix juste enregistré (calculatrice)");
     else if (row.fair_price_source === "regression") {
       parts.push("Prix juste = droite projetée 5 ans, actualisée à 12 %/an (total return)");
+    }
+    if (row.pot_5y_source === "valuation") {
+      parts.push("Pot. 5A : estimation de la valorisation enregistrée");
+    } else if (row.pot_5y_source === "regression") {
+      parts.push("Pot. 5A : droite total-return");
     }
     if (row.warnings?.length) parts.push(row.warnings.join(" · "));
     return parts.join(" — ");
@@ -247,6 +271,33 @@ export const watchlistMixin = {
     const rows = this.watchVisibleRows();
     if (!this.watchSort?.key) return rows;
     return sortWatchRows(rows, this.watchSort.key, this.watchSort.dir);
+  },
+
+  // Groupes de la vue cadrans : tier filtré, lignes triées/filtrées, marge
+  // moyenne par colonne. La vue ne recalcule aucune marge : elle agrège les
+  // lignes serveur (null ignoré).
+  watchTierGroups() {
+    const tiers = this.watchTierList() || [];
+    const visible = this.watchTierFilter == null
+      ? tiers
+      : tiers.filter((t) => Number(t.id) === Number(this.watchTierFilter));
+    const rows = this.watchRowsSorted();
+    return visible.map((t) => {
+      const tierRows = rows.filter((r) => Number(r.tier) === Number(t.id));
+      return { ...t, rows: tierRows, avg: tierAverageMargin(tierRows) };
+    });
+  },
+
+  watchDialPath(value, min = MARGIN_MIN, max = MARGIN_MAX) {
+    return dialArc(value, min, max);
+  },
+
+  watchDialTrack() {
+    return dialTrack();
+  },
+
+  watchDialTone(value) {
+    return dialTone(value);
   },
 
   toggleWatchSort(key) {

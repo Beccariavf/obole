@@ -42,6 +42,9 @@ La surface HTTP : son style, ses ressources et ses contrats.
   repli ne coïncide donc plus avec `trend_gap_pct`. La fiche (`/api/stock`) garde la
   droite **brute** de valorisation. Les routes de référence ne sont pas exposées en
   écriture MCP (jugement humain).
+- `/api/watchlist/run` : chaque ligne porte `pot_5y_pct` et `pot_5y_source`
+  (`valuation` si un prix juste enregistré existe, `regression` sinon) ; le summary MCP
+  inclut ces champs. Le Pot. 10A reste `regression`.
 - `GET /api/stock` expose `watch.ref_stats` (`start`, `end`, `n_points`, `a`, `b`, `sigma`,
   `line`, `z`, `ecart_type_pct`, `trend_gap_pct`, `pente_pct`) : `a`/`b`/`sigma` permettent
   au front de retracer exactement la droite persistée quand la fenêtre affichée est la
