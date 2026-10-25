@@ -333,9 +333,14 @@ class BasketAnalysis:
 class WatchlistRow:
     """Une valeur suivie, réduite à ses champs de classement.
 
-    `safety_margin_pct` est la marge contre le prix juste (enregistré ou repli sur
-    la droite) ; `trend_gap_pct` et `z` sont la lecture historique (prix bruts).
-    Pour une ligne en repli, les deux marges coïncident par construction.
+    Depuis #25.2, la ligne est en **total-return** : `z`, `ecart_type_pct`,
+    `trend_gap_pct`, `pente_pct` et les potentiels viennent de la régression
+    ajustée (dividendes réinvestis) et du dernier cours ajusté ; `price` reste le
+    cours brut et `ref_line` est la ligne ajustée ramenée à son échelle.
+    `safety_margin_pct` est la marge contre le prix juste : enregistré
+    (`fair_price_source="saved"`, `target_yield` propre) ou, à défaut, prix
+    d'entrée à 12 %/an jusqu'à la droite à 5 ans (`fair_price_source="regression"`,
+    `target_yield=12`). Dans ce repli, la marge ne coïncide plus avec l'écart.
     """
 
     ticker: str
@@ -347,7 +352,7 @@ class WatchlistRow:
 
     fair_price: float | None = None
     fair_price_source: str | None = None  # "saved" | "regression" | None
-    target_yield: float | None = None  # objectif de rendement (source saved)
+    target_yield: float | None = None  # objectif de la source (12 par défaut sur la ligne)
     safety_margin_pct: float | None = None
     margin_good: bool | None = None
 

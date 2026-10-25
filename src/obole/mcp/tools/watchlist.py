@@ -61,15 +61,17 @@ def rank_watchlist(
 
     - `safety_margin_pct` = (prix juste − cours) / prix juste. Le prix juste est
       celui **enregistré** par l'utilisateur dans la calculatrice
-      (`fair_price_source="saved"`, avec son `target_yield`) ; à défaut, c'est la
-      **droite de référence** (`fair_price_source="regression"`), et dans ce cas
-      la marge coïncide avec `trend_gap_pct` par construction — le badge de
-      source et `fair_price_source` doivent être cités pour ne pas tromper.
+      (`fair_price_source="saved"`, avec son `target_yield`) ; à défaut, c'est le
+      **prix d'entrée à 12 %/an** jusqu'à la droite à 5 ans
+      (`fair_price_source="regression"`, `target_yield=12`) — la marge ne
+      coïncide donc PAS avec `trend_gap_pct`. Le badge de source et
+      `fair_price_source` doivent être cités.
     - `trend_gap_pct` = (droite − cours) / droite, et `z` = distance en σ à cette
-      droite. `z` est la lecture ajustée au risque (comparable entre sociétés) ;
-      le pourcentage est l'écart brut. Les deux sont calculés sur les **prix
-      bruts** (`raw`) et sur la fenêtre de confiance du titre (`ref_start`, sinon
-      20 ans ; `ref_is_default=true`).
+      droite. La watchlist est en **total-return** (dividendes réinvestis) : les
+      deux lectures viennent de la série ajustée et du dernier cours ajusté, sur
+      la fenêtre de confiance du titre (`ref_start`, sinon 20 ans ;
+      `ref_is_default=true`). La fiche garde, elle, la droite brute de
+      valorisation : les `z`/potentiels peuvent différer de la watchlist.
 
     `margin_good` porte la polarité (True = marge positive), `error` isole un
     ticker indisponible. Les lignes sont triées par marge décroissante, les
