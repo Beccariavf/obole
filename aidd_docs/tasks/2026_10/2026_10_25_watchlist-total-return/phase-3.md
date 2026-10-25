@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # Phase 3 — Vérification, captures, doc, revue
@@ -12,6 +12,6 @@ status: in-progress
 
 ## Acceptance
 
-- [ ] ACA : Pot. 5A total-return ≈ 7,6 %, prix juste 12 % et marge cohérents ; fiche brute inchangée.
-- [ ] VIE : marge/objectif enregistrés conservés.
-- [ ] Captures et doc ; revue sans constat bloquant ; merge.
+- [x] ACA : Pot. 5A total-return ≈ 7,6 %, prix juste 12 % et marge cohérents ; fiche brute inchangée.
+- [x] VIE : marge/objectif enregistrés conservés.
+- [x] Captures et doc ; revue sans constat bloquant ; merge.
