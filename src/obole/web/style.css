@@ -1758,6 +1758,80 @@ select.pf-ctl {
 }
 .wl-src-saved { color: var(--accent); background: var(--good-bg); }
 .wl-src-regression, .wl-src-none { color: var(--text-soft); background: var(--bg); }
+.wl-src-valuation { color: var(--accent); background: var(--good-bg); }
+.wl-view-toggle {
+  display: inline-flex; border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--card);
+}
+.wl-view-toggle .btn {
+  border: 0; border-radius: 0; background: transparent; color: var(--text);
+  height: 28px; padding: 3px 10px; font-size: 12px;
+}
+.wl-view-toggle .btn.active { background: var(--accent); color: var(--on-accent); }
+.wl-view-toggle .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Vue cadrans (#26) : trois colonnes de tier, un demi-cercle de marge par tier
+   et par carte. La grille se replie en 2 puis 1 colonne ; la carte reste
+   lisible sans dépendre d'un graphique externe. */
+.modal-watchlist .wl-board {
+  flex: 1; min-height: 0; overflow: auto; margin: 12px 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; align-content: start;
+}
+.modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+.wl-tier-col {
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  background: var(--card);
+  background: color-mix(in srgb, var(--card) 65%, var(--bg));
+}
+.wl-tier-head {
+  display: flex; justify-content: space-between; gap: 8px;
+  align-items: flex-start; border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.wl-tier-name { font-size: 13px; font-weight: 700; }
+.wl-tier-hint { font-size: 11px; color: var(--text-soft); }
+.wl-tier-dial { text-align: center; flex: 0 0 auto; }
+.wl-dial { width: 100%; max-width: 116px; height: auto; display: block; margin: 0 auto; }
+.wl-dial-card { max-width: 92px; }
+.wl-dial-track { fill: none; stroke: var(--border); stroke-width: 8; stroke-linecap: round; }
+.wl-dial-value { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke .15s; }
+.wl-dial-value.good { stroke: var(--good); }
+.wl-dial-value.bad { stroke: var(--bad); }
+.wl-dial-value.neutral { stroke: var(--text-soft); }
+.wl-dial-text { font-size: 13px; font-weight: 700; fill: var(--text); }
+.wl-dial-card .wl-dial-text { font-size: 12px; }
+.wl-dial-label { display: block; font-size: 10px; color: var(--text-soft); margin-top: -2px; }
+.wl-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px;
+  display: flex; flex-direction: column; gap: 7px; background: var(--card);
+}
+.wl-card.row-error { opacity: .7; }
+.wl-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.wl-card-title {
+  display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  background: none; border: 0; padding: 0; color: var(--text); text-align: left;
+  cursor: pointer; min-width: 0;
+}
+.wl-card-title:disabled { cursor: default; }
+.wl-card-title .screen-name { font-size: 11px; }
+.wl-card-dial { text-align: center; }
+.wl-card-metrics { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
+.wl-card-metric { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.wl-card-k { color: var(--text-soft); min-width: 62px; flex: 0 0 auto; }
+.wl-card-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.wl-tier-empty {
+  color: var(--text-soft); font-size: 11.5px; text-align: center; padding: 14px 0;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+@media (max-width: 1100px) {
+  .modal-watchlist .wl-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .modal-watchlist .wl-board { grid-template-columns: 1fr; }
+}
 .wl-tier-select {
   font-size: 12px; color: var(--text); background: var(--card);
   border: 1px solid var(--border); border-radius: 7px; padding: 3px 4px; cursor: pointer;

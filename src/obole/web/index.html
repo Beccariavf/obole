@@ -1701,6 +1701,12 @@
       <div class="idx-head">
         <h3>Watchlist</h3>
         <div class="idx-head-actions">
+          <div class="wl-view-toggle" role="group" aria-label="Vue de la watchlist">
+            <button type="button" class="btn small" :class="{ active: watchView === 'cadrans' }"
+                    @click="watchView = 'cadrans'" :aria-pressed="watchView === 'cadrans'">Cadrans</button>
+            <button type="button" class="btn small" :class="{ active: watchView === 'table' }"
+                    @click="watchView = 'table'" :aria-pressed="watchView === 'table'">Tableau</button>
+          </div>
           <button class="btn small ghost" @click="refreshWatchlist()" :disabled="watchLoading"
                   title="Relancer le classement">↻</button>
           <button class="btn small ghost" @click="closeWatchlist()">✕</button>
@@ -1733,7 +1739,7 @@
         <span x-text="watchRows.length ? 'Nouveau classement…' : 'Analyse de ' + watchCounts().all + ' valeur(s)…'"></span>
       </p>
 
-      <div class="idx-list" x-show="watchRows.length">
+      <div class="idx-list" x-show="watchRows.length && watchView === 'table'">
         <div class="screen-table-wrap">
           <table class="cell-table screen-table wl-table">
             <thead>
@@ -1814,11 +1820,94 @@
         </div>
       </div>
 
+      <div class="wl-board" :class="{ 'wl-board-single': watchTierFilter != null }"
+           x-show="watchRows.length && watchView === 'cadrans'">
+        <template x-for="g in watchTierGroups()" :key="g.id">
+          <section class="wl-tier-col">
+            <header class="wl-tier-head">
+              <div>
+                <div class="wl-tier-name" x-text="g.label"></div>
+                <div class="wl-tier-hint"
+                     x-text="g.rows.length === 1 ? '1 valeur' : g.rows.length + ' valeurs'"></div>
+              </div>
+              <div class="wl-tier-dial">
+                <svg viewBox="0 0 100 58" class="wl-dial" role="img"
+                     :aria-label="'Marge moyenne du tier : ' + (g.avg == null ? 'aucune valeur' : watchPct(g.avg))">
+                  <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                  <path class="wl-dial-value" :class="watchDialTone(g.avg)" :d="watchDialPath(g.avg)"></path>
+                  <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
+                        x-text="g.avg == null ? '—' : watchPct(g.avg)"></text>
+                </svg>
+                <span class="wl-dial-label">marge moyenne</span>
+              </div>
+            </header>
+
+            <template x-for="r in g.rows" :key="r.ticker">
+              <article class="wl-card" :class="{ 'row-error': r.error }">
+                <div class="wl-card-head">
+                  <button type="button" class="wl-card-title" @click="openWatchRow(r)"
+                          :disabled="!!r.error">
+                    <span class="screen-ticker" x-text="r.ticker"></span>
+                    <span class="screen-name" x-text="r.name || '—'"></span>
+                  </button>
+                  <button type="button" class="btn small ghost" @click.stop="removeWatchRow(r)"
+                          title="Retirer de la watchlist">✕</button>
+                </div>
+
+                <div class="wl-card-dial">
+                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
+                       :aria-label="'Marge de sécurité : ' + watchPct(r.safety_margin_pct)">
+                    <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                    <path class="wl-dial-value" :class="watchDialTone(r.safety_margin_pct)"
+                          :d="watchDialPath(r.safety_margin_pct)"></path>
+                    <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
+                          x-text="watchPct(r.safety_margin_pct)"></text>
+                  </svg>
+                </div>
+
+                <div class="wl-card-metrics">
+                  <div class="wl-card-metric">
+                    <span class="wl-card-k">Position σ</span>
+                    <span x-text="r.z == null ? '—' : fmt(r.z) + ' σ'"></span>
+                  </div>
+                  <div class="wl-card-metric">
+                    <span class="wl-card-k">Pot. 5A</span>
+                    <span x-text="watchPct(r.pot_5y_pct)"></span>
+                    <span class="wl-src" :class="'wl-src-' + (r.pot_5y_source || 'none')"
+                          x-text="watchPotSourceLabel(r)"></span>
+                  </div>
+                  <div class="wl-card-metric">
+                    <span class="wl-card-k">Prix juste</span>
+                    <span x-text="r.fair_price == null ? '—' : fmt(r.fair_price)"></span>
+                    <span class="wl-src" :class="'wl-src-' + (r.fair_price_source || 'none')"
+                          x-text="watchSourceLabel(r)"></span>
+                  </div>
+                </div>
+
+                <div class="wl-card-foot">
+                  <select class="wl-tier-select" @change="moveWatchRow(r, $event.target.value)"
+                          :title="'Tier de conviction — ' + (watchTierLabel(r.tier) || '')">
+                    <template x-for="t in watchTierList()" :key="t.id">
+                      <option :value="t.id" :selected="Number(t.id) === Number(r.tier)"
+                              x-text="t.label"></option>
+                    </template>
+                  </select>
+                  <button type="button" class="btn small ghost" @click.stop="openWatchRow(r)"
+                          :disabled="!!r.error">Voir</button>
+                </div>
+              </article>
+            </template>
+
+            <p class="wl-tier-empty" x-show="!g.rows.length && !watchLoading">Aucune valeur</p>
+          </section>
+        </template>
+      </div>
+
       <div class="wl-empty" x-show="!watchLoading && watchSearched && !watchRows.length">
         <p>Ta watchlist est vide.</p>
         <p class="wl-hint">Ouvre une fiche et clique l’étoile pour choisir un tier de conviction.</p>
       </div>
-      <div class="wl-empty" x-show="!watchLoading && watchRows.length && !watchRowsSorted().length">
+      <div class="wl-empty" x-show="!watchLoading && watchRows.length && watchView === 'table' && !watchRowsSorted().length">
         <p>Aucune valeur pour ce filtre.</p>
       </div>
 

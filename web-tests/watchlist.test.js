@@ -85,6 +85,42 @@ describe("libellés et badges", () => {
     expect(saved).toContain("Pot. 5A : estimation de la valorisation");
   });
 
+  it("groupe les lignes par tier et moyenne les marges", () => {
+    const rows = [
+      { ticker: "A", tier: 1, safety_margin_pct: 10 },
+      { ticker: "B", tier: 1, safety_margin_pct: 20 },
+      { ticker: "C", tier: 2, safety_margin_pct: -30 },
+      { ticker: "D", tier: 3, safety_margin_pct: null },
+    ];
+    const c = component({
+      metaReady: true,
+      watchRows: rows,
+      watchItems: rows,
+      watchTierFilter: null,
+      watchHideFallback: false,
+      watchSort: null,
+    });
+    const groups = c.watchTierGroups();
+    expect(groups.map((g) => g.id)).toEqual([1, 2, 3]);
+    expect(groups[0].rows.map((r) => r.ticker)).toEqual(["A", "B"]);
+    expect(groups[0].avg).toBe(15);
+    expect(groups[1].rows.map((r) => r.ticker)).toEqual(["C"]);
+    expect(groups[1].avg).toBe(-30);
+    expect(groups[2].rows.map((r) => r.ticker)).toEqual(["D"]);
+    expect(groups[2].avg).toBeNull();
+
+    const filtered = component({
+      metaReady: true,
+      watchRows: rows,
+      watchItems: rows,
+      watchTierFilter: 2,
+      watchHideFallback: false,
+      watchSort: null,
+    }).watchTierGroups();
+    expect(filtered.map((g) => g.id)).toEqual([2]);
+    expect(filtered[0].rows.map((r) => r.ticker)).toEqual(["C"]);
+  });
+
   it("la source du Pot. 5A est lisible", () => {
     expect(potSourceLabel({ pot_5y_source: "valuation" })).toBe("valo");
     expect(potSourceLabel({ pot_5y_source: "regression" })).toBe("droite");

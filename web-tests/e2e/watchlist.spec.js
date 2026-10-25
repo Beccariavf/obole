@@ -101,6 +101,8 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
 
   await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
   await expect(page.locator(".modal.modal-watchlist h3")).toHaveText("Watchlist");
+  // La vue cadrans est le défaut ; ce test vérifie le tableau dense.
+  await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
 
   // Compteurs : tous + par tier (source = appartenance).
   await expect(page.locator(".wl-tier-btn", { hasText: "Tous" })).toContainText("2");
@@ -158,6 +160,36 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await expect(page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" })).toBeVisible();
   await page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" }).click();
   await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+});
+
+test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => {
+  await routeWatchlist(page);
+  await page.goto("/");
+  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+
+  await expect(page.locator(".wl-board")).toBeVisible();
+  await expect(page.locator(".wl-tier-col")).toHaveCount(3);
+  await expect(page.locator(".wl-tier-col").nth(0)).toContainText("RI.PA");
+  await expect(page.locator(".wl-tier-col").nth(1)).toContainText("AI.PA");
+  await expect(page.locator(".wl-tier-col").nth(2)).toContainText("Aucune valeur");
+  // Le cadran du tier 1 (une valeur, marge 16,67 %) et le select de la carte AI.
+  await expect(page.locator(".wl-tier-col").nth(0).locator(".wl-dial-text").first()).toContainText(
+    "16,67 %",
+  );
+  await expect(page.locator(".wl-tier-col").nth(1).locator(".wl-card select")).toHaveValue("2");
+
+  await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
+  await expect(page.locator(".wl-table")).toBeVisible();
+  await expect(page.locator(".wl-board")).toBeHidden();
+  await page.locator(".wl-view-toggle button", { hasText: "Cadrans" }).click();
+  await expect(page.locator(".wl-board")).toBeVisible();
+
+  // En dessous de 900 px, le tableau de bord passe à une colonne.
+  await page.setViewportSize({ width: 390, height: 800 });
+  const columns = await page.locator(".wl-board").evaluate(
+    (el) => getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length,
+  );
+  expect(columns).toBe(1);
 });
 
 test("watchlist : état vide", async ({ page }) => {

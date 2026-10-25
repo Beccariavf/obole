@@ -100,6 +100,7 @@ describe("découpage du front (modules ES)", () => {
       "theme.js",
       "thresholds.js",
       "util.js",
+      "watchlist-dials.js",
     ]);
     const modules = readdirSync(WEB_DIR).filter(
       (f) => f.endsWith(".js") && f !== "app.js",
