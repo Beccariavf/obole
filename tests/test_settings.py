@@ -165,7 +165,10 @@ class TestConvictionSettings:
         from obole.api.app import app
 
         client = TestClient(app)
-        client.put("/api/settings", json={"values": {"conviction_tier1_min": 60, "conviction_tier2_min": 40}})
+        client.put(
+            "/api/settings",
+            json={"values": {"conviction_tier1_min": 60, "conviction_tier2_min": 40}},
+        )
         r = client.put(
             "/api/settings",
             json={"values": {"conviction_tier1_min": 40, "conviction_tier2_min": 50}},
