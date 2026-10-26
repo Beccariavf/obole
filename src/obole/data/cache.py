@@ -555,8 +555,10 @@ def set_settings(partial: dict) -> dict[str, Any]:
 
     N'accepte que des clés de `SETTING_DEFS` (les autres sont ignorées). Valide
     chaque valeur via `_setting_valid` (bornes + cohérence short<long) : lève
-    ValueError si invalide (l'API la transforme en 422). Les clés absentes du dict
-    `partial` conservent leur valeur courante.
+    ValueError si invalide (l'API la transforme en 422). La cohérence croisée est
+    vérifiée sur l'état complet : moyennes mobiles (courte < longue) et seuils de
+    conviction (Tier 1 > Tier 2). Les clés absentes du dict `partial` conservent
+    leur valeur courante.
     """
     current = get_settings()
     for key, raw in partial.items():
@@ -576,6 +578,14 @@ def set_settings(partial: dict) -> dict[str, Any]:
         and current["trend_ma_short"] < current["trend_ma_long"]  # type: ignore[operator]
     ):
         raise ValueError("Moyenne mobile courte doit être < la longue")
+    # Seuils de conviction (#27) : un seuil Tier 1 sous le Tier 2 n'a pas de sens
+    # (le Tier 1 deviendrait plus permissif que le Tier 2).
+    if not (
+        _setting_valid("conviction_tier1_min", current["conviction_tier1_min"])
+        and _setting_valid("conviction_tier2_min", current["conviction_tier2_min"])
+        and current["conviction_tier1_min"] > current["conviction_tier2_min"]  # type: ignore[operator]
+    ):
+        raise ValueError("Le seuil Tier 1 doit être supérieur au seuil Tier 2")
     with _conn() as conn:
         for key, val in current.items():
             conn.execute(

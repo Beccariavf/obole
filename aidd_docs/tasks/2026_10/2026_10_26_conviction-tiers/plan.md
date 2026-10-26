@@ -1,6 +1,6 @@
 ---
 objective: "Après le jeu de convictions, chaque valeur reçoit un tier proposé par des seuils absolus (indice 0-100, seuils 57/43 réglables), les tiers vides sont possibles, et l'application passe par la route tier existante."
-status: in-progress
+status: reviewed
 ---
 
 # Plan: conviction → tiers par seuils absolus

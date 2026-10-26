@@ -1,11 +1,16 @@
-// Obole — moteur du jeu de convictions (#26).
+// Obole — moteur du jeu de convictions (#26, seuils absolus #27).
 //
 // L'utilisateur compare deux valeurs à la fois ; chaque choix met à jour un
 // Elo dont le prior est le tier actuel (Tier 1 > 2 > 3). Le jeu ne prétend pas
-// mesurer une vérité : il révèle un ordre de préférence, puis propose des tiers
-// en CONSERVANT les effectifs actuels (reclassement, pas de seuil inventé).
+// mesurer une vérité : il révèle un ordre de préférence, puis convertit le
+// rating en INDICE ABSOLU 0-100 classé par deux seuils réglables (#27).
+// Aucun classement relatif, aucun quota conservé : un tier peut rester vide.
 export const MIN_COMPARISONS = 12;
 export const K_FACTOR = 24;
+// Couverture minimale : en dessous, on ne classe pas sur un duel isolé.
+export const MIN_COMPARISONS_PER_ROW = 2;
+// Une valeur à 2 points ou moins d'un seuil est « limite » (bruit de mesure).
+export const LIMIT_DISTANCE = 2;
 const PRIOR = { 1: 1600, 2: 1500, 3: 1400 };
 const DEFAULT_RATING = 1500;
 
@@ -22,9 +27,10 @@ export function initialRatings(rows) {
 }
 
 export function initialComparisons(rows) {
-  const counts = {};
-  for (const row of validRows(rows)) counts[row.ticker] = 0;
-  return counts;
+  // Compteur de duels PAR TICKER (couverture) — pas un effectif par tier.
+  const perTicker = {};
+  for (const row of validRows(rows)) perTicker[row.ticker] = 0;
+  return perTicker;
 }
 
 export function expectedScore(ratingA, ratingB) {
@@ -74,36 +80,55 @@ export function nextPair(rows, ratings, comparisons, lastPair = null, rng = Math
   return [pick.a, pick.b];
 }
 
-// Score de conviction = percentile du rating dans le groupe (0…100).
-export function convictionScore(rating, ratings) {
-  const values = Object.values(ratings || {});
-  if (!values.length) return 0;
-  if (values.length === 1) return 100;
-  const below = values.filter((value) => value < rating).length;
-  const equal = values.filter((value) => value === rating).length;
-  return Math.round(((below + (equal - 1) / 2) / (values.length - 1)) * 100);
+// --- Indice absolu et seuils (#27) ------------------------------------------
+//
+// L'indice est une échelle 0-100 ancrée sur le rating neutre (1500 = 50) : il ne
+// dépend QUE de la valeur, jamais du groupe. Deux valeurs au même rating ont donc
+// le même indice, et le nombre de Tier 1 varie librement avec les seuils.
+
+export function convictionIndex(rating) {
+  const value = Number(rating);
+  if (!Number.isFinite(value)) return 50; // rating illisible -> neutre
+  return Math.round(100 / (1 + 10 ** ((DEFAULT_RATING - value) / 400)));
 }
 
-// Tiers suggérés en conservant les effectifs actuels (n1, n2, n3).
-export function suggestTiers(rows, ratings) {
-  const list = validRows(rows);
-  const counts = { 1: 0, 2: 0, 3: 0 };
-  for (const row of list) {
-    const tier = Number(row.tier);
-    if (counts[tier] != null) counts[tier] += 1;
+// Tier 1 si l'indice atteint le seuil Tier 1, Tier 2 s'il atteint le Tier 2.
+export function tierForIndex(index, thresholds) {
+  const tier1 = Number(thresholds?.tier1);
+  const tier2 = Number(thresholds?.tier2);
+  if (index >= tier1) return 1;
+  if (index >= tier2) return 2;
+  return 3;
+}
+
+// Seuil le plus proche d'un indice, pour le badge « limite » (`distance <= 2`).
+// À égalité de distance, le seuil le plus HAUT est retenu (le franchissement
+// d'un Tier 1 est le signal le plus significatif).
+export function thresholdDistance(index, thresholds) {
+  let best = null;
+  for (const threshold of [Number(thresholds?.tier1), Number(thresholds?.tier2)]) {
+    const distance = Math.abs(index - threshold);
+    const better =
+      !best || distance < best.distance || (distance === best.distance && threshold > best.threshold);
+    if (better) best = { threshold, distance };
   }
-  const sorted = [...list].sort(
-    (a, b) =>
-      (ratings[b.ticker] ?? DEFAULT_RATING) - (ratings[a.ticker] ?? DEFAULT_RATING) ||
-      Number(a.tier) - Number(b.tier) ||
-      String(a.ticker).localeCompare(String(b.ticker)),
-  );
+  return best;
+}
+
+// Tiers suggérés par seuils absolus, indépendant du mixin : une valeur à moins
+// de `MIN_COMPARISONS_PER_ROW` duels garde son tier actuel (couverture
+// insuffisante). Aucun compte par tier n'est lu : les tiers vides sont permis.
+export function suggestTiersByThresholds(rows, ratings, comparisons, thresholds) {
   const suggested = {};
-  sorted.forEach((row, index) => {
-    if (index < counts[1]) suggested[row.ticker] = 1;
-    else if (index < counts[1] + counts[2]) suggested[row.ticker] = 2;
-    else suggested[row.ticker] = 3;
-  });
+  for (const row of validRows(rows)) {
+    const count = Number(comparisons?.[row.ticker] ?? 0);
+    if (count < MIN_COMPARISONS_PER_ROW) {
+      suggested[row.ticker] = Number(row.tier);
+      continue;
+    }
+    const rating = Number(ratings?.[row.ticker] ?? DEFAULT_RATING);
+    suggested[row.ticker] = tierForIndex(convictionIndex(rating), thresholds);
+  }
   return suggested;
 }
 

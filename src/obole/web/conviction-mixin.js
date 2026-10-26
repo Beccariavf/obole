@@ -1,18 +1,22 @@
-// Obole — état du jeu de convictions (#26).
+// Obole — état du jeu de convictions (#26, seuils absolus #27).
 //
-// Le calcul (Elo, paires, score, tiers suggérés) vit dans `conviction.js`, pur.
-// Ce mixin ne porte que l'état Alpine, les gestes et l'application des tiers
-// via la route existante (`PUT /api/watchlist/items/<ticker>`) : pas de schéma,
-// pas d'outil MCP, pas de nouvelle route d'écriture.
+// Le calcul (Elo, paires, indice absolu, tiers par seuils) vit dans
+// `conviction.js`, pur. Ce mixin ne porte que l'état Alpine, les gestes et
+// l'application des tiers via la route existante
+// (`PUT /api/watchlist/items/<ticker>`) : pas de schéma, pas d'outil MCP, pas de
+// nouvelle route d'écriture.
 import { api } from "./api.js";
 import {
+  LIMIT_DISTANCE,
   MIN_COMPARISONS,
+  MIN_COMPARISONS_PER_ROW,
   changes,
-  convictionScore,
+  convictionIndex,
   initialComparisons,
   initialRatings,
   nextPair,
-  suggestTiers,
+  suggestTiersByThresholds,
+  thresholdDistance,
   updateRatings,
   validRows,
 } from "./conviction.js";
@@ -31,6 +35,9 @@ export const convictionMixin = {
   convictionBusy: false,
   convictionError: "",
   convictionLastChoice: "",
+  // Seuils lus à l'ouverture du jeu (#27) ; null = pas encore chargés. Aucun
+  // défaut dupliqué ici : la source unique est `config.SETTING_DEFS`.
+  convictionThresholds: null,
 
   convictionMin() {
     return MIN_COMPARISONS;
@@ -52,25 +59,88 @@ export const convictionMixin = {
     return this.convictionResult?.changes || [];
   },
 
-  openConviction() {
+  // Valide le payload de `/api/settings` (entiers 0-100, Tier 1 > Tier 2).
+  // Renvoie null si les seuils sont inutilisables : on n'ouvre pas de paire.
+  convictionThresholdsFrom(payload) {
+    const values = payload?.values || {};
+    const tier1 = Number(values.conviction_tier1_min);
+    const tier2 = Number(values.conviction_tier2_min);
+    const inRange = (value) => Number.isInteger(value) && value >= 0 && value <= 100;
+    if (!inRange(tier1) || !inRange(tier2) || tier1 <= tier2) return null;
+    return { tier1, tier2 };
+  },
+
+  // Ligne d'en-tête du résultat : seuils ET échelle, pour que l'indice affiché
+  // soit lisible sans ouvrir Paramètres.
+  convictionThresholdLine() {
+    const thresholds = this.convictionResult?.thresholds;
+    if (!thresholds) return "";
+    return `Seuils : Tier 1 ≥ ${thresholds.tier1} · Tier 2 ≥ ${thresholds.tier2} · indice 0-100 (50 = neutre)`;
+  },
+
+  // Compteurs par tier du RÉSULTAT (tiers suggérés) : un tier vide reste
+  // affiché avec zéro, jamais comblé d'office.
+  convictionTierSummary() {
+    const summary = { 1: 0, 2: 0, 3: 0 };
+    for (const row of this.convictionResult?.rows || []) {
+      const tier = Number(row.suggested_tier);
+      if (summary[tier] != null) summary[tier] += 1;
+    }
+    return summary;
+  },
+
+  convictionNoChange() {
+    return Boolean(this.convictionResult) && this.convictionChanges().length === 0;
+  },
+
+  async openConviction() {
     const rows = validRows(this.watchRows || []);
     if (rows.length < 2) {
       this.convictionError = "Il faut au moins deux valeurs dans la watchlist.";
       return;
     }
+    // Modale ouverte et watchlist refermée AVANT l'appel réseau : l'utilisateur
+    // voit l'attente, pas une modale vide par-dessus la watchlist.
+    this.watchlistOpen = false;
+    this.convictionOpen = true;
+    this.convictionError = "";
+    this.convictionPair = null;
+    this.convictionResult = null;
+    this.convictionApplied = false;
+    this.convictionLastChoice = "";
+    // Réinitialise TOUTE la partie avant l'appel réseau : si les seuils sont
+    // indisponibles, aucun compte, historique ou rating de la partie précédente
+    // ne doit survivre (sinon « 12 / 12 » et « Voir le résultat » restent actifs
+    // alors qu'aucune paire n'existe).
+    this.convictionRows = [];
+    this.convictionRatings = {};
+    this.convictionComparisons = {};
+    this.convictionCount = 0;
+    this.convictionHistory = [];
+    this.convictionLastPair = null;
+    this.convictionThresholds = null;
+    let thresholds = null;
+    try {
+      thresholds = this.convictionThresholdsFrom(await api.settings());
+    } catch {
+      thresholds = null;
+    }
+    if (!thresholds) {
+      // Pas de seuils = pas de règle : on n'invente ni défaut ni paire.
+      this.convictionRows = [];
+      this.convictionThresholds = null;
+      this.convictionError =
+        "Seuils de conviction indisponibles : vérifie-les dans Paramètres (Tier 1 > Tier 2).";
+      return;
+    }
+    this.convictionThresholds = thresholds;
     this.convictionRows = rows;
     this.convictionRatings = initialRatings(rows);
     this.convictionComparisons = initialComparisons(rows);
     this.convictionCount = 0;
     this.convictionHistory = [];
-    this.convictionResult = null;
-    this.convictionApplied = false;
-    this.convictionError = "";
-    this.convictionLastChoice = "";
     this.convictionLastPair = null;
     this.convictionPair = nextPair(rows, this.convictionRatings, this.convictionComparisons, null);
-    this.watchlistOpen = false;
-    this.convictionOpen = true;
   },
 
   chooseConviction(ticker) {
@@ -120,16 +190,37 @@ export const convictionMixin = {
 
   finishConviction() {
     if (!this.convictionCanFinish()) return;
-    const suggested = suggestTiers(this.convictionRows, this.convictionRatings);
+    const thresholds = this.convictionThresholds;
+    if (!thresholds) return;
+    // Règle unique : indice absolu classé par les deux seuils, couverture
+    // minimale pour les valeurs à moins de deux duels. Aucun effectif lu.
+    const suggested = suggestTiersByThresholds(
+      this.convictionRows,
+      this.convictionRatings,
+      this.convictionComparisons,
+      thresholds,
+    );
     const rows = this.convictionRows
-      .map((row) => ({
-        ticker: row.ticker,
-        name: row.name,
-        current_tier: Number(row.tier),
-        suggested_tier: suggested[row.ticker],
-        score: convictionScore(this.convictionRatings[row.ticker], this.convictionRatings),
-        comparisons: this.convictionComparisons[row.ticker] || 0,
-      }))
+      .map((row) => {
+        const score = convictionIndex(this.convictionRatings[row.ticker]);
+        const comparisons = this.convictionComparisons[row.ticker] || 0;
+        const tested = comparisons >= MIN_COMPARISONS_PER_ROW;
+        const nearest = thresholdDistance(score, thresholds);
+        return {
+          ticker: row.ticker,
+          name: row.name,
+          current_tier: Number(row.tier),
+          suggested_tier: suggested[row.ticker],
+          score,
+          comparisons,
+          tested,
+          // « limite » = indice à 2 points ou moins d'un seuil, sur une valeur
+          // réellement testée (bruit de mesure, la règle ne change pas).
+          limit: tested && nearest.distance <= LIMIT_DISTANCE,
+          distance: nearest.distance,
+          threshold: nearest.threshold,
+        };
+      })
       .sort(
         (a, b) =>
           b.score - a.score ||
@@ -140,6 +231,7 @@ export const convictionMixin = {
       rows,
       changes: changes(this.convictionRows, suggested),
       comparisons: this.convictionCount,
+      thresholds: { ...thresholds },
     };
     this.convictionPair = null;
   },
@@ -180,6 +272,7 @@ export const convictionMixin = {
     this.convictionRows = [];
     this.convictionHistory = [];
     this.convictionError = "";
+    this.convictionThresholds = null;
     this.openWatchlist();
   },
 };

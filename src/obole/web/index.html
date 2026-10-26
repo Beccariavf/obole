@@ -1506,9 +1506,10 @@
     </div>
   </div>
 
-  <!-- Modale Paramètres : mesures techniques (moyennes mobiles configurables) -->
+  <!-- Modale Paramètres : mesure technique (moyennes mobiles) + seuils de
+       conviction (#27), avec une seule paire d'actions pour les deux. -->
   <div class="modal-overlay" x-show="settingsOpen" @click.self="closeSettings()">
-    <div class="modal">
+    <div class="modal modal-settings">
       <div class="idx-head">
         <h3>Paramètres</h3>
         <div class="idx-head-actions">
@@ -1529,6 +1530,32 @@
             <span class="settings-preview" x-text="'MM' + settingsForm[key]"></span>
           </div>
         </template>
+      </section>
+
+      <!-- Conviction (#27) : les deux seuils de l'indice 0-100. Les défauts et
+           les bornes viennent de config.SETTING_DEFS via /api/settings : aucun
+           seuil littéral ici. -->
+      <section class="idx-cat" x-show="hasGroup('conviction')" style="margin-top: 12px">
+        <div class="idx-cat-head"><b>Conviction</b></div>
+        <p class="idx-hint">
+          Seuils de l'indice de conviction (0-100, 50 = neutre) lus à l'ouverture du jeu.
+          57/43 sont les milieux des ancres 1600/1500/1400 ; le Tier 1 doit rester
+          au-dessus du Tier 2. Un tier peut rester vide.
+        </p>
+        <template x-for="(spec, key) in groupDefs('conviction')" :key="key">
+          <div class="settings-field">
+            <label x-text="spec.label"></label>
+            <input type="number" :min="spec.min" :max="spec.max"
+                   x-model.number="settingsForm[key]" />
+            <span class="settings-preview" x-text="settingsForm[key] + ' / 100'"></span>
+          </div>
+        </template>
+      </section>
+
+      <!-- Actions communes aux deux sections : une seule paire Enregistrer /
+           Rétablir, sinon chaque section pourrait enregistrer dans le dos de
+           l'autre. -->
+      <div class="settings-actions">
         <p class="idx-hint" x-show="settingsError" style="color:var(--bad)" x-text="settingsError"></p>
         <div class="idx-head-actions">
           <button class="btn small" @click="saveSettings()" :disabled="settingsSaving">
@@ -1536,7 +1563,7 @@
           </button>
           <button class="btn small ghost" @click="resetSettings()">Rétablir les défauts</button>
         </div>
-      </section>
+      </div>
 
       <!-- Données : sauvegarde / restauration + purge du cache technique -->
       <section class="idx-cat" style="margin-top: 12px">
@@ -1944,6 +1971,9 @@
           <span x-text="convictionCount + ' / ' + convictionMin() + ' minimum'"></span>
         </div>
         <p class="cv-prompt">Choisis celle en laquelle tu as le plus de conviction.</p>
+        <!-- Les seuils sont lus à l'ouverture : pendant l'appel, aucune paire
+             n'existe encore (pas de duel vide trompeur). -->
+        <p class="idx-hint" x-show="!convictionPair && !convictionError">Chargement des seuils…</p>
 
         <div class="cv-duel" x-show="convictionPair">
           <template x-for="ticker in (convictionPair || [])" :key="ticker">
@@ -1993,21 +2023,30 @@
         <div class="idx-head">
           <h3>Ton classement de conviction</h3>
           <div class="idx-head-actions">
+            <span class="cv-count"><span x-text="convictionResult?.comparisons || 0"></span> comparaisons</span>
             <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
           </div>
         </div>
+        <!-- Seuils ET échelle : l'indice affiché doit être lisible sans ouvrir
+             Paramètres (source unique = /api/settings). -->
+        <p class="cv-thresholds" x-text="convictionThresholdLine()"></p>
         <div class="cv-result-actions">
           <button class="btn small" :disabled="!convictionChanges().length || convictionApplied || convictionBusy"
                   @click="applyConvictionTiers()">Appliquer les tiers</button>
           <button class="btn small ghost" @click="replayConviction()">Rejouer</button>
           <button class="btn small ghost" @click="closeConviction()">Fermer</button>
         </div>
+        <!-- Message seulement quand AUCUN tier ne change ; Appliquer reste
+             désactivé (la règle n'invite pas à écraser un ordre identique). -->
+        <p class="idx-hint" x-show="convictionNoChange() && !convictionApplied">
+          Aucun changement : tes convictions confirment tes tiers.
+        </p>
         <p class="idx-hint" x-show="convictionApplied">Tiers appliqués.</p>
         <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
         <div class="cv-result">
           <table class="cell-table screen-table cv-result-table">
             <thead>
-              <tr><th>Rang</th><th>Entreprise</th><th>Tier actuel</th><th>Tier suggéré</th><th>Conviction</th><th>Δ</th></tr>
+              <tr><th>Rang</th><th>Entreprise</th><th>Tier actuel → suggéré</th><th>Conviction</th><th>Δ</th></tr>
             </thead>
             <tbody>
               <template x-for="(r, index) in (convictionResult?.rows || [])" :key="r.ticker">
@@ -2017,8 +2056,11 @@
                     <span class="screen-ticker" x-text="r.ticker"></span>
                     <span class="screen-name" x-text="r.name || '—'"></span>
                   </td>
-                  <td x-text="'Tier ' + r.current_tier"></td>
-                  <td x-text="'Tier ' + r.suggested_tier"></td>
+                  <td class="cv-tiers">
+                    <span x-text="'Tier ' + r.current_tier"></span>
+                    <span class="cv-arrow">→</span>
+                    <b x-text="'Tier ' + r.suggested_tier"></b>
+                  </td>
                   <td class="cv-score">
                     <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
                          :aria-label="'Conviction ' + r.score + ' sur 100'">
@@ -2026,15 +2068,31 @@
                       <path class="cv-dial-value" :d="watchDialPath(r.score, 0, 100)"></path>
                       <text class="wl-dial-text" x="50" y="50" text-anchor="middle" x-text="r.score"></text>
                     </svg>
+                    <!-- Couverture : nombre de duels réellement joués. -->
+                    <span class="cv-duels" x-text="r.comparisons + (r.comparisons > 1 ? ' duels' : ' duel')"></span>
                   </td>
-                  <td x-text="r.current_tier === r.suggested_tier ? '=' : (r.suggested_tier < r.current_tier ? '↑' : '↓')"></td>
+                  <td class="cv-delta">
+                    <span x-text="r.current_tier === r.suggested_tier ? '=' : (r.suggested_tier < r.current_tier ? '↑' : '↓')"></span>
+                    <span class="cv-badge" x-show="!r.tested"
+                          :title="'Moins de 2 duels : le tier actuel est conservé (couverture insuffisante).'">conservé</span>
+                    <span class="cv-badge cv-badge-limit" x-show="r.tested && r.limit"
+                          :title="'Indice à ' + r.distance + ' point(s) du seuil ' + r.threshold + ' : bruit de mesure, la règle ne change pas.'">limite</span>
+                  </td>
                 </tr>
               </template>
             </tbody>
           </table>
         </div>
-        <p class="wl-legend">Effectifs par tier conservés ; basé sur
-          <span x-text="convictionResult?.comparisons || 0"></span> comparaisons.</p>
+        <!-- Compteurs par tier : un tier vide reste affiché avec zéro. -->
+        <p class="wl-legend cv-tier-summary">
+          <span>Tier 1 : <b x-text="convictionTierSummary()[1]"></b></span>
+          <span class="cv-sep">·</span>
+          <span>Tier 2 : <b x-text="convictionTierSummary()[2]"></b></span>
+          <span class="cv-sep">·</span>
+          <span>Tier 3 : <b x-text="convictionTierSummary()[3]"></b></span>
+          <span class="cv-sep">·</span>
+          <span><b x-text="convictionResult?.comparisons || 0"></b> comparaisons</span>
+        </p>
       </div>
     </div>
   </div>

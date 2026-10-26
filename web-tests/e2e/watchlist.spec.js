@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 // Watchlist (#25) : bouton entre Portefeuille et Paramètres, modale de classement,
@@ -114,6 +116,68 @@ async function routeWatchlist(page, { run = RUN, items = null } = {}) {
   await page.route(/\/api\/watchlist\/run$/, (route) => route.fulfill({ json: run }));
   await page.route(/\/api\/watchlist$/, (route) => route.fulfill({ json: state }));
 }
+
+// --- Réglages (#27) ---------------------------------------------------------
+// Valeurs par défaut du stub : mêmes clés que config.SETTING_DEFS, pour que le
+// démarrage de l'app (légende des MM) et la modale Paramètres fonctionnent.
+const SETTINGS_DEFAULTS = {
+  trend_ma_short: 11,
+  trend_ma_long: 200,
+  conviction_tier1_min: 57,
+  conviction_tier2_min: 43,
+};
+
+function settingDef(label, def, min, max, group) {
+  return { default: def, min, max, label, group };
+}
+
+function settingsPayload(values) {
+  return {
+    values,
+    defs: {
+      trend_ma_short: settingDef("Moyenne mobile courte", 11, 2, 250, "technique"),
+      trend_ma_long: settingDef("Moyenne mobile longue", 200, 2, 250, "technique"),
+      conviction_tier1_min: settingDef("Seuil Tier 1", 57, 0, 100, "conviction"),
+      conviction_tier2_min: settingDef("Seuil Tier 2", 43, 0, 100, "conviction"),
+    },
+    groups: ["technique", "conviction"],
+  };
+}
+
+// Stub de `/api/settings` : GET renvoie l'état simulé, PUT le met à jour, capture
+// le corps et applique la validation croisée (422 si Tier 1 <= Tier 2). Aucun
+// seuil n'est lu de la base réelle : le parcours est indépendant des réglages.
+async function routeSettings(page, initial = {}) {
+  const state = { ...SETTINGS_DEFAULTS, ...initial };
+  const puts = [];
+  await page.route(/\/api\/settings$/, (route) => {
+    if (route.request().method() !== "PUT") {
+      return route.fulfill({ json: settingsPayload({ ...state }) });
+    }
+    const body = route.request().postDataJSON();
+    puts.push(body);
+    const next = { ...state, ...body.values };
+    if (Number(next.conviction_tier1_min) <= Number(next.conviction_tier2_min)) {
+      return route.fulfill({
+        status: 422,
+        json: { detail: "Le seuil Tier 1 doit être supérieur au seuil Tier 2" },
+      });
+    }
+    Object.assign(state, body.values);
+    return route.fulfill({ json: settingsPayload({ ...state }) });
+  });
+  return { puts, state };
+}
+
+// Chemin de capture : dossier `captures/` à la racine du dépôt (créé au besoin).
+// Les captures sont OPT-IN (`OBOLE_CAPTURE=1`) : sans la variable, le parcours
+// e2e ne touche pas au dépôt et les PNG versionnés restent la preuve du run.
+function capturePath(name) {
+  const dir = fileURLToPath(new URL("../../captures/", import.meta.url));
+  mkdirSync(dir, { recursive: true });
+  return `${dir}${name}`;
+}
+
 
 test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => {
   await routeWatchlist(page);
@@ -288,11 +352,40 @@ test("étoile : ajout puis retrait, sans recharger la fiche", async ({ page }) =
   await expect(star).toContainText("Watchlist");
 });
 
-test("watchlist : jeu de convictions, résultat et application", async ({ page }) => {
+// Le Tier 3 (OR.PA) doit gagner ses duels (promotion T3 → T2) ; sinon on fait
+// gagner la valeur du tier le plus BAS (numéro le plus grand), ce qui fait
+// descendre les hauts tiers. Déterministe : aucune dépendance au hasard.
+async function playConviction(page, rounds) {
+  const cards = page.locator(".cv-card");
+  for (let round = 0; round < rounds; round += 1) {
+    const or = cards.filter({ hasText: "OR.PA" });
+    if (await or.count()) {
+      await or.first().click();
+    } else {
+      const count = await cards.count();
+      let picked = 0;
+      let bestTier = -1;
+      for (let index = 0; index < count; index += 1) {
+        const text = await cards.nth(index).innerText();
+        const match = text.match(/Tier (\d)/);
+        const tier = match ? Number(match[1]) : 0;
+        if (tier > bestTier) {
+          bestTier = tier;
+          picked = index;
+        }
+      }
+      await cards.nth(picked).click();
+    }
+    await page.waitForTimeout(25);
+  }
+}
+
+test("watchlist : jeu de convictions, seuils et application T3 → T2", async ({ page }, testInfo) => {
   await routeWatchlist(page, {
     run: RUN_GAME,
     items: RUN_GAME.rows.map((row) => ({ ticker: row.ticker, tier: row.tier, added_at: 1 })),
   });
+  const settings = await routeSettings(page);
   await page.goto("/");
   await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
   await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
@@ -308,26 +401,40 @@ test("watchlist : jeu de convictions, résultat et application", async ({ page }
   await expect(page.locator(".cv-progress-row")).toContainText("2 / 12 minimum");
   await page.locator(".cv-foot .btn", { hasText: "Annuler la dernière" }).click();
   await expect(page.locator(".cv-progress-row")).toContainText("1 / 12 minimum");
-  // On fait gagner les valeurs des tiers bas (AI, OR) pour forcer un reclassement.
-  for (let round = 0; round < 11; round += 1) {
-    const count = await cards.count();
-    let picked = false;
-    let bestTier = -1;
-    for (let index = 0; index < count; index += 1) {
-      const text = await cards.nth(index).innerText();
-      const match = text.match(/Tier (\d)/);
-      const tier = match ? Number(match[1]) : 0;
-      if (tier > bestTier) {
-        bestTier = tier;
-        picked = index;
-      }
-    }
-    await cards.nth(picked).click();
-    await page.waitForTimeout(25);
-  }
+  // Les seuils viennent de /api/settings, pas d'un défaut dupliqué côté JS.
+  expect(settings.puts).toHaveLength(0);
+  await playConviction(page, 11);
   await expect(page.locator(".cv-progress-row")).toContainText("12 / 12 minimum");
   await page.locator(".cv-foot .btn", { hasText: "Voir le résultat" }).click();
+
+  // Seuils, échelle, quatre lignes, indice et duels.
+  await expect(page.locator(".cv-thresholds")).toContainText("Tier 1 ≥ 57");
+  await expect(page.locator(".cv-thresholds")).toContainText("Tier 2 ≥ 43");
+  await expect(page.locator(".cv-thresholds")).toContainText("50 = neutre");
   await expect(page.locator(".cv-result-table tbody tr")).toHaveCount(4);
+  const orRow = page.locator(".cv-result-table tbody tr", { hasText: "OR.PA" });
+  await expect(orRow.locator(".cv-tiers")).toContainText("Tier 3");
+  await expect(orRow.locator(".cv-tiers")).toContainText("Tier 2");
+  await expect(orRow.locator(".cv-duels")).toContainText("6 duels");
+  await expect(orRow.locator(".cv-score .wl-dial-text")).toHaveText(/^\d+$/);
+  // Compteurs : le Tier 3 est vide et s'affiche avec zéro.
+  await expect(page.locator(".cv-tier-summary")).toContainText("Tier 1 : 1");
+  await expect(page.locator(".cv-tier-summary")).toContainText("Tier 2 : 3");
+  await expect(page.locator(".cv-tier-summary")).toContainText("Tier 3 : 0");
+
+  // Captures de preuve (Chromium seulement : les deux moteurs partagent le
+  // même dépôt, inutile d'écrire deux fois les mêmes fichiers). Opt-in :
+  // `OBOLE_CAPTURE=1` pour les régénérer, sinon le run ne salit pas le dépôt.
+  if (testInfo.project.name === "chromium") {
+    const capture = process.env.OBOLE_CAPTURE === "1";
+    if (capture) await page.screenshot({ path: capturePath("conviction-seuils.png") });
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect(page.locator(".cv-thresholds")).toBeVisible();
+    const tableBox = await page.locator(".cv-result-table").boundingBox();
+    expect(tableBox.x + tableBox.width).toBeLessThanOrEqual(390);
+    if (capture) await page.screenshot({ path: capturePath("conviction-seuils-390.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
 
   const calls = [];
   await page.route(/\/api\/watchlist\/items\/[^/]+$/, async (route) => {
@@ -339,13 +446,127 @@ test("watchlist : jeu de convictions, résultat et application", async ({ page }
   const apply = page.locator(".cv-result-actions .btn", { hasText: "Appliquer les tiers" });
   await expect(apply).toBeEnabled();
   await apply.click();
-  await expect(page.locator(".modal.modal-conviction")).toContainText("Tiers appliqués");
-  expect(calls.length).toBeGreaterThan(0);
+  // `x-show` laisse le texte dans le DOM même masqué : on exige la VISIBILITÉ
+  // du message pour attendre la fin réelle des écritures séquentielles.
+  await expect(page.getByText("Tiers appliqués.", { exact: true })).toBeVisible();
+  // La promotion du Tier 3 passe par la route tier existante.
+  await expect.poll(() => calls.length).toBe(2);
+  expect(calls).toContainEqual({ ticker: "OR.PA", tier: 2 });
+  expect(calls).toContainEqual({ ticker: "MC.PA", tier: 2 });
 
   await page.locator(".cv-result-actions .btn", { hasText: "Fermer" }).click();
   await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
   await expect(page.locator(".modal.modal-conviction")).toBeHidden();
 });
+
+test("watchlist : jeu de convictions sans changement", async ({ page }) => {
+  await routeWatchlist(page, {
+    run: RUN_GAME,
+    items: RUN_GAME.rows.map((row) => ({ ticker: row.ticker, tier: row.tier, added_at: 1 })),
+  });
+  const settings = await routeSettings(page);
+  await page.goto("/");
+  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
+  await expect(page.locator(".modal.modal-conviction")).toBeVisible();
+
+  // Mêmes choix que l'ordre des tiers : la valeur du tier le plus fort gagne.
+  const cards = page.locator(".cv-card");
+  for (let round = 0; round < 12; round += 1) {
+    const count = await cards.count();
+    let picked = 0;
+    let bestTier = 99;
+    for (let index = 0; index < count; index += 1) {
+      const text = await cards.nth(index).innerText();
+      const match = text.match(/Tier (\d)/);
+      const tier = match ? Number(match[1]) : 99;
+      if (tier < bestTier) {
+        bestTier = tier;
+        picked = index;
+      }
+    }
+    await cards.nth(picked).click();
+    await page.waitForTimeout(25);
+  }
+  await expect(page.locator(".cv-progress-row")).toContainText("12 / 12 minimum");
+  await page.locator(".cv-foot .btn", { hasText: "Voir le résultat" }).click();
+
+  await expect(page.locator(".cv-result-table tbody tr")).toHaveCount(4);
+  await expect(
+    page.getByText("Aucun changement : tes convictions confirment tes tiers."),
+  ).toBeVisible();
+  const apply = page.locator(".cv-result-actions .btn", { hasText: "Appliquer les tiers" });
+  await expect(apply).toBeDisabled();
+  // Aucune écriture n'a été tentée : le message remplace l'action.
+  expect(settings.puts).toHaveLength(0);
+});
+
+test("paramètres : seuils de conviction, sauvegarde et rétablissement", async ({ page }, testInfo) => {
+  await routeWatchlist(page);
+  const settings = await routeSettings(page);
+  await page.goto("/");
+
+  const open = () => page.locator(".searchbar .btn.ghost", { hasText: "Paramètres" }).click();
+  await open();
+  const modal = page.locator(".modal.modal-settings");
+  await expect(modal).toBeVisible();
+  const conviction = modal.locator("section", { hasText: "Conviction" });
+  const fields = conviction.locator(".settings-field input");
+  await expect(fields).toHaveCount(2);
+  await expect(conviction.locator("label").nth(0)).toHaveText("Seuil Tier 1");
+  await expect(conviction.locator("label").nth(1)).toHaveText("Seuil Tier 2");
+  await expect(fields.nth(0)).toHaveValue("57");
+  await expect(fields.nth(1)).toHaveValue("43");
+
+  // Une seule paire d'actions pour les deux sections (pas une par section).
+  await expect(modal.getByRole("button", { name: "Enregistrer", exact: true })).toHaveCount(1);
+  await expect(modal.getByRole("button", { name: "Rétablir les défauts" })).toHaveCount(1);
+  await expect(modal.locator(".settings-actions")).toHaveCount(1);
+
+  // 55/41 : le corps du PUT porte bien les deux valeurs.
+  await fields.nth(0).fill("55");
+  await fields.nth(1).fill("41");
+  await modal.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect.poll(() => settings.puts.length).toBe(1);
+  expect(settings.puts[0].values.conviction_tier1_min).toBe(55);
+  expect(settings.puts[0].values.conviction_tier2_min).toBe(41);
+
+  // Rouvrir affiche les valeurs du serveur simulé.
+  await modal.locator(".idx-head button", { hasText: "✕" }).click();
+  await expect(modal).toBeHidden();
+  await open();
+  await expect(fields.nth(0)).toHaveValue("55");
+  await expect(fields.nth(1)).toHaveValue("41");
+
+  if (testInfo.project.name === "chromium") {
+    const capture = process.env.OBOLE_CAPTURE === "1";
+    if (capture) await page.screenshot({ path: capturePath("conviction-parametres.png") });
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect(conviction).toBeVisible();
+    const fieldBox = await fields.nth(1).boundingBox();
+    expect(fieldBox.x + fieldBox.width).toBeLessThanOrEqual(390);
+    if (capture) await page.screenshot({ path: capturePath("conviction-parametres-390.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+
+  // Inversion 40/50 : 422 du serveur simulé, message affiché, valeurs gardées.
+  await fields.nth(0).fill("40");
+  await fields.nth(1).fill("50");
+  await modal.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(modal).toContainText("Le seuil Tier 1 doit être supérieur au seuil Tier 2");
+  await expect(fields.nth(0)).toHaveValue("40");
+  await modal.locator(".idx-head button", { hasText: "✕" }).click();
+  await open();
+  await expect(fields.nth(0)).toHaveValue("55");
+  await expect(fields.nth(1)).toHaveValue("41");
+
+  // Rétablir : les défauts de la source unique, sans écrire.
+  await modal.getByRole("button", { name: "Rétablir les défauts" }).click();
+  await expect(fields.nth(0)).toHaveValue("57");
+  await expect(fields.nth(1)).toHaveValue("43");
+  expect(settings.puts.length).toBe(2); // 55/41 (200) + 40/50 (422 rejeté)
+});
+
 
 test("référence : le chip propose de définir la fenêtre affichée", async ({ page }) => {
   const calls = [];

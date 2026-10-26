@@ -1,4 +1,4 @@
-"""Tests des réglages utilisateur (panneau Paramètres) — moyennes mobiles.
+"""Tests des réglages utilisateur (panneau Paramètres).
 
 Sans réseau : le cache est isolé sur une base temporaire (config.CACHE_DB),
 l'API montée sur TestClient, et les payloads de graphe testés en direct
@@ -36,6 +36,9 @@ class TestGetSettings:
             "portfolio_benchmark": config.PORTFOLIO_BENCHMARK_DEFAULT,
             "portfolio_period": config.PORTFOLIO_PERIOD_DEFAULT,
             "portfolio_risk_free": config.SETTING_DEFS["portfolio_risk_free"]["default"],
+            # Seuils de conviction (#27) : milieux des ancres 1600/1500/1400.
+            "conviction_tier1_min": 57,
+            "conviction_tier2_min": 43,
         }
 
     def test_returns_defaults_from_config(self):
@@ -108,6 +111,80 @@ class TestSettingsApi:
     def test_put_422_on_out_of_bounds(self):
         r = self._client.put("/api/settings", json={"values": {"trend_ma_short": 999}})
         assert r.status_code == 422
+
+
+class TestConvictionSettings:
+    """Seuils de conviction (#27) : défauts, groupe, persistance, inversion."""
+
+    def test_defaults_and_group_in_payload(self):
+        from obole.api.app import app
+
+        data = TestClient(app).get("/api/settings").json()
+        assert data["values"]["conviction_tier1_min"] == 57
+        assert data["values"]["conviction_tier2_min"] == 43
+        # Le groupe est exposé ET ordonné après la mesure technique.
+        assert data["groups"] == ["technique", "conviction"]
+        assert data["defs"]["conviction_tier1_min"] == {
+            "default": 57,
+            "min": 0,
+            "max": 100,
+            "label": "Seuil Tier 1",
+            "group": "conviction",
+        }
+        assert data["defs"]["conviction_tier2_min"]["group"] == "conviction"
+
+    def test_persists_60_40_and_reads_back(self):
+        cache.set_settings({"conviction_tier1_min": 60, "conviction_tier2_min": 40})
+        assert cache.get_settings()["conviction_tier1_min"] == 60
+        assert cache.get_settings()["conviction_tier2_min"] == 40
+        # Les autres réglages ne sont pas touchés par la fusion partielle.
+        assert cache.get_settings()["trend_ma_short"] == 11
+
+    def test_put_persists_60_40(self):
+        from obole.api.app import app
+
+        client = TestClient(app)
+        r = client.put(
+            "/api/settings",
+            json={"values": {"conviction_tier1_min": 60, "conviction_tier2_min": 40}},
+        )
+        assert r.status_code == 200
+        assert r.json()["values"]["conviction_tier1_min"] == 60
+        assert r.json()["values"]["conviction_tier2_min"] == 40
+        relu = client.get("/api/settings").json()["values"]
+        assert (relu["conviction_tier1_min"], relu["conviction_tier2_min"]) == (60, 40)
+
+    def test_rejects_tier1_not_above_tier2(self):
+        with pytest.raises(ValueError, match="Tier 1 doit être supérieur"):
+            cache.set_settings({"conviction_tier1_min": 40, "conviction_tier2_min": 50})
+        # Rien n'a été persisté : les défauts restent en place.
+        assert cache.get_settings()["conviction_tier1_min"] == 57
+        assert cache.get_settings()["conviction_tier2_min"] == 43
+
+    def test_put_422_on_inversion_keeps_previous_values(self):
+        from obole.api.app import app
+
+        client = TestClient(app)
+        client.put("/api/settings", json={"values": {"conviction_tier1_min": 60, "conviction_tier2_min": 40}})
+        r = client.put(
+            "/api/settings",
+            json={"values": {"conviction_tier1_min": 40, "conviction_tier2_min": 50}},
+        )
+        assert r.status_code == 422
+        assert "Tier 1" in r.json()["detail"]
+        relu = client.get("/api/settings").json()["values"]
+        assert (relu["conviction_tier1_min"], relu["conviction_tier2_min"]) == (60, 40)
+
+    def test_rejects_out_of_bounds(self):
+        with pytest.raises(ValueError, match="hors bornes"):
+            cache.set_settings({"conviction_tier1_min": 101})
+
+    def test_ma_and_conviction_coexist(self):
+        cache.set_settings({"trend_ma_short": 20, "conviction_tier1_min": 70})
+        out = cache.get_settings()
+        assert out["trend_ma_short"] == 20
+        assert out["conviction_tier1_min"] == 70
+        assert out["conviction_tier2_min"] == 43
 
 
 class TestSerializeUsesSettings:

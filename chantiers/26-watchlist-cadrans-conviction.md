@@ -183,5 +183,13 @@ exposé à Alpine ; le Pot. 5A utilise `watchPotSourceLabel` (méthode, pas l'ex
 « Appliquer les tiers » fait N appels séquentiels : une erreur au milieu laisse les
 changements déjà appliqués ; l'UI le signale.
 
+**Étendu par #27.** Le classement du jeu a changé de règle : le percentile et les
+**effectifs constants** décrits ci-dessus ont été **remplacés** par un **indice absolu
+0-100** et deux **seuils réglables** (57/43 par défaut, groupe `conviction` de la modale
+Paramètres), avec une couverture minimale de 2 duels, des **tiers vides autorisés** et les
+badges « conservé » / « limite ». La mécanique du duel (Elo, prior du tier, paires les plus
+rares, minimum 12) et l'application par la route tier existante sont **inchangées**.
+Détail et mesures : [`chantiers/27-conviction-tiers.md`](27-conviction-tiers.md).
+
 **Prochaine action.** Revue puis merge (le plan est en `implemented`, la fiche/index en
 `fait`).

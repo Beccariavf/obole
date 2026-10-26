@@ -892,7 +892,7 @@ select.pf-ctl {
 .idx-error { color: var(--bad); font-size: 12px; }
 .idx-head-actions { display: flex; gap: 8px; align-items: center; }
 
-/* --- Panneau Paramètres (mesures techniques) ------------------------------ */
+/* --- Panneau Paramètres (mesure technique + conviction #27) --------------- */
 .settings-field { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 .settings-field label { flex: 1; font-size: 13px; color: var(--text); }
 .settings-field input[type="number"] {
@@ -901,6 +901,10 @@ select.pf-ctl {
 }
 .settings-field input[type="number"]:focus { outline: none; border-color: var(--accent); }
 .settings-preview { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 44px; text-align: right; }
+/* Actions communes aux sections de la modale : une seule paire Enregistrer /
+   Rétablir, séparée des champs par un filet. */
+.settings-actions { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+.settings-actions .idx-head-actions { justify-content: flex-end; }
 
 /* --- Événements (annotations datées des graphiques) ------------------------ */
 .event-form-row { display: flex; gap: 10px; }
@@ -1924,15 +1928,51 @@ select.pf-ctl {
 .cv-choice { align-self: flex-start; font-weight: 700; color: var(--accent); font-size: 13px; }
 .cv-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto; flex-wrap: wrap; }
 .cv-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Ligne des seuils (#27) : rappelle la règle appliquée au-dessus du tableau. */
+.cv-thresholds {
+  margin: 0; font-size: 12px; font-weight: 600; color: var(--text-soft);
+  font-feature-settings: "tnum" 1;
+}
+.cv-count { font-size: 12px; color: var(--text-soft); }
 .cv-result { flex: 1; min-height: 0; overflow: auto; }
 .cv-result-table td { vertical-align: middle; }
 .cv-score { width: 86px; }
 .cv-score .wl-dial { max-width: 82px; }
 .cv-dial-value { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; }
+/* Couverture sous le cadran : nombre de duels réellement joués. */
+.cv-duels { display: block; font-size: 11px; color: var(--text-soft); font-feature-settings: "tnum" 1; }
+.cv-tiers { white-space: nowrap; font-feature-settings: "tnum" 1; }
+.cv-arrow { color: var(--text-soft); margin: 0 4px; }
+/* Δ + badges « conservé » (couverture insuffisante) et « limite » (bruit). */
+.cv-delta { white-space: nowrap; }
+.cv-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+  background: var(--border); color: var(--text-soft);
+}
+.cv-badge-limit { background: var(--good-bg); color: var(--accent); }
+.cv-tier-summary { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+.cv-tier-summary b { color: var(--text); font-feature-settings: "tnum" 1; }
+.cv-sep { color: var(--text-soft); }
 @media (max-width: 800px) {
   .cv-duel { grid-template-columns: 1fr; }
   .cv-side:first-of-type, .cv-side:last-of-type { grid-column: 1; }
   .cv-vs { display: none; }
+  /* Résultat lisible à 390 px : le nom long disparaît (le ticker suffit), la
+     colonne Rang s'efface (l'ordre du tableau la donne déjà) et le cadran se
+     resserre ; la table reste dans la largeur, sans coupe. */
+  .cv-result-table { font-size: 11px; }
+  .cv-result-table th:first-child,
+  .cv-result-table td:first-child { display: none; }
+  .cv-result-table .screen-name { display: none; }
+  .cv-result-table th, .cv-result-table td { padding-left: 3px; padding-right: 3px; }
+  .cv-score { width: 56px; }
+  .cv-score .wl-dial { max-width: 54px; }
+  .cv-badge { margin-left: 3px; padding: 1px 4px; }
+  .cv-duels { font-size: 10px; }
+  /* Le compteur du header est déjà répété dans le pied ; à 390 px il se coupe
+     et s'intercale dans le titre. On le masque, le pied garde l'information. */
+  .cv-count { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
