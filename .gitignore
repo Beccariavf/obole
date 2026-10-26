@@ -64,3 +64,5 @@ amélioration/
 .claude/launch.json
 .openfox/dev.json
 .openfox/commands/
+# État local des runs OpenFox (criteria, gate, journal) — jamais versionné.
+.openfox/loop/
