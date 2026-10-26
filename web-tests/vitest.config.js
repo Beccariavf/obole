@@ -9,6 +9,7 @@ const configPy = fileURLToPath(new URL("../src/obole/config.py", import.meta.url
 const dividendJs = fileURLToPath(new URL("../src/obole/web/dividend.js", import.meta.url));
 const valorisationJs = fileURLToPath(new URL("../src/obole/web/valorisation.js", import.meta.url));
 const watchlistJs = fileURLToPath(new URL("../src/obole/web/watchlist.js", import.meta.url));
+const convictionJs = fileURLToPath(new URL("../src/obole/web/conviction.js", import.meta.url));
 const styleCss = fileURLToPath(new URL("../src/obole/web/style.css", import.meta.url));
 const indexHtml = fileURLToPath(new URL("../src/obole/web/index.html", import.meta.url));
 const regressionFixture = fileURLToPath(
@@ -25,6 +26,7 @@ export default defineConfig({
     __DIVIDEND_JS_PATH__: JSON.stringify(dividendJs),
     __VALORISATION_JS_PATH__: JSON.stringify(valorisationJs),
     __WATCHLIST_JS_PATH__: JSON.stringify(watchlistJs),
+    __CONVICTION_JS_PATH__: JSON.stringify(convictionJs),
     __STYLE_CSS_PATH__: JSON.stringify(styleCss),
     __INDEX_HTML_PATH__: JSON.stringify(indexHtml),
     __REGRESSION_FIXTURE_PATH__: JSON.stringify(regressionFixture),

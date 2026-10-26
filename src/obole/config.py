@@ -126,6 +126,12 @@ POTENTIAL_HORIZONS = (5, 10)
 TREND_MA_SHORT = 11
 TREND_MA_LONG = 200
 
+# Seuils de l'indice de conviction (#27) sur l'échelle 0-100. 57 et 43 sont les
+# milieux des ancres Elo 1600 / 1500 / 1400 : à couverture suffisante, ils
+# reproduisent les tiers d'avant, sans quota. Réglables dans Paramètres.
+CONVICTION_TIER1_MIN = 57
+CONVICTION_TIER2_MIN = 43
+
 # Fenêtre de régression « non synchronisée » (règle Obole, dividendes inclus) :
 # 30 ans pour les financières (banques/assurances), 20 ans pour les autres.
 # « Des droites trop longues peuvent mal renseigner sur les évolutions futures. »
@@ -374,10 +380,28 @@ SETTING_DEFS: dict[str, SettingDef] = {
         "label": "Taux sans risque (pb/an)",
         "group": "technique",
     },
+    # Seuils de l'indice de conviction (#27), sur l'échelle 0-100 dérivée du
+    # rating Elo (50 = neutre). Défauts = milieux des ancres 1600/1500/1400 :
+    # 57 pour le Tier 1, 43 pour le Tier 2. Contrainte croisée Tier 1 > Tier 2
+    # vérifiée par `cache.set_settings` (422 côté API), pas ici.
+    "conviction_tier1_min": {
+        "default": CONVICTION_TIER1_MIN,
+        "min": 0,
+        "max": 100,
+        "label": "Seuil Tier 1",
+        "group": "conviction",
+    },
+    "conviction_tier2_min": {
+        "default": CONVICTION_TIER2_MIN,
+        "min": 0,
+        "max": 100,
+        "label": "Seuil Tier 2",
+        "group": "conviction",
+    },
 }
 # Ordre d'affichage des groupes dans la modale Paramètres. `portefeuille` est
 # volontairement absent : son réglage vit dans la section Résumé du portefeuille.
-SETTING_GROUPS = ["technique"]
+SETTING_GROUPS = ["technique", "conviction"]
 
 # --- Seuils de labels (calibrés, PRD §5) -------------------------------------
 # Chaque liste : (borne_sup_exclue, label). Le dernier capte le reste (None).

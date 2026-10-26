@@ -53,7 +53,17 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   `h4`/`aria-labelledby`. À 390 px, les métriques passent à 1 colonne et l'en-tête de modale
   se replie. Les règles sont scopées sous `.wl-card`/`.wl-tier-head` (le duel garde ses
   cadrans). Le **jeu de convictions** est un duel plein écran (deux cartes, VS, progression,
-  12 minimum) puis un résultat (rang, tiers actuel/suggéré, conviction 0–100, Δ).
+  12 minimum) puis un résultat (rang, « Tier actuel → suggéré », **indice absolu 0-100**
+  avec le nombre de duels sous le cadran, Δ, compteurs par tier). Depuis #27, le résultat
+  rappelle la **ligne des seuils** (« Tier 1 ≥ 57 · Tier 2 ≥ 43 · indice 0-100, 50 = neutre »),
+  affiche un tier vide avec **zéro** au lieu de le combler, et pose deux badges :
+  **« conservé »** (moins de 2 duels, tier actuel gardé) et **« limite »** (indice à 2 points
+  ou moins d'un seuil — bleu clair, informatif, la règle ne change pas). Le message « Aucun
+  changement » remplace l'action quand les tiers sont confirmés ; « Appliquer les tiers »
+  reste alors désactivé. La modale Paramètres a une section **Conviction** (deux seuils
+  0-100, aperçu « valeur / 100 ») et **une seule paire** Enregistrer / Rétablir pour tous
+  les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
+  pour que le tableau tienne dans la largeur.
 
 ## Accessibility
 

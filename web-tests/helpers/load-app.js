@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const APP_PATH = __APP_JS_PATH__;
 const CONFIG_PATH = __CONFIG_PY_PATH__;
 const WATCHLIST_JS_PATH = __WATCHLIST_JS_PATH__;
+const CONVICTION_JS_PATH = __CONVICTION_JS_PATH__;
 
 // #04 : `app.js` est désormais un module ES (plus de script classique évalué
 // par `vm`). On importe les modules réels : le composant Alpine vient de
@@ -130,6 +131,11 @@ export function readValorisationSource() {
 // Source du module Watchlist (vérif « aucun seuil littéral » côté front, #25).
 export function readWatchlistSource() {
   return readFileSync(WATCHLIST_JS_PATH, "utf8");
+}
+
+// Source du moteur de conviction (vérif « plus de percentile ni d'effectifs », #27).
+export function readConvictionSource() {
+  return readFileSync(CONVICTION_JS_PATH, "utf8");
 }
 
 // Source du CSS (vérif de cohérence des hauteurs avec config.py).
