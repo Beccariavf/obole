@@ -88,6 +88,29 @@ Exemple de configuration cliente (Claude Desktop) :
 }
 ```
 
+Sans installation du paquet dans le venv (pas de script `obole` sur le PATH), nommez le
+module et le chemin des sources — cette forme marche dans tous les cas, installée ou non :
+
+```bash
+PYTHONPATH=src .venv/bin/python -m obole.mcp.server
+OBOLE_MCP_READ_ONLY=1 PYTHONPATH=src .venv/bin/python -m obole.mcp.server
+```
+
+En configuration cliente, `command` et `env` sont **indissociables** : sans `PYTHONPATH`,
+le serveur meurt à l'import avant de parler le protocole.
+
+```json
+{
+  "mcpServers": {
+    "obole": {
+      "command": "/chemin/absolu/vers/le/depot/.venv/bin/python",
+      "args": ["-m", "obole.mcp.server"],
+      "env": { "PYTHONPATH": "/chemin/absolu/vers/le/depot/src" }
+    }
+  }
+}
+```
+
 ## Sécurité
 
 Obole est un outil **mono-poste, sans authentification**. Il refuse par défaut d'écouter sur une
