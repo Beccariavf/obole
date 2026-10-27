@@ -33,6 +33,7 @@ MEMORY_DIR = ROOT / "aidd_docs" / "memory"
 VCS_MD = MEMORY_DIR / "vcs.md"
 API_MD = MEMORY_DIR / "api.md"
 CODEBASE_MAP = MEMORY_DIR / "codebase-map.md"
+ECOSYSTEM_MD = MEMORY_DIR / "ecosystem.md"
 
 
 def _git(*args: str) -> str:
@@ -198,6 +199,95 @@ DOC_FILES = [
     *sorted((ROOT / "chantiers").rglob("*.md")),
     *sorted(MEMORY_DIR.rglob("*.md")),
 ]
+
+
+class TestMcpLaunchCommand:
+    """La commande de lancement MCP de développement doit être documentée.
+
+    Un client MCP démarre le serveur lui-même en **stdio** : il lui faut la
+    commande exacte, pas une intention. Le paquet n'étant pas toujours installé
+    dans le venv, `obole --mcp` ne suffit pas — il faut `-m obole.mcp.server`
+    avec `PYTHONPATH=src`, forme qui marche installée ou non.
+
+    La dérive que ce test combat est réelle : la config cliente pointait encore
+    sur `hibou.mcp.server` après le renommage du paquet, et le serveur échouait
+    au démarrage (`ModuleNotFoundError`) avant même de parler le protocole.
+
+    Le domicile de la commande est le `README.md` (config cliente de bout en
+    bout) ; `ecosystem.md` y renvoie et n'en recopie rien.
+    """
+
+    _LAUNCH_LINES = (
+        "PYTHONPATH=src .venv/bin/python -m obole.mcp.server",
+        "OBOLE_MCP_READ_ONLY=1 PYTHONPATH=src .venv/bin/python -m obole.mcp.server",
+    )
+
+    def test_dev_launch_commands_are_documented_verbatim(self) -> None:
+        """Les deux commandes (lecture+écriture, lecture seule) sont citées à l'identique.
+
+        Comparer les lignes entières, et pas deux sous-chaînes, attrape ce que
+        la version précédente laissait passer : un drapeau changé, une variable
+        d'environnement renommée, un `PYTHONPATH` ailleurs.
+        """
+        text = _read(ROOT / "README.md")
+        missing = [line for line in self._LAUNCH_LINES if line not in text]
+        assert not missing, (
+            "README.md ne cite pas exactement ces commandes de lancement MCP : "
+            + " | ".join(missing)
+        )
+
+    def test_client_env_gives_pythonpath(self) -> None:
+        """La config cliente doit nommer `PYTHONPATH` vers `src`.
+
+        Sans lui, le client démarre un `python` qui ne trouve pas le paquet : le
+        serveur meurt à l'import et le client n'affiche qu'une connexion fermée.
+        """
+        text = _read(ROOT / "README.md")
+        assert '"env"' in text and "PYTHONPATH" in text, (
+            "README.md documente `command` sans `env.PYTHONPATH` : la config cliente "
+            "échouerait à l'import du paquet"
+        )
+
+    def test_memory_points_to_the_single_home(self) -> None:
+        """`ecosystem.md` renvoie au README au lieu de recopier la config cliente."""
+        text = _read(ECOSYSTEM_MD)
+        assert (
+            "README.md" in text
+        ), "ecosystem.md doit pointer vers le README (domicile unique de la config MCP)"
+        assert "mcpServers" not in text, (
+            "ecosystem.md recopie la config cliente : elle vit dans le README, sinon "
+            "les deux extraits dérivent l'un de l'autre"
+        )
+
+    def test_no_stale_package_name_in_fenced_commands(self) -> None:
+        """Aucune commande morte `hibou.…` ne subsiste dans les blocs de code.
+
+        Le renommage `hibou` → `obole` a laissé des commandes mortes ; une
+        occurrence résiduelle renvoie l'agent vers un module inexistant.
+
+        Le périmètre est **volontairement** limité aux blocs ``` : une phrase de
+        prose qui raconte le renommage est légitime, et la scanner rendrait
+        indétectable la raison de l'échec. Les commandes mortes, elles, vivent
+        dans le code.
+        """
+        pattern = re.compile(r"hibou[._]", re.I)
+        offenders = []
+        for path in DOC_FILES:
+            if not path.is_file():
+                continue
+            in_code = False
+            for lineno, line in enumerate(_read(path).splitlines(), 1):
+                if line.lstrip().startswith("```"):
+                    in_code = not in_code
+                    continue
+                if in_code and pattern.search(line):
+                    offenders.append(f"{path.relative_to(ROOT)}:{lineno}")
+        assert not offenders, (
+            "blocs de code citant l'ancien paquet `hibou` : "
+            + ", ".join(offenders)
+            + " — remplacer par `obole`"
+        )
+
 
 #: Un SHA collé dans un nom de branche (`feat/abc1234`) échappe au motif des
 #: backticks ; ce second motif, appliqué au texte joint, le rattrape.
