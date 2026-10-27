@@ -73,6 +73,9 @@ body {
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
   max-height: calc(100vh - 32px);
+  /* Une fenêtre courte ne doit pas rogner le pied de rail (Paramètres) : le rail
+     défile sur lui-même plutôt que de laisser ses dernières entrées hors carte. */
+  overflow-y: auto;
 }
 .app-brand {
   border: none; background: none; cursor: pointer; padding: 4px 6px 10px;

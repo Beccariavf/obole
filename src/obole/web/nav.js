@@ -5,13 +5,10 @@
 //     watchlist, paramètres. Ce sont des espaces, pas des sections ;
 //   - les ONGLETS (`sections.js`) changent de section DANS la fiche.
 //
-// Le registre ci-dessous est la source unique : il pilote le rail, l'entrée
-// active et les infobulles. Les modales restent des modales ; ce module ne fait
-// que déplacer leur déclencheur.
-
-const icon = (paths) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
-  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+// Le registre ci-dessous est la source unique : il pilote le rail et l'entrée
+// active. Les modales restent des modales ; ce module ne fait que déplacer leur
+// déclencheur.
+import { icon } from "./util.js";
 
 export const SPACES = [
   {
@@ -63,17 +60,15 @@ export const RAIL_FOOT_SPACES = [
 
 // Espaces qui ouvrent une modale plein écran, et le drapeau d'état qui la porte.
 // L'ordre n'a pas d'importance : c'est une table de correspondance, pas un menu.
-const SPACE_OPENERS = {
+// Ces noms sont VÉRIFIÉS contre les vrais mixins par `nav.test.js` : sans ça, un
+// renommage dans portfolio.js/watchlist.js/… casserait le rail en silence.
+export const SPACE_OPENERS = {
   indices: { flag: "indicesOpen", open: "openIndices", close: "closeIndices" },
   screener: { flag: "screenerOpen", open: "openScreener", close: "closeScreener" },
   portfolio: { flag: "portfolioOpen", open: "openPortfolio", close: "closePortfolio" },
   watchlist: { flag: "watchlistOpen", open: "openWatchlist", close: "closeWatchlist" },
   settings: { flag: "settingsOpen", open: "openSettings", close: "closeSettings" },
 };
-
-export function isSpaceId(id) {
-  return SPACES.some((s) => s.id === id) || RAIL_FOOT_SPACES.some((s) => s.id === id);
-}
 
 export const navMixin = {
   spaces: SPACES,
@@ -94,18 +89,10 @@ export const navMixin = {
     return this.openSpace() || "analyse";
   },
 
-  spaceLabel(id) {
-    const s = [...SPACES, ...RAIL_FOOT_SPACES].find((x) => x.id === id);
-    return s ? s.label : "";
-  },
-
-  spaceHint(id) {
-    const s = [...SPACES, ...RAIL_FOOT_SPACES].find((x) => x.id === id);
-    return s ? s.hint : "";
-  },
-
-  // Ouvre un espace. « Analyse » ne fait que refermer la modale courante : la
-  // fiche est déjà derrière, on n'a rien à charger.
+  // Les espaces autres que l'analyse : leur ouverture est asynchrone et peut
+  // échouer (réseau, liaison KO). L'erreur est portée par l'état de CHAQUE
+  // espace (`screenerError`, `portfolioError`…) ; on ne l'avale pas ici, on
+  // empêche seulement une promesse rejetée de fuir sans handler.
   openSpaceEntry(id) {
     if (id === "analyse") {
       const open = this.openSpace();
@@ -113,20 +100,69 @@ export const navMixin = {
       return;
     }
     const entry = SPACE_OPENERS[id];
-    if (entry && typeof this[entry.open] === "function") this[entry.open]();
+    if (!entry || typeof this[entry.open] !== "function") return;
+    Promise.resolve(this[entry.open]()).catch(() => {
+      /* l'erreur est déjà exposée par l'état de l'espace */
+    });
   },
 
-  // Marque · Retour à la maison : aucune fiche, aucun espace. On remet aussi le
-  // champ de recherche à vide, sinon l'état affiché mentirait sur ce qu'on voit.
+  // Referme l'espace ouvert, quel qu'il soit. Appelé par Échap : les modales
+  // plein écran recouvrent le rail (elles font 98vw), donc le clavier est le seul
+  // moyen de passer d'un espace à l'autre sans viser la croix.
+  //
+  // Échap ferme la couche du DESSUS : si une modale imbriquée (détail de graphe,
+  // zoom plein écran, export, événements, import…) est ouverte par-dessus
+  // l'espace, c'est elle que la touche doit refermer. Sinon Échap ferait
+  // disparaître l'espace entier sous la modale que l'utilisateur regarde.
+  closeAnySpace() {
+    if (this._nestedModalOpen()) return false;
+    const open = this.openSpace();
+    if (!open) return false;
+    this[SPACE_OPENERS[open].close]();
+    return true;
+  },
+
+  // Une modale est-elle posée AU-DESSUS de l'espace courant ? Liste explicite
+  // des couches secondaires : chacune a son propre gestionnaire d'Échap, ce
+  // prédicat ne fait que lui laisser la priorité.
+  _nestedModalOpen() {
+    return !!(
+      this.detailCard ||
+      this.pfChartFull ||
+      this.pfDetailOpen ||
+      this.pfBenchFreeOpen ||
+      this.exportOpen ||
+      this.eventsOpen ||
+      this.showImportModal ||
+      this.convictionOpen ||
+      this.draftsOpen ||
+      this.watchPopoverOpen ||
+      this.watchRefOpen
+    );
+  },
+
+  // Marque · Retour à l'accueil : aucune fiche, aucun espace, aucun reste.
+  //
+  // Trois états survivraient sans ça, et chacun rend le geste faux :
+  //   - `query` garderait le ticker précédent, donc « Analyser » le rouvrirait ;
+  //   - `_lastRef` (sections.js) ferait passer une RECHERCHE du même ticker pour
+  //     un RAFRAÎCHISSEMENT, et rouvrirait l'ancienne section au lieu de Résumé ;
+  //   - un `load()` en vol réaffecterait `data` et réécrirait le hash APRÈS le
+  //     retour, rouvrant la fiche que l'utilisateur vient de quitter.
+  // D'où le jeton de génération : `load()` le capture et abandonne son résultat
+  // s'il a changé entre-temps (voir `_loadGeneration` dans search.js).
   goHome() {
     for (const [id, { close }] of Object.entries(SPACE_OPENERS)) {
       if (this[SPACE_OPENERS[id].flag]) this[close]();
     }
+    this._loadGeneration = (this._loadGeneration || 0) + 1;
+    this.query = "";
     this.data = null;
     this.error = "";
     this.loading = false;
     this.backTo = null;
     this.suggestions = [];
+    if ("_lastRef" in this) this._lastRef = null;
     // `location.hash = ""` laisse une `#` orpheline dans l'URL : on la retire par
     // l'API History, qui ne déclenche pas `hashchange` (aucun rechargement).
     if (window.location.hash) {

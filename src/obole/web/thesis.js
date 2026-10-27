@@ -119,7 +119,7 @@ export const thesisMixin = {
     return !this.thesisEditing && this.thesisTocVisible();
   },
 
-  // Pastille du rail : le drapeau vient du payload `/api/stock` (`has_thesis`),
+  // Pastille de l'onglet : le drapeau vient du payload `/api/stock` (`has_thesis`),
   // donc sans appel réseau supplémentaire (CA-UI2).
   thesisExists() {
     return !!this.data?.has_thesis;

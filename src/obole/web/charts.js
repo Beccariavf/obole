@@ -547,7 +547,7 @@ export const chartsMixin = {
 
   // --- Sections analytiques : blocs thématiques. Chaque carte porte un `type`
   //     qui pilote le rendu (combo bar+ligne, multi-séries + seuils, barres,
-  //     courbe longue…) et une `section` qui la rattache à une entrée du rail
+  //     courbe longue…) et une `section` qui la rattache à un onglet
   //     (`sections.js`). La fiche n'affiche qu'une section à la fois : le
   //     filtrage ci-dessous ne renvoie que les blocs de la section active.
 
@@ -578,9 +578,9 @@ export const chartsMixin = {
   },
 
   // Une section a-t-elle du contenu pour la fiche affichée ? Sert à désactiver
-  // les entrées du rail qui n'ont rien à montrer (un ratio/indice n'a pas de
+  // les onglets qui n'ont rien à montrer (un ratio/indice n'a pas de
   // comptes : Quantitatif, Dividende, Finance seraient vides). Avant le
-  // chargement (`data` null), le rail reste complet : on ne sait pas encore.
+  // chargement (`data` null), la barre reste complète : on ne sait pas encore.
   sectionAvailable(id) {
     if (!this.data) return true;
     if (id === "resume") return true;

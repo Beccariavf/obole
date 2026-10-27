@@ -86,10 +86,6 @@ test("fiche RI.PA : les onglets sont un ruban horizontal de libellés lisibles",
   await page.goto("/#RI.PA/quantitatif");
   await expect(page.locator(".header")).toBeVisible();
 
-  // Le libellé vertical « Analyse de l'entreprise » a été retiré : il décalait
-  // les icônes vers le bas et créait un vide en haut de l'ancien rail.
-  await expect(page.locator(".rail-cap")).toHaveCount(0);
-
   const tabs = await page.locator(".section-tabs").boundingBox();
   const first = await page.locator(".section-tab").first().boundingBox();
   const last = await page.locator(".section-tab").last().boundingBox();

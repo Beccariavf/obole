@@ -16,7 +16,7 @@
 </head>
 <body>
 <div class="wrap" x-data="obole" x-init="init()"
-     @keydown.escape.window="watchPopoverOpen = false; watchRefOpen = false">
+     @keydown.escape.window="watchPopoverOpen = false; watchRefOpen = false; closeAnySpace()">
 
   <div class="app-shell">
 
@@ -33,6 +33,7 @@
                 :data-space="s.id"
                 :class="{ active: activeSpace() === s.id }"
                 :aria-current="activeSpace() === s.id ? 'page' : 'false'"
+                :aria-label="s.label"
                 :title="s.hint"
                 @click="openSpaceEntry(s.id)">
           <span class="app-rail-ico" x-html="s.svg"></span>
@@ -46,6 +47,7 @@
                 :data-space="s.id"
                 :class="{ active: activeSpace() === s.id }"
                 :aria-current="activeSpace() === s.id ? 'page' : 'false'"
+                :aria-label="s.label"
                 :title="s.hint"
                 @click="openSpaceEntry(s.id)">
           <span class="app-rail-ico" x-html="s.svg"></span>

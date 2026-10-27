@@ -1,6 +1,17 @@
-// Obole — helpers génériques (slug d'id, parsing CSV).
+// Obole — helpers génériques (slug d'id, icônes SVG inline, parsing CSV).
 
 export function slug(s) { return s.replace(/[^a-zA-Z0-9]/g, "-"); }
+
+// Icône SVG inline, 24×24, tracé `currentColor` : le front reste sans build et
+// sans CDN, et aucune icône ne vient du réseau. `paths` est TOUJOURS une
+// constante du module appelant (jamais une donnée utilisateur) — d'où l'injection
+// directe de la balise, assumée et bornée à ce usage.
+export function icon(paths) {
+  return (
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
+    `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+  );
+}
 
 // Délimiteurs candidats d'un CSV « venu de l'extérieur » : virgule (norme),
 // point-virgule (Excel FR), tabulation (copier-coller d'un tableur). Miroir de
