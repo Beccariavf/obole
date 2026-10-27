@@ -113,6 +113,18 @@ Le détail (rôle de chaque couche, décisions, pièges) est dans
 `aidd_docs/memory/architecture.md` ; la carte du dépôt dans `codebase-map.md` ; la surface
 REST dans `api.md` ; le pipeline de données dans `data.md`.
 
+**Coquille de navigation du front — deux rangs, deux sens.** Le **rail gauche** (`nav.js`,
+`.app-rail`) porte les *espaces* : Analyse, Mes indices, Screener, Portefeuille, Watchlist,
+puis Paramètres en pied. Les **onglets horizontaux** (`.section-tabs`, alimentés par
+`sections.js::SECTIONS`) portent les *sections de la fiche* : Résumé, Quantitatif,
+Dividende, Finance, Thèse & Société, Valorisation. Ne jamais mélanger les deux : une entrée
+d'espace n'est pas une section (elle ouvre une modale plein écran, inchangée), et une
+section ne sort pas de la fiche. Le clic sur un onglet écrit toujours `#<ticker>/<section>`.
+Le rail est étiqueté (176 px) à partir de 1280 px, en icônes seules (68 px) jusqu'à 900 px,
+en bandeau horizontal en dessous ; le contenu est fluide et plafonné à 1560 px, avec des
+grilles qui plafonnent leurs colonnes (mini-charts ≤ 3, KPI ≤ 5). Détail : `design.md`
+§Navigation.
+
 ## Invariants à ne pas casser
 
 **La régression est calculée à TROIS endroits qui doivent rester cohérents :**

@@ -65,10 +65,30 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
   pour que le tableau tienne dans la largeur.
 
+## Navigation (coquille)
+
+- **Deux rangs, deux sens.** Le **rail gauche** sort de la fiche : Analyse, Mes indices,
+  Screener, Portefeuille, Watchlist, puis **Paramètres en pied** (séparé par un filet — ce
+  n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
+  changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
+  Thèse & Société, Valorisation.
+- Le rail est **étiqueté (176 px) à partir de 1280 px** de fenêtre ; en dessous il passe en
+  **icônes seules (68 px)** jusqu'à 900 px, puis en **bandeau horizontal**. Le seuil est
+  calculé : à 1280 px le contenu garde assez de largeur pour deux colonnes de graphes,
+  en dessous un rail étiqueté coûterait plus qu'il n'apporte.
+- Le contenu est **fluide, plafonné à 1560 px** (au lieu de 1100 px figés). Les grilles
+  plafonnent leurs colonnes (mini-charts ≤ 3, KPI ≤ 5) : la largeur gagnée fait tenir une
+  colonne de plus, elle n'étire pas les tuiles.
+- L'entrée active du rail suit l'espace ouvert ; au repos c'est **Analyse**. La marque
+  ramène à l'accueil (aucune fiche, aucun espace).
+- **Les modales ne bougent pas** : seul leur déclencheur a déménagé de la barre de
+  recherche vers le rail.
+
 ## Accessibility
 
-- Rail de sections : entrée active marquée (`aria-current`), focus visible, navigation
-  clavier.
+- Rail et onglets : entrée active marquée (`aria-current`), focus visible, navigation
+  clavier. Les libellés des onglets sont toujours rendus (jamais une infobulle seule) ; en
+  rail d'icônes, le libellé reste accessible (`aria-label` + `title`).
 - Fenêtre fixe du graphe héro : flèches ←/→ pour déplacer la fenêtre quand la zone est
   focus, `Shift` pour un pas fin.
 - Contraste assuré sur les fonds colorés (bandes σ, matrice de corrélation).

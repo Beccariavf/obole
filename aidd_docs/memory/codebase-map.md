@@ -42,10 +42,12 @@ flowchart TD
 ## Front
 
 Modules ES natifs de `src/obole/web/` : `app.js` (composant Alpine qui assemble les
-mixins), `search.js`, `screener.js`, `indices.js`, `charts.js`, `cursor.js`, `exportcsv.js`,
-`events.js`, `settings.js`, `sections.js`, `summary.js`, `portfolio.js`,
-`portfolio-dividends.js`, `dividend.js`, `valorisation.js`, `thesis.js`, `suivi.js`,
-`watchlist.js`, `watchlist-dials.js`, `conviction.js`, `conviction-mixin.js`, `markdown.js`.
+mixins), `nav.js` (coquille : registre des espaces, rail, entrée active, retour à
+l'accueil), `search.js`, `screener.js`, `indices.js`, `charts.js`, `cursor.js`, `exportcsv.js`,
+`events.js`, `settings.js`, `sections.js` (registre des sections et onglets), `summary.js`,
+`portfolio.js`, `portfolio-dividends.js`, `dividend.js`, `valorisation.js`, `thesis.js`,
+`suivi.js`, `watchlist.js`, `watchlist-dials.js`, `conviction.js`, `conviction-mixin.js`,
+`markdown.js`.
 Utilitaires : `api.js` (centralise tous les `fetch`), `thresholds.js`
 (maths et seuils reçus de `/api/meta`), `theme.js` (charte couleur), `util.js` (slug,
 parsing CSV et nombres).
