@@ -56,6 +56,22 @@ une colonne de plus, elle n'étire pas les tuiles existantes.
 - Le **breakout** de la section Valorisation (`.section-breakout`) : il élargissait la
   section de 180 px pour étaler le graphe du prix juste, or le contenu est désormais déjà
   étalé. La marge calculée valait 0 partout — un réglage mort.
+- La **troisième copie du helper `icon()`** : extraite dans `util.js`, elle servait déjà
+  `sections.js` et `portfolio.js`.
+
+## Dettes soldées après revue
+
+- `goHome()` vide désormais `query` (sinon « Analyser » rouvrait l'ancien ticker), remet
+  `_lastRef` à zéro (sinon le même ticker revenait sur l'ancienne section au lieu de
+  Résumé) et **invalide un `load()` en vol** via `_loadGeneration` — la fiche ne peut plus
+  se rouvrir seule après un retour à l'accueil.
+- Le rail d'icônes a un **nom accessible** (`aria-label`), pas seulement une infobulle
+  inexistante au tactile, et il **défile** quand la fenêtre est plus courte que lui.
+- **Échap** referme la couche du dessus (modale imbriquée, puis espace) : les modales plein
+  écran recouvrant le rail, c'était le seul chemin de portefeuille à watchlist au clavier.
+- `SPACE_OPENERS` (les cinq noms de méthodes d'ouverture) est **vérifié contre les vrais
+  mixins** par `nav.test.js` : un renommage casse un test au lieu de casser le rail en
+  silence.
 
 ## Ce qui est préservé (invariants)
 

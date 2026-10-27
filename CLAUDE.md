@@ -122,8 +122,9 @@ d'espace n'est pas une section (elle ouvre une modale plein écran, inchangée),
 section ne sort pas de la fiche. Le clic sur un onglet écrit toujours `#<ticker>/<section>`.
 Le rail est étiqueté (176 px) à partir de 1280 px, en icônes seules (68 px) jusqu'à 900 px,
 en bandeau horizontal en dessous ; le contenu est fluide et plafonné à 1560 px, avec des
-grilles qui plafonnent leurs colonnes (mini-charts ≤ 3, KPI ≤ 5). Détail : `design.md`
-§Navigation.
+grilles qui plafonnent leurs colonnes (mini-charts ≤ 3, KPI ≤ 5). Le rail défile sur
+lui-même si la fenêtre est plus courte que son contenu, et Échap referme la couche du
+dessus (modale imbriquée, puis espace). Détail : `design.md` §Navigation.
 
 ## Invariants à ne pas casser
 

@@ -80,7 +80,10 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   plafonnent leurs colonnes (mini-charts ≤ 3, KPI ≤ 5) : la largeur gagnée fait tenir une
   colonne de plus, elle n'étire pas les tuiles.
 - L'entrée active du rail suit l'espace ouvert ; au repos c'est **Analyse**. La marque
-  ramène à l'accueil (aucune fiche, aucun espace).
+  ramène à l'accueil (aucune fiche, aucun espace, champ de recherche vidé).
+- **Échap referme la couche du dessus** : une modale imbriquée (zoom de graphe, export,
+  événements…) d'abord, l'espace ensuite. Les modales plein écran recouvrant le rail, le
+  clavier est le seul chemin de portefeuille à watchlist sans viser la croix.
 - **Les modales ne bougent pas** : seul leur déclencheur a déménagé de la barre de
   recherche vers le rail.
 
@@ -88,7 +91,9 @@ Le langage visuel : charte, jetons et conventions de graphiques.
 
 - Rail et onglets : entrée active marquée (`aria-current`), focus visible, navigation
   clavier. Les libellés des onglets sont toujours rendus (jamais une infobulle seule) ; en
-  rail d'icônes, le libellé reste accessible (`aria-label` + `title`).
+  rail d'icônes, le `<button>` porte un `aria-label` (le nom de l'espace) en plus du
+  `title` (son explication), donc il reste nommable une fois le libellé visuellement
+  retiré — les infobulles n'existent pas au tactile.
 - Fenêtre fixe du graphe héro : flèches ←/→ pour déplacer la fenêtre quand la zone est
   focus, `Shift` pour un pas fin.
 - Contraste assuré sur les fonds colorés (bandes σ, matrice de corrélation).
