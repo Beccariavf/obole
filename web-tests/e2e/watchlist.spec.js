@@ -183,16 +183,18 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   await routeWatchlist(page);
   await page.goto("/");
 
-  // Position demandée : entre Portefeuille et Paramètres.
-  const labels = await page.locator(".searchbar .btn.ghost").allInnerTexts();
-  const iPortfolio = labels.findIndex((l) => l.includes("Portefeuille"));
-  const iWatch = labels.findIndex((l) => l.includes("Watchlist"));
-  const iSettings = labels.findIndex((l) => l.includes("Paramètres"));
+  // Position demandée : dans le rail, Paramètres vient après Watchlist (en pied).
+  const railIds = await page
+    .locator(".app-rail-btn")
+    .evaluateAll((els) => els.map((e) => e.dataset.space));
+  const iPortfolio = railIds.indexOf("portfolio");
+  const iWatch = railIds.indexOf("watchlist");
+  const iSettings = railIds.indexOf("settings");
   expect(iPortfolio).toBeGreaterThan(-1);
   expect(iWatch).toBeGreaterThan(iPortfolio);
   expect(iSettings).toBeGreaterThan(iWatch);
 
-  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
   await expect(page.locator(".modal.modal-watchlist h3")).toHaveText("Watchlist");
   // La vue cadrans est le défaut ; ce test vérifie le tableau dense.
   await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
@@ -258,7 +260,7 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
 test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => {
   await routeWatchlist(page);
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
 
   await expect(page.locator(".wl-board")).toBeVisible();
   await expect(page.locator(".wl-tier-col")).toHaveCount(3);
@@ -318,12 +320,22 @@ test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => 
 test("watchlist : état vide", async ({ page }) => {
   await routeWatchlist(page, { run: { generated_at: 1700000000, count: 0, rows: [] }, items: [] });
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
   await expect(page.locator(".modal.modal-watchlist")).toContainText("Ta watchlist est vide");
 });
 
 test("étoile : ajout puis retrait, sans recharger la fiche", async ({ page }) => {
   const putBodies = [];
+  // L'appartenance vient du payload de la FICHE (`/api/stock`), pas d'un appel
+  // séparé : c'est elle qu'il faut neutraliser pour un départ « non suivie ».
+  // Sans ça, une base locale déjà garnie (RI.PA en Tier 2) rend le test dépendant
+  // de l'état du poste — la CI, elle, part d'un checkout neuf.
+  await page.route(/\/api\/stock\/RI\.PA$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.watch = { tier: null, ref: null, ref_stats: null };
+    return route.fulfill({ response, json: body });
+  });
   await page.route(/\/api\/watchlist\/items\/RI\.PA$/, async (route) => {
     if (route.request().method() === "PUT") {
       putBodies.push(route.request().postDataJSON());
@@ -387,7 +399,7 @@ test("watchlist : jeu de convictions, seuils et application T3 → T2", async ({
   });
   const settings = await routeSettings(page);
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
   await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
   await expect(page.locator(".modal.modal-conviction")).toBeVisible();
 
@@ -466,7 +478,7 @@ test("watchlist : jeu de convictions sans changement", async ({ page }) => {
   });
   const settings = await routeSettings(page);
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Watchlist" }).click();
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
   await page.locator(".btn", { hasText: "Tester mes convictions" }).click();
   await expect(page.locator(".modal.modal-conviction")).toBeVisible();
 
@@ -506,7 +518,7 @@ test("paramètres : seuils de conviction, sauvegarde et rétablissement", async 
   const settings = await routeSettings(page);
   await page.goto("/");
 
-  const open = () => page.locator(".searchbar .btn.ghost", { hasText: "Paramètres" }).click();
+  const open = () => page.locator(".app-rail-btn[data-space='settings']").click();
   await open();
   const modal = page.locator(".modal.modal-settings");
   await expect(modal).toBeVisible();
@@ -570,6 +582,15 @@ test("paramètres : seuils de conviction, sauvegarde et rétablissement", async 
 
 test("référence : le chip propose de définir la fenêtre affichée", async ({ page }) => {
   const calls = [];
+  // Départ « sans référence » forcé sur le payload de la fiche : une base locale
+  // où RI.PA a déjà une fenêtre de confiance ferait afficher « Réf. 2003 » au lieu
+  // de « Réf. droite ». La CI part d'un checkout neuf, le poste non.
+  await page.route(/\/api\/stock\/RI\.PA$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (body.watch) body.watch.ref = null;
+    return route.fulfill({ response, json: body });
+  });
   await page.route(/\/api\/watchlist\/ref\/RI\.PA$/, (route) => {
     calls.push({ method: route.request().method(), body: route.request().postDataJSON() });
     return route.fulfill({

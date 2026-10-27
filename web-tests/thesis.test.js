@@ -702,12 +702,15 @@ describe("structure du module", () => {
     expect(c2.thesisExists()).toBe(false);
   });
 
-  it("la pastille est RÉELLEMENT branchée dans le rail (CA-UI2)", () => {
+  it("la pastille est RÉELLEMENT branchée dans les onglets (CA-UI2)", () => {
     const html = readFileSync(join(process.cwd(), "..", "src", "obole", "web", "index.html"), "utf8");
-    expect(html).toMatch(/rail-dot/);
+    expect(html).toMatch(/section-tab-dot/);
     expect(html).toMatch(/s\.id === 'these' && thesisExists\(\)/);
     const css = readFileSync(join(process.cwd(), "..", "src", "obole", "web", "style.css"), "utf8");
-    expect(css).toMatch(/\.rail-dot\s*\{/);
+    expect(css).toMatch(/\.section-tab-dot\s*\{/);
+    // Le rail ne porte plus AUCUNE section : il n'a que des espaces. Une pastille
+    // de thèse y serait un vestige du rang de navigation supprimé.
+    expect(html).not.toMatch(/rail-dot/);
   });
 
   it("la poignée et la colonne obéissent à la MÊME media query (CA-PL3, CA-PL22)", () => {

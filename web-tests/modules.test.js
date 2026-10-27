@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { searchMixin } from "../src/obole/web/search.js";
+import { navMixin } from "../src/obole/web/nav.js";
 import { screenerMixin } from "../src/obole/web/screener.js";
 import { indicesMixin } from "../src/obole/web/indices.js";
 import { chartsMixin } from "../src/obole/web/charts.js";
@@ -31,6 +32,7 @@ const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "obol
 
 const MIXINS = {
   "search.js": searchMixin,
+  "nav.js": navMixin,
   "screener.js": screenerMixin,
   "indices.js": indicesMixin,
   "charts.js": chartsMixin,
@@ -60,7 +62,7 @@ describe("découpage du front (modules ES)", () => {
 
   it("le composant obole assemble tous les mixins", () => {
     const comp = obole();
-    for (const m of ["load", "searchScreener", "openIndices", "drawChart", "doExport", "openEvents", "openSettings", "setSection", "onHashChange", "openPortfolio", "setPortfolioSection", "loadThesis", "startThesisEdit", "thesisToggleTask", "loadCheckpoints", "cpAdd", "cpToggle", "openDrafts", "applyDraft", "rejectDraft", "openConviction"]) {
+    for (const m of ["load", "searchScreener", "openIndices", "drawChart", "doExport", "openEvents", "openSettings", "setSection", "onHashChange", "openPortfolio", "setPortfolioSection", "loadThesis", "startThesisEdit", "thesisToggleTask", "loadCheckpoints", "cpAdd", "cpToggle", "openDrafts", "applyDraft", "rejectDraft", "openConviction", "activeSpace", "openSpaceEntry", "goHome"]) {
       expect(comp[m], `obole() doit exposer ${m}`).toBeTypeOf("function");
     }
     expect(comp.metaReady).toBe(false);

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 // Refonte #16 : la fiche n'affiche qu'une section à la fois, pilotée par le
-// rail vertical (icône + libellé au survol) et par le deep-link `#TICKER/section`.
+// ruban d’onglets horizontaux (libellés lisibles) et par le deep-link `#TICKER/section`.
 
-test("fiche RI.PA : le rail pilote la section affichée", async ({ page }) => {
+test("fiche RI.PA : les onglets pilotent la section affichée", async ({ page }) => {
   await page.goto("/");
 
   const search = page.locator(".searchbar .search-wrap input.search-input");
@@ -11,9 +11,9 @@ test("fiche RI.PA : le rail pilote la section affichée", async ({ page }) => {
   await search.press("Enter");
   await expect(page.locator(".header")).toBeVisible();
 
-  // Le rail expose les 6 sections dans l'ordre validé (identifiants stables,
+  // Le ruban expose les 6 sections dans l’ordre validé (identifiants stables,
   // indépendants du libellé d'infobulle qui peut être enrichi).
-  const rail = page.locator(".rail .rail-btn");
+  const rail = page.locator(".section-tabs .section-tab");
   await expect(rail).toHaveCount(6);
   expect(await rail.evaluateAll((els) => els.map((e) => e.dataset.section))).toEqual([
     "resume",
@@ -25,7 +25,7 @@ test("fiche RI.PA : le rail pilote la section affichée", async ({ page }) => {
   ]);
 
   // À l'ouverture, c'est « Résumé » qui est actif : le graphe héro est là.
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "resume");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "resume");
   await expect(page.locator(".hero")).toBeVisible();
   await expect(page.locator("#chart svg").first()).toBeVisible();
   await expect(page.locator(".kpi").first()).toBeVisible();
@@ -34,21 +34,21 @@ test("fiche RI.PA : le rail pilote la section affichée", async ({ page }) => {
   await expect(page).toHaveURL(/#RI\.PA\/resume$/);
 
   // Bascule sur « Quantitatif » : le héro disparaît, les blocs de comptes apparaissent.
-  await page.locator(".rail-btn[data-section='quantitatif']").click();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "quantitatif");
+  await page.locator(".section-tab[data-section='quantitatif']").click();
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "quantitatif");
   await expect(page).toHaveURL(/#RI\.PA\/quantitatif$/);
   await expect(page.locator(".hero")).toBeHidden();
   await expect(page.locator(".section h2", { hasText: "Croissance & flux" })).toBeVisible();
   await expect(page.locator(".section h2", { hasText: "Structure financière" })).toBeVisible();
 
   // Bascule sur « Dividende ».
-  await page.locator(".rail-btn[data-section='dividende']").click();
+  await page.locator(".section-tab[data-section='dividende']").click();
   await expect(page).toHaveURL(/#RI\.PA\/dividende$/);
   await expect(page.locator(".section h2", { hasText: "Dividende" })).toBeVisible();
 
   // Bouton « retour » du navigateur : revient sur Quantitatif, sans recharger.
   await page.goBack();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "quantitatif");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "quantitatif");
   await expect(page.locator(".hero")).toBeHidden();
 });
 
@@ -56,7 +56,7 @@ test("fiche RI.PA : le deep-link ouvre directement la bonne section", async ({ p
   await page.goto("/#RI.PA/valorisation");
 
   await expect(page.locator(".header")).toBeVisible();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "valorisation");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "valorisation");
   // La section Résumé (graphe héro) n'est pas affichée.
   await expect(page.locator(".hero")).toBeHidden();
   await expect(page.locator(".section h2", { hasText: "Valorisation" })).toBeVisible();
@@ -73,33 +73,62 @@ test("fiche RI.PA : le deep-link ouvre directement la bonne section", async ({ p
 test("fiche RI.PA : le rafraîchissement ne quitte pas la section courante", async ({ page }) => {
   await page.goto("/#RI.PA/quantitatif");
   await expect(page.locator(".header")).toBeVisible();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "quantitatif");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "quantitatif");
 
   // Bouton ↻ : les données sont rechargées, mais la section consultée est gardée.
   await page.locator(".searchbar .btn.ghost[title='Rafraîchir les données']").click();
   await expect(page.locator(".header")).toBeVisible();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "quantitatif");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "quantitatif");
   await expect(page).toHaveURL(/#RI\.PA\/quantitatif$/);
 });
 
-test("fiche RI.PA : le rail est un bloc compact d'icônes, sans en-tête", async ({ page }) => {
+test("fiche RI.PA : les onglets sont un ruban horizontal de libellés lisibles", async ({ page }) => {
   await page.goto("/#RI.PA/quantitatif");
   await expect(page.locator(".header")).toBeVisible();
 
   // Le libellé vertical « Analyse de l'entreprise » a été retiré : il décalait
-  // les icônes vers le bas et créait un vide en haut du rail.
+  // les icônes vers le bas et créait un vide en haut de l'ancien rail.
   await expect(page.locator(".rail-cap")).toHaveCount(0);
 
-  const rail = await page.locator(".rail").boundingBox();
-  const first = await page.locator(".rail-btn").first().boundingBox();
-  const last = await page.locator(".rail-btn").last().boundingBox();
+  const tabs = await page.locator(".section-tabs").boundingBox();
+  const first = await page.locator(".section-tab").first().boundingBox();
+  const last = await page.locator(".section-tab").last().boundingBox();
 
-  // Le premier bouton touche le haut du rail (padding 10px + bordure).
-  expect(first.y - rail.y).toBeLessThan(14);
-  // Bloc compact : 6 icônes de 40px + 5 gaps de 4px + 2×10px de padding + bordures.
-  expect(rail.height).toBeCloseTo(6 * 40 + 5 * 4 + 20 + 2, 0);
-  // Dernier bouton contenu dans le rail.
-  expect(last.y + last.height).toBeLessThanOrEqual(rail.y + rail.height);
+  // Ruban HORIZONTAL : tous les onglets partagent la même ligne, et le ruban est
+  // plus large que haut. C'est le renversement du rail vertical.
+  expect(tabs.width).toBeGreaterThan(tabs.height * 4);
+  expect(last.y).toBeCloseTo(first.y, 0);
+  expect(last.x).toBeGreaterThan(first.x);
+  // Le premier onglet est dans le ruban (padding + bordure incluses).
+  expect(first.y).toBeGreaterThanOrEqual(tabs.y - 1);
+  expect(first.y + first.height).toBeLessThanOrEqual(tabs.y + tabs.height + 1);
+
+  // Les libellés sont VISIBLES, sans survol : c'est l'exigence de la refonte.
+  const labels = await page
+    .locator(".section-tab-label")
+    .evaluateAll((els) =>
+      els.map((e) => ({ text: e.textContent.trim(), w: e.getBoundingClientRect().width })),
+    );
+  expect(labels).toHaveLength(6);
+  for (const l of labels) {
+    expect(l.text, "libellé vide").not.toBe("");
+    expect(l.w, `libellé « ${l.text} » non rendu`).toBeGreaterThan(0);
+  }
+});
+
+test("la barre de recherche ne porte plus aucun espace", async ({ page }) => {
+  await page.goto("/#RI.PA/resume");
+  await expect(page.locator(".header")).toBeVisible();
+
+  // Les espaces ont déménagé dans le rail : la barre ne garde que la recherche
+  // et ses actions de fiche (Analyser, ↻, retour éventuel).
+  for (const label of ["Mes indices", "Screener", "Portefeuille", "Watchlist", "Paramètres"]) {
+    await expect(page.locator(".searchbar button", { hasText: label })).toHaveCount(0);
+  }
+  await expect(page.locator(".searchbar button", { hasText: "Analyser" })).toHaveCount(1);
+
+  // Le rail, lui, porte les six entrées (5 espaces + Paramètres en pied).
+  await expect(page.locator(".app-rail-btn")).toHaveCount(6);
 });
 
 test("un ratio désactive les sections sans comptes", async ({ page }) => {
@@ -110,9 +139,9 @@ test("un ratio désactive les sections sans comptes", async ({ page }) => {
   await expect(page.locator(".header")).toBeVisible();
 
   // Un ratio n'a ni comptes ni dividendes : seul « Résumé » reste disponible.
-  await expect(page.locator(".rail-btn[data-section='resume']")).toBeEnabled();
+  await expect(page.locator(".section-tab[data-section='resume']")).toBeEnabled();
   for (const id of ["quantitatif", "dividende", "finance", "these", "valorisation"]) {
-    await expect(page.locator(`.rail-btn[data-section='${id}']`)).toBeDisabled();
+    await expect(page.locator(`.section-tab[data-section='${id}']`)).toBeDisabled();
   }
 });
 
@@ -120,10 +149,10 @@ test("la section « Thèse & Société » est accessible pour une action (#21)",
   // Elle a été livrée au chantier #21 : plus « à venir », plus de repli sur Résumé.
   await page.goto("/#RI.PA/these");
   await expect(page.locator(".header")).toBeVisible();
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "these");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "these");
   await expect(page).toHaveURL(/#RI\.PA\/these$/);
 
-  const these = page.locator(".rail-btn[data-section='these']");
+  const these = page.locator(".section-tab[data-section='these']");
   await expect(these).toBeEnabled();
   await expect(these).toHaveAttribute("title", "Thèse & Société");
 
@@ -453,8 +482,116 @@ test("une fiche sans comptes explique l'indisponibilité par le manque de donné
   await search.fill("CW8.PA / SPY");
   await search.press("Enter");
   await expect(page.locator(".header")).toBeVisible();
-  await expect(page.locator(".rail-btn[data-section='quantitatif']")).toHaveAttribute(
+  await expect(page.locator(".section-tab[data-section='quantitatif']")).toHaveAttribute(
     "title",
     "Quantitatif — aucune donnée pour ce titre",
   );
+});
+
+test("coquille : le rail est sticky, actif par espace, et Paramètres est en pied", async ({ page }) => {
+  await page.goto("/#RI.PA/resume");
+  await expect(page.locator(".header")).toBeVisible();
+
+  // Sticky : une fois le rail collé (défilement engagé), il ne bouge plus à
+  // l'écran, même quand la page continue de descendre. Mesurer avant le premier
+  // défilement comparerait la position de flux à la position collée — deux états
+  // différents, et un écart de `top` attendu.
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(200);
+  const colle = await page.locator(".app-rail").boundingBox();
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(colle.y).toBeGreaterThanOrEqual(0);
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(200);
+  const colle2 = await page.locator(".app-rail").boundingBox();
+  expect(Math.abs(colle2.y - colle.y)).toBeLessThanOrEqual(1);
+  expect(colle2.y).toBeGreaterThanOrEqual(0);
+
+  // Au repos, c'est « Analyse » qui est actif — la fiche est l'état par défaut.
+  await expect(page.locator(".app-rail-btn[data-space='analyse']")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  // Paramètres vit en pied de rail : après Watchlist, et séparé par un filet.
+  const boxes = await page.evaluate(() => {
+    const b = (s) => document.querySelector(s).getBoundingClientRect();
+    return {
+      watch: b(".app-rail-btn[data-space='watchlist']").bottom,
+      settings: b(".app-rail-btn[data-space='settings']").top,
+      border: getComputedStyle(document.querySelector(".app-rail-foot")).borderTopWidth,
+    };
+  });
+  expect(boxes.settings).toBeGreaterThan(boxes.watch);
+  expect(boxes.border).not.toBe("0px");
+
+  // Cliquer la marque ramène à l'accueil : plus de fiche, plus de hash.
+  await page.locator(".app-brand").click();
+  await expect(page.locator(".header")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("coquille : repli responsive du rail et largeur du contenu", async ({ page }) => {
+  await page.goto("/#RI.PA/resume");
+  await expect(page.locator(".header")).toBeVisible();
+
+  const mesure = () =>
+    page.evaluate(() => {
+      const rail = document.querySelector(".app-rail");
+      const main = document.querySelector(".app-main");
+      const labels = [...document.querySelectorAll(".app-rail-label")];
+      return {
+        rail: Math.round(rail.getBoundingClientRect().width),
+        railH: Math.round(rail.getBoundingClientRect().height),
+        railDir: getComputedStyle(rail.parentElement).display,
+        main: Math.round(main.getBoundingClientRect().width),
+        labelsVisibles: labels.filter((l) => l.getBoundingClientRect().width > 1).length,
+        deborde:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+
+  // Le redimensionnement déclenche le redraw Plotly (`responsive: true`) : un
+  // scroll horizontal transitoire apparaît le temps d'une frame. On interroge
+  // donc `expect.poll` — la propriété vérifiée est « finit par tenir », pas
+  // « tient dans la milliseconde qui suit le resize ».
+  const attendreStable = async (prop, attendu, nom) => {
+    await expect
+      .poll(async () => (await mesure())[prop], { timeout: 5000, message: nom })
+      .toBe(attendu);
+  };
+  const attendreDebordementNul = (nom) =>
+    expect
+      .poll(async () => (await mesure()).deborde, { timeout: 5000, message: nom })
+      .toBe(false);
+
+  // ≥ 1280 px : rail étiqueté, tous les libellés rendus.
+  for (const w of [1600, 1440, 1280]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await attendreStable("rail", 176, `@${w}px`);
+    expect((await mesure()).labelsVisibles, `@${w}px : libellés visibles`).toBe(6);
+    await attendreDebordementNul(`@${w}px : débordement`);
+  }
+
+  // 1279–900 px : icônes seules (libellés retirés du flux visuel), contenu préservé.
+  for (const w of [1279, 1100, 900]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await attendreStable("rail", 68, `@${w}px`);
+    expect((await mesure()).labelsVisibles, `@${w}px : libellés masqués`).toBe(0);
+    await attendreDebordementNul(`@${w}px : débordement`);
+  }
+
+  // < 900 px : bandeau horizontal, aucun débordement.
+  for (const w of [899, 720, 390]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await attendreDebordementNul(`@${w}px : débordement`);
+    const m = await mesure();
+    expect(m.railH, `@${w}px : bandeau horizontal`).toBeLessThan(90);
+    expect(m.rail, `@${w}px : bandeau pleine largeur`).toBeGreaterThan(250);
+  }
+
+  // Le contenu exploite la largeur : ≥ 1300 px à 1600 px de fenêtre.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await attendreStable("rail", 176, "@1600px");
+  expect((await mesure()).main).toBeGreaterThanOrEqual(1300);
 });

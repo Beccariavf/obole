@@ -72,7 +72,7 @@ test("portefeuille : bandeau de contexte unique (périmètre · période · benc
   await routeEmptyPortfolio(page);
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
 
   // UN SEUL bandeau de contexte dans tout l'espace.
   const context = page.locator(".pf-context");
@@ -158,7 +158,7 @@ test("portefeuille : le bandeau de contexte reste visible pendant le défilement
   await routeEmptyPortfolio(page, long);
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   const context = page.locator(".pf-context");
   await expect(context).toBeVisible();
   expect(await context.evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
@@ -224,16 +224,15 @@ test("portefeuille : bouton, onglets et saisie d'une position (décimales)", asy
 
   await page.goto("/");
 
-  // Le bouton est bien placé entre « Screener » et « ⚙ Paramètres ».
-  const bar = page.locator(".searchbar .btn.ghost");
-  const labels = await bar.evaluateAll((els) => els.map((e) => e.textContent.trim()));
-  const iScreener = labels.indexOf("Screener");
-  const iPortfolio = labels.indexOf("Portefeuille");
-  const iSettings = labels.indexOf("⚙ Paramètres");
-  expect(iPortfolio).toBeGreaterThan(iScreener);
-  expect(iPortfolio).toBeLessThan(iSettings);
+  // Le rail porte les espaces dans l'ordre validé : Paramètres vient en pied,
+  // après Watchlist. La barre de recherche, elle, ne porte plus AUCUN espace.
+  const railIds = await page
+    .locator(".app-rail-btn")
+    .evaluateAll((els) => els.map((e) => e.dataset.space));
+  expect(railIds).toEqual(["analyse", "indices", "screener", "portfolio", "watchlist", "settings"]);
+  await expect(page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" })).toHaveCount(0);
 
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await expect(page.locator(".modal.modal-portfolio h3", { hasText: "Portefeuille" })).toBeVisible();
 
   // L'espace portefeuille est PLEIN ÉCRAN (fiche 00-socle) : la règle CSS
@@ -342,7 +341,7 @@ test("portefeuille : changer de contexte ne recharge QUE la section visible", as
   });
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await expect(page.locator(".pf-context")).toBeVisible();
 
   // Sur l'onglet Risque, changer de COMPTE ne relance que le risque.
@@ -384,7 +383,7 @@ test("portefeuille : la période choisie survit à un rechargement de page", asy
   await routeEmptyPortfolio(page);
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   const context = page.locator(".pf-context");
   await expect(context.locator(".period-chip.active")).toHaveText("1A");
 
@@ -396,7 +395,7 @@ test("portefeuille : la période choisie survit à un rechargement de page", asy
   // … et un rechargement complet de la page réapplique 3A (plus de retour à 1A
   // pendant que le benchmark, lui, restait mémorisé).
   await page.reload();
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await expect(page.locator(".pf-context .period-chip.active")).toHaveText("3A");
 });
 
@@ -408,7 +407,7 @@ test("portefeuille : la bascule Transaction/Dividende change le formulaire", asy
   await routeEmptyPortfolio(page);
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   // Le Résumé est la page d'accueil : on bascule sur « Positions » (saisie).
   await page.locator(".pf-tabs .pf-tab[data-pf-section='positions']").click();
   const saisie = page.locator(".pf-saisie");
@@ -443,7 +442,7 @@ test("portefeuille : revenir à « Tous les comptes » recharge sans 422", async
   await routeEmptyPortfolio(page);
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await expect(page.locator(".modal.modal-portfolio .idx-head h3")).toBeVisible();
 
   const selector = page.locator(".pf-context .pf-account-select");
@@ -511,7 +510,7 @@ test("portefeuille : le Résumé trace la performance et s'agrandit en plein éc
   });
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
 
   // L'onglet par défaut est « Résumé » (page d'accueil du portefeuille).
   await expect(page.locator(".pf-tabs .pf-tab.active")).toHaveAttribute("data-pf-section", "resume");
@@ -680,7 +679,7 @@ test("portefeuille : la section Risque trace le drawdown et la matrice de corré
   );
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab[data-pf-section='risque']").click();
 
   // Bandeau de contexte unique + courbe drawdown + matrice (≥ 2 lignes → heatmap).
@@ -742,7 +741,7 @@ test("portefeuille : le bandeau Risque porte le sélecteur de périmètre (#17.3
   await page.route("**/api/portfolio/risk**", (route) => route.fulfill({ json: risk }));
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab[data-pf-section='risque']").click();
 
   // Choisir une étiquette DANS le bandeau de contexte re-scope le risque.
@@ -801,7 +800,7 @@ test("portefeuille : test de corrélation d'un ticker candidat (#17.3)", async (
   );
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab[data-pf-section='risque']").click();
 
   // Recherche par NOM : taper un nom affiche des suggestions de tickers.
@@ -891,7 +890,7 @@ test("portefeuille : étiqueter une position crée un portefeuille virtuel (#17.
   );
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab[data-pf-section='positions']").click();
 
   // Créer un compte + saisir un achat AVEC étiquette.
@@ -1053,7 +1052,7 @@ test("performance : donut, stats pondérées, mensuels et contribution (#17.4)",
 
   await routePerformance(page);
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
 
   // La Performance est toujours demandée en période MAX (choix produit figé).
   const perfReq = page.waitForRequest(
@@ -1138,7 +1137,7 @@ test("performance : clic ligne -> détail + sélection d'un point d'entrée (#17
 
   await routePerformance(page);
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab", { hasText: "Performance" }).click();
 
   // Clic sur une ligne du grand tableau -> fenêtre de détail + graphe tracé.
@@ -1264,7 +1263,7 @@ test("portefeuille : Dividende — TTM par défaut + sélecteur d'année (#17.5)
   }));
 
   await page.goto("/");
-  await page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" }).click();
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
   await page.locator(".pf-tabs .pf-tab[data-pf-section='dividende']").click();
 
   // DEUX contrôles seulement : la chip TTM et le sélecteur d'année. Une chip par
