@@ -404,9 +404,15 @@ test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", as
     const topPin = await pin.evaluate((e) => parseFloat(getComputedStyle(e).top));
     expect(topPin, `${w}×${h} : poignée sous l'en-tête (${attendu} px)`).toBe(attendu);
 
-    await page.locator(".thesis-edge").hover({ force: true });
-    await pin.click({ force: true });
-    await expect(page.locator("#thesis-plan")).toBeVisible();
+    // Le plan de thèse peut être déjà déplié : son état est persisté
+    // (localStorage). La poignée BASCULE, donc on ne clique que s'il est masqué
+    // — sinon on le refermerait, et WebKit tombait ici sur un plan caché.
+    const plan = page.locator("#thesis-plan");
+    if (!(await plan.isVisible())) {
+      await page.locator(".thesis-edge").hover({ force: true });
+      await pin.click({ force: true });
+    }
+    await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
     await page.mouse.wheel(0, 600);
