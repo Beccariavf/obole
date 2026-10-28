@@ -59,8 +59,14 @@
 
   <main class="app-main">
 
-  <!-- Recherche -->
-  <div class="searchbar">
+  <!-- En-tête de l'espace Analyse — deux rangs, collés ensemble.
+       Rang 1 : la recherche et SES actions. Le champ garde 420 px (au-delà, le
+       regard perd le curseur) ; les actions occupent la droite du rang, là où
+       tombait ~400 px de vide, et le retour grandit le groupe vers la gauche
+       sans jamais décaler « Analyser ». Rang 2 : les onglets de section.
+       Le collant s'éteint à l'accueil (`is-hero`) : un héros centré collé en
+       haut n'aurait plus rien d'un héros. -->
+  <div class="searchbar" :class="{ 'is-hero': !data && !loading }">
     <div class="search-wrap">
       <input class="search-input" type="text" placeholder="Ticker ou nom (ex. Total, Pernod, AAPL)"
              x-model="query" @input="onSearchInput()" @keydown.enter="pickFirstOrLoad()"
@@ -74,12 +80,14 @@
         </template>
       </div>
     </div>
-    <button class="btn" @click="backTo = null; load()">Analyser</button>
-    <button class="btn ghost" x-show="data" @click="refresh()" title="Rafraîchir les données">↻</button>
-    <button class="btn ghost" x-show="backTo" @click="backToIndex()"
-            :title="'Revenir à « ' + (backTo?.name || '') + ' »'">
-      <span x-text="'← Retour à « ' + (backTo?.name || '') + ' »'"></span>
-    </button>
+    <div class="search-actions">
+      <button class="btn ghost search-back" x-show="backTo" @click="backToIndex()"
+              :title="'Revenir à « ' + (backTo?.name || '') + ' »'">
+        <span x-text="'← Retour à « ' + (backTo?.name || '') + ' »'"></span>
+      </button>
+      <button class="btn ghost" x-show="data" @click="refresh()" title="Rafraîchir les données">↻</button>
+      <button class="btn" @click="backTo = null; load()">Analyser</button>
+    </div>
   </div>
 
   <!-- États -->

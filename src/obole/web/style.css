@@ -23,6 +23,22 @@
      hériter de `currentColor`, donc la teinte vit ici, dans la couche de
      tokens, et non dans les règles de composant. */
   --chevron-soft: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236B7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  /* Géométrie de l'en-tête collant de l'espace Analyse. Une seule vérité :
+     TOUT ce qui doit passer sous l'en-tête se place à partir de ces valeurs,
+     jamais d'un nombre recopié. `--head-top` est aussi le `top` du rail.
+     `--head-h` est la hauteur TOTALE de l'en-tête à deux rangs : c'est elle que
+     consomment le plan de thèse, la barre markdown, la poignée du plan et les
+     ancres internes (`scroll-margin-top`). */
+  --head-top: 16px;
+  --search-h: 41px;
+  --head-gap: 10px;
+  /* Hauteur du rang d'onglets. Mesurée (10 px de padding vertical + 2 px de
+     soulignement + libellé) : elle ne suit pas le contenu, donc elle est à
+     revérifier si `.section-tab` change de padding ou passe sur deux rangs
+     (`.section-tabs` est en `flex-wrap`). Le e2e `entete.spec.js` compare la
+     valeur calculée à celle du CSS pour que la dérive se voie. */
+  --tabs-h: 39px;
+  --head-h: calc(var(--head-top) + var(--search-h) + var(--head-gap) + var(--tabs-h));
 }
 
 * { box-sizing: border-box; }
@@ -67,7 +83,7 @@ body {
 .app-main { min-width: 0; }
 
 .app-rail {
-  position: sticky; top: 16px;
+  position: sticky; top: var(--head-top);
   display: flex; flex-direction: column; align-items: stretch;
   gap: 4px; padding: 10px 8px;
   background: var(--card); border: 1px solid var(--border);
@@ -137,10 +153,17 @@ body {
   .app-rail-btn { width: auto; }
 }
 
-/* --- Onglets de section (dans la fiche) ------------------------------------ */
+/* --- Onglets de section (dans la fiche) ------------------------------------
+   Rang 2 de l'en-tête : ils collent SOUS la recherche, à une hauteur calculée
+   depuis la géométrie du rang (`--search-h`), pas depuis un nombre nu. Comme la
+   recherche, ils sont opaques et passent au-dessus du contenu. */
 .section-tabs {
+  position: sticky;
+  top: calc(var(--head-top) + var(--search-h) + var(--head-gap));
+  z-index: 14;
   display: flex; flex-wrap: wrap; gap: 2px;
   border-bottom: 1px solid var(--border);
+  background: var(--bg);
   margin: 4px 0 18px;
 }
 .section-tab {
@@ -576,19 +599,77 @@ select.pf-ctl {
   .pf-ctl { flex: 1 1 auto; }
 }
 
-/* --- Barre de recherche --- */
+/* --- Barre de recherche : rang 1 de l'en-tête de l'espace Analyse ----------
+   Elle COLLE (elle flottait : elle disparaissait au défilement alors que le
+   rail, moins sollicité, restait fixe). Le champ garde sa largeur de saisie
+   (420 px) et le reste du rang appartient aux actions : c'est ce qui remplit
+   les ~400 px de vide qui s'allongeaient à droite du champ.
+   `is-hero` : à l'accueil il n'y a rien à coller (et un héros collé en haut de
+   page n'en serait plus un) — le rang redevient un bloc statique centré. */
 .searchbar {
+  position: sticky; top: var(--head-top); z-index: 15;
   display: flex; gap: 10px; align-items: center;
-  margin-bottom: 28px;
+  min-height: calc(var(--search-h) + var(--head-gap));
+  /* Le joint entre les deux rangs est dans la BOÎTE du rang (`padding`) et non
+     dans une marge : une marge n'est pas peinte, et les titres de cartes
+     défilaient dans les 10 px de `--head-gap` (mesuré : `elementFromPoint` y
+     renvoyait un `H3`). Le `padding` garde le rang opaque jusqu'au rang suivant.
+     La hauteur totale du rang reste `--search-h + --head-gap`, ce dont dépend le
+     `top` des onglets. */
+  padding: 0 0 var(--head-gap); margin: 0;
+  background: var(--bg);
 }
-.search-wrap { position: relative; flex: 1; max-width: 420px; }
+/* `min-width: 260px` : un libellé de retour long écrasait le champ jusqu'à
+   203 px (mesuré à 960 px), donc sous la largeur où le placeholder tient. Le
+   plancher protège la saisie ; c'est l'argument inverse de celui du 420 px. */
+.search-wrap { position: relative; flex: 0 1 420px; min-width: 260px; }
 .search-input {
-  width: 100%;
+  width: 100%; height: var(--search-h);
   padding: 11px 16px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--card); font-size: 15px; outline: none;
   transition: border-color .15s, box-shadow .15s;
 }
 .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--good-bg); }
+
+/* Actions du rang, calées à droite. Le groupe étant aligné sur le bord droit et
+   l'action principale étant la DERNIÈRE, sa position ne dépend d'aucun voisin :
+   les deux actions conditionnelles (retour, ↻) sont en tête et font grandir le
+   groupe vers la gauche. Mesuré : « Analyser » restait à 1264 px chargé et à
+   1321 px en chargement tant que « ↻ » venait après lui. Aucune largeur morte
+   n'est réservée à droite. */
+.search-actions {
+  display: flex; align-items: center; gap: 10px;
+  margin-left: auto; flex: 0 0 auto;
+}
+
+/* Accueil : un seul axe de centrage. Avant, le champ restait collé à gauche
+   pendant que l'invite `.empty` était centrée — deux axes pour une même page.
+   La classe s'éteint dès `loading` : `load()` remet `data = null`, donc la
+   garder jusqu'à la fiche ferait REBONDIR le champ au centre à chaque
+   rechargement (mesuré : « Analyser » passait de 1321 à 823 px), ce qui est
+   pire que le saut unique de l'aller. */
+.searchbar.is-hero {
+  position: static;
+  flex-direction: column; align-items: center; gap: 12px;
+  padding: 0; margin: 72px 0 0;
+}
+.searchbar.is-hero .search-wrap { flex: 0 0 auto; width: 100%; max-width: 420px; min-width: 0; }
+.searchbar.is-hero .search-actions { margin-left: 0; }
+.searchbar.is-hero .search-actions .btn { min-width: 160px; justify-content: center; }
+
+/* Repli mobile — APRÈS les règles de base, sinon `position: static` perdrait à
+   spécificité égale et le rang resterait collé sous 900 px. Deux rangs collants
+   mangeraient la hauteur utile d'un écran court, et le bandeau de rail est de
+   toute façon déjà en haut de page. */
+@media (max-width: 899px) {
+  .searchbar { position: static; flex-wrap: wrap; }
+  .section-tabs { position: static; }
+  /* Téléphone : le rang ne tient pas sur une ligne (champ + trois actions
+     dépassent 342 px de colonne). Le champ prend la largeur, les actions
+     passent dessous — plutôt qu'un débordement horizontal de 14 px. */
+  .searchbar .search-wrap { flex: 1 1 100%; }
+  .searchbar .search-actions { margin-left: 0; width: 100%; }
+}
 
 .suggestions {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0;
@@ -767,13 +848,22 @@ select.pf-ctl {
      au-delà, la liste défile — elle ne grandit jamais au-delà du graphe. */
   --pf-entry-menu-h: 260px;
 }
-.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
-/* Plafond de colonnes : au-delà de 3, un graphe de 500 px devenu tuile de 380 px
-   n'apporte rien. Le contenu élargi sert à faire tenir une colonne de PLUS,
-   jamais à étirer celles qui existent. */
-@media (min-width: 1450px) { .charts-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Grille des cartes : FLEX en retour à la ligne, pas GRID.
+   Grid est incapable d'étirer une rangée incomplète : une carte seule sur trois
+   colonnes laissait 807 px de vide (mesuré), et un `repeat(3)` forcé produisait
+   exactement le même trou. `auto-fit` ne sauve que les groupes dont le nombre de
+   cartes est un multiple du nombre de colonnes.
+   Flex règle les deux cas d'un coup : les cartes se partagent la rangée
+   (`flex: 1 1 380px`, donc 380 px minimum — c'est ce qui décide du nombre de
+   colonnes) et une carte orpheline S'ÉTIRE jusqu'au bord. `flex-basis: 100%`
+   pour `wide`, qui remplace `grid-column: 1 / -1`.
+   Le plancher reste 380 px, mais `flex-shrink: 1` + `min-width: 0` le laissent
+   rétrécir sous 380 px de conteneur — sinon la grille imposait cette largeur à
+   la colonne et débordait à 390 px de fenêtre. */
+.charts-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.charts-grid > .card.mini { flex: 1 1 380px; min-width: 0; }
+.charts-grid > .card.mini.wide { flex-basis: 100%; }
 .mini { padding: 14px 16px; }
-.mini.wide { grid-column: 1 / -1; }
 .mini h3 { font-size: 13px; margin: 0 0 8px; font-weight: 600; }
 .mini h3 .info-btn {
   display: inline-block; cursor: pointer; font-size: 14px; color: var(--text-soft);
@@ -1428,7 +1518,11 @@ select.pf-ctl {
 /* Onglet : chevron seul (la largeur de la bande fait foi). `sticky` => il reste
    atteignable à n'importe quelle hauteur de lecture. */
 .thesis-pin {
-  position: sticky; top: 16px;
+  /* Collé sous l'en-tête à deux rangs (recherche + onglets) et non plus sous
+     rien : à `top: 16px` il glissait SOUS les rangs collants et devenait
+     inaccessible. Même géométrie que le plan et la barre markdown. */
+  position: sticky;
+  top: var(--head-h);
   width: var(--thesis-pad-x); height: 30px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px;
@@ -1445,6 +1539,25 @@ select.pf-ctl {
 .thesis-edge:hover .thesis-pin-lbl { opacity: 1; }
 .thesis-edge:hover .thesis-pin { color: var(--accent); border-color: var(--accent); }
 .thesis-pin:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Pas d'en-tête collant en dessous de 900 px (cf. le repli de `.searchbar`) :
+   les éléments collés de la fiche retrouvent leur ancrage simple. Ce bloc est
+   placé APRÈS les définitions concernées — à spécificité égale, c'est l'ordre du
+   fichier qui tranche ; dans le bloc mobile du haut, ces règles perdaient et le
+   `top` restait calculé (mesuré : 106 px à 720 px au lieu de 16). */
+@media (max-width: 899px) {
+  .thesis-pin,
+  .thesis-plan,
+  .md-toolbar { top: var(--head-top); }
+  /* Sans en-tête collant, il n'y a plus rien à dégager au-dessus des ancres. */
+  .md-body > :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: var(--head-top); }
+}
+
+/* Ancres internes de la thèse : `scrollIntoView({block:'start'})` les plaque en
+   haut de la fenêtre, donc SOUS l'en-tête collant (mesuré : titre à 36 px sur
+   « Synthèse », à −107 px sur « Fondement de la thèse ») — le sommaire semblait
+   inerte. La marge remet le titre sous les deux rangs. Les titres rendus par
+   `markdown.js` vivent dans `.md-body`. */
+.md-body > :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: var(--head-h); }
 /* Plan AFFICHÉ : l'onglet reste faiblement visible hors survol — sans lui, on
    perdrait le seul moyen de refermer (défaut d'origine). Le chevron s'inverse. */
 .thesis-pin.open { opacity: .45; }
@@ -1575,7 +1688,10 @@ select.pf-ctl {
 .md-toolbar {
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
   padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
-  position: sticky; top: 0; background: var(--bg); z-index: 2;
+  /* Sous l'en-tête collant, comme le plan et la poignée : à `top: 0` elle
+     passait dessous (mesuré à 1024×600 : 6 points de contrôle sur 7 renvoyaient
+     un autre élément). */
+  position: sticky; top: var(--head-h); background: var(--bg); z-index: 2;
 }
 .md-toolbar .spacer { flex: 1; }
 .md-toolbar button, .md-file {
@@ -1656,9 +1772,12 @@ select.pf-ctl {
   color: var(--text-soft); text-decoration: line-through;
 }
 
-/* --- Plan latéral (colonnes larges) ----------------------------------- */
+/* Plan latéral (colonnes larges). Il vit dans la colonne de contenu, donc il
+   passe SOUS l'en-tête collant à deux rangs — sinon ses premières entrées
+   (mesuré : « 1. Pitch d'Investissement », top 90) disparaissent dessous et
+   deviennent non cliquables. Même géométrie que la poignée. */
 .thesis-plan {
-  position: sticky; top: 16px; margin-top: 14px;
+  position: sticky; top: var(--head-h); margin-top: 14px;
   display: none; flex-direction: column; gap: 2px;
   border-left: 2px solid var(--border); padding-left: 12px;
 }

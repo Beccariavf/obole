@@ -96,10 +96,10 @@ export const dividendMixin = {
       out.push({ title: "Dernier paiement",
         display: this.fmt(d.last_payment_value) + (d.last_payment_date ? " · " + this._fmtDivDate(d.last_payment_date) : ""),
         good: null });
-    // Prochain paiement : yfinance Europe ne fournit aucun calendrier fiable
-    // (seule une date ex-div approximative, distincte du paiement) -> ligne
-    // « — » assumée (cf. fiche #19 §4.3), sans champ sérialisé associé.
-    out.push({ title: "Prochain paiement", display: "—", good: null });
+    // Le « prochain paiement » n'est pas rendu : yfinance Europe ne fournit aucun
+    // calendrier fiable (seule une date ex-div approximative, distincte du
+    // paiement), et une ligne à tiret ne renseigne sur rien tout en consommant un
+    // emplacement du bandeau (cf. fiche #19 §4.3).
     return out;
   },
 
