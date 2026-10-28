@@ -23,6 +23,22 @@
      hériter de `currentColor`, donc la teinte vit ici, dans la couche de
      tokens, et non dans les règles de composant. */
   --chevron-soft: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236B7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  /* Géométrie de l'en-tête collant de l'espace Analyse. Une seule vérité :
+     TOUT ce qui doit passer sous l'en-tête se place à partir de ces valeurs,
+     jamais d'un nombre recopié. `--head-top` est aussi le `top` du rail.
+     `--head-h` est la hauteur TOTALE de l'en-tête à deux rangs : c'est elle que
+     consomment le plan de thèse, la barre markdown, la poignée du plan et les
+     ancres internes (`scroll-margin-top`). */
+  --head-top: 16px;
+  --search-h: 41px;
+  --head-gap: 10px;
+  /* Hauteur du rang d'onglets. Mesurée (10 px de padding vertical + 2 px de
+     soulignement + libellé) : elle ne suit pas le contenu, donc elle est à
+     revérifier si `.section-tab` change de padding ou passe sur deux rangs
+     (`.section-tabs` est en `flex-wrap`). Le e2e `entete.spec.js` compare la
+     valeur calculée à celle du CSS pour que la dérive se voie. */
+  --tabs-h: 39px;
+  --head-h: calc(var(--head-top) + var(--search-h) + var(--head-gap) + var(--tabs-h));
 }
 
 * { box-sizing: border-box; }
@@ -45,63 +61,150 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+.wrap { max-width: 1560px; margin: 0 auto; padding: 20px 24px 80px; }
 
-/* « Breakout » ciblé (section Valorisation, partie 1) : la section déborde de son
-   conteneur pour étaler le graphe du prix juste (~1120px au lieu de 942px), SANS
-   toucher .wrap ni les autres sections. Le débordement est CALCULÉ et borné :
-   -max(0px, min(180px, (100vw - 1100px)/2 - 24px)). Sur écran étroit (≤ ~1148px)
-   la marge dispo est nulle -> débordement 0 (rendu normal, aucun scroll). */
-.section-breakout {
-  margin-right: calc(-1 * max(0px, min(180px, (100vw - 1100px) / 2 - 24px)));
+/* --- Coquille de navigation ------------------------------------------------
+   Deux rangs de navigation, deux sens distincts :
+   - le rail (`.app-rail`) sort de la fiche : indices, screener, portefeuille,
+     watchlist, paramètres. Il est sticky et toujours visible ;
+   - les onglets (`.section-tabs`) changent de section DANS la fiche.
+
+   Largeurs : le rail est étiqueté (176 px) dès 1280 px de fenêtre, parce que
+   c'est à partir de là que le contenu garde sa largeur utile (1280 − 176 − 48
+   = 1056 px, soit deux colonnes de graphes comme avant). En dessous, un rail
+   étiqueté volerait au contenu plus qu'il n'apporterait : il passe en icônes
+   (68 px) de 900 à 1279 px, puis en bandeau horizontal sous 900 px. */
+.app-shell {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
 }
+.app-main { min-width: 0; }
 
-/* --- Fiche entreprise : rail de sections + contenu ------------------------- */
-/* La fiche n'affiche qu'UNE section à la fois. Le rail est un ruban vertical
-   d'icônes compact ; le libellé n'apparaît qu'au survol (infobulle), ce qui
-   évite de consommer de la largeur horizontale. */
-.fiche-layout { display: flex; gap: 20px; align-items: flex-start; }
-.fiche-main { flex: 1; min-width: 0; }
-
-.rail {
-  position: sticky; top: 16px;
-  width: 56px; flex: 0 0 56px;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 4px; padding: 10px 0;
+.app-rail {
+  position: sticky; top: var(--head-top);
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 4px; padding: 10px 8px;
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
+  max-height: calc(100vh - 32px);
+  /* Une fenêtre courte ne doit pas rogner le pied de rail (Paramètres) : le rail
+     défile sur lui-même plutôt que de laisser ses dernières entrées hors carte. */
+  overflow-y: auto;
 }
-.rail-nav { display: flex; flex-direction: column; gap: 4px; }
-.rail-btn {
-  position: relative; width: 40px; height: 40px;
-  display: flex; align-items: center; justify-content: center;
+.app-brand {
+  border: none; background: none; cursor: pointer; padding: 4px 6px 10px;
+  font-weight: 700; font-size: 17px; letter-spacing: -.02em; color: var(--text);
+  text-align: center;
+}
+.app-brand-accent { color: var(--accent); }
+.app-brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+.app-rail-nav { display: flex; flex-direction: column; gap: 2px; }
+/* Pied de rail : Paramètres n'est pas un espace de consultation, il est séparé
+   du groupe par un filet et poussé en bas. */
+.app-rail-foot {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border);
+}
+.app-rail-btn {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; width: 100%;
   border: none; border-radius: 10px; cursor: pointer;
   background: transparent; color: var(--text-soft);
+  font-size: 13.5px; font-weight: 500; font-family: inherit; text-align: left;
   transition: background .15s, color .15s;
 }
-.rail-btn:hover { background: var(--bg); color: var(--text); }
-.rail-btn.active { background: var(--good-bg); color: var(--accent); }
-.rail-btn.disabled { opacity: .32; cursor: not-allowed; }
-.rail-btn.disabled:hover { background: transparent; color: var(--text-soft); }
-.rail-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.rail-ico { display: flex; width: 21px; height: 21px; }
-.rail-ico svg { width: 100%; height: 100%; }
-/* Pastille d'existence (#21) : signale qu'une thèse est enregistrée pour ce
-   titre, sans ouvrir la section. Coin supérieur droit, couleur d'accent. */
-.rail-dot {
-  position: absolute; top: 6px; right: 6px;
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--accent); border: 1.5px solid var(--card);
+.app-rail-btn:hover { background: var(--bg); color: var(--text); }
+.app-rail-btn.active { background: var(--good-bg); color: var(--accent); }
+.app-rail-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app-rail-ico { display: flex; flex: 0 0 21px; width: 21px; height: 21px; }
+.app-rail-ico svg { width: 100%; height: 100%; }
+.app-rail-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Sous 1280 px : icônes seules. Le libellé, retiré du flux visuel, reste
+   l'infobulle (`title`) et l'intitulé accessible (`aria-label` porte le nom). */
+@media (max-width: 1279px) {
+  .app-shell { grid-template-columns: 68px minmax(0, 1fr); }
+  .app-rail { padding: 10px 6px; align-items: center; }
+  .app-brand { padding: 4px 0 10px; font-size: 15px; }
+  .app-rail-btn { justify-content: center; padding: 10px 0; }
+  .app-rail-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .app-rail-foot { align-items: center; width: 100%; }
 }
-/* Infobulle : libellé au survol / focus clavier, sans occuper de place. */
-.rail-tip {
-  position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
-  background: var(--text); color: #fff; font-size: 12px; font-weight: 500;
-  padding: 5px 10px; border-radius: 8px; white-space: nowrap;
-  opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 30;
-  box-shadow: var(--shadow);
+@media (max-width: 899px) {
+  /* Bandeau horizontal : le rail n'a plus la place d'être une colonne. */
+  .app-shell { display: flex; flex-direction: column; gap: 14px; }
+  .app-rail {
+    position: static; flex-direction: row; align-items: center; gap: 6px;
+    max-height: none; padding: 8px 10px; width: 100%;
+    overflow-x: auto;
+  }
+  .app-brand { padding: 0 8px 0 2px; }
+  .app-rail-nav, .app-rail-foot {
+    flex-direction: row; gap: 4px; margin-top: 0; padding-top: 0;
+    border-top: none; padding-left: 8px; border-left: 1px solid var(--border);
+  }
+  .app-rail-btn { width: auto; }
 }
-.rail-btn:hover .rail-tip, .rail-btn:focus-visible .rail-tip { opacity: 1; }
+
+/* --- Onglets de section (dans la fiche) ------------------------------------
+   Rang 2 de l'en-tête : ils collent SOUS la recherche, à une hauteur calculée
+   depuis la géométrie du rang (`--search-h`), pas depuis un nombre nu. Comme la
+   recherche, ils sont opaques et passent au-dessus du contenu. */
+.section-tabs {
+  position: sticky;
+  top: calc(var(--head-top) + var(--search-h) + var(--head-gap));
+  z-index: 14;
+  display: flex; flex-wrap: wrap; gap: 2px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  margin: 4px 0 18px;
+}
+.section-tab {
+  position: relative;
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 14px; margin-bottom: -1px;
+  border: none; border-bottom: 2px solid transparent; background: none;
+  font-family: inherit; font-size: 13.5px; font-weight: 500;
+  color: var(--text-soft); cursor: pointer;
+  transition: color .12s;
+}
+.section-tab:hover { color: var(--text); }
+.section-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.section-tab.disabled { opacity: .38; cursor: not-allowed; }
+.section-tab.disabled:hover { color: var(--text-soft); }
+.section-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.section-tab-ico { display: flex; width: 17px; height: 17px; }
+.section-tab-ico svg { width: 100%; height: 100%; }
+.section-tab-label { white-space: nowrap; }
+.section-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex: 0 0 6px;
+}
+@media (max-width: 720px) {
+  /* Les icônes se retirent avant les libellés : c'est le sens des onglets. */
+  .section-tab-ico { display: none; }
+  .section-tab { padding: 9px 10px; font-size: 13px; }
+}
+
+/* Le « breakout » de la section Valorisation a disparu avec son motif : il
+   élargissait la section de 180 px pour étaler le graphe du prix juste, mais le
+   contenu est désormais déjà étalé (1560 px) à la largeur où il s'appliquait.
+   Garder la marge aurait produit un débordement nul partout, c'est-à-dire un
+   réglage mort. La section garde donc la largeur de sa colonne. */
+
+/* --- Fiche entreprise : contenu (les onglets portent la navigation) -------- */
+/* La fiche n'affiche qu'UNE section à la fois. Depuis la coquille de
+   navigation, le choix de section vit dans la barre d'onglets (`.section-tabs`)
+   au-dessus du contenu : ce bloc ne garde que la mise en page de la colonne. */
+.fiche-layout { display: flex; gap: 20px; align-items: flex-start; }
+.fiche-main { flex: 1; min-width: 0; }
 
 /* --- Espace Portefeuille (#17.0) ------------------------------------------- */
 /* Espace distinct (modale plein écran) avec onglets horizontaux internes. */
@@ -496,21 +599,77 @@ select.pf-ctl {
   .pf-ctl { flex: 1 1 auto; }
 }
 
-/* --- Barre de recherche --- */
+/* --- Barre de recherche : rang 1 de l'en-tête de l'espace Analyse ----------
+   Elle COLLE (elle flottait : elle disparaissait au défilement alors que le
+   rail, moins sollicité, restait fixe). Le champ garde sa largeur de saisie
+   (420 px) et le reste du rang appartient aux actions : c'est ce qui remplit
+   les ~400 px de vide qui s'allongeaient à droite du champ.
+   `is-hero` : à l'accueil il n'y a rien à coller (et un héros collé en haut de
+   page n'en serait plus un) — le rang redevient un bloc statique centré. */
 .searchbar {
+  position: sticky; top: var(--head-top); z-index: 15;
   display: flex; gap: 10px; align-items: center;
-  margin-bottom: 28px;
+  min-height: calc(var(--search-h) + var(--head-gap));
+  /* Le joint entre les deux rangs est dans la BOÎTE du rang (`padding`) et non
+     dans une marge : une marge n'est pas peinte, et les titres de cartes
+     défilaient dans les 10 px de `--head-gap` (mesuré : `elementFromPoint` y
+     renvoyait un `H3`). Le `padding` garde le rang opaque jusqu'au rang suivant.
+     La hauteur totale du rang reste `--search-h + --head-gap`, ce dont dépend le
+     `top` des onglets. */
+  padding: 0 0 var(--head-gap); margin: 0;
+  background: var(--bg);
 }
-.searchbar .logo { font-weight: 700; font-size: 20px; letter-spacing: -.02em; }
-.searchbar .logo span { color: var(--accent); }
-.search-wrap { position: relative; flex: 1; max-width: 420px; }
+/* `min-width: 260px` : un libellé de retour long écrasait le champ jusqu'à
+   203 px (mesuré à 960 px), donc sous la largeur où le placeholder tient. Le
+   plancher protège la saisie ; c'est l'argument inverse de celui du 420 px. */
+.search-wrap { position: relative; flex: 0 1 420px; min-width: 260px; }
 .search-input {
-  width: 100%;
+  width: 100%; height: var(--search-h);
   padding: 11px 16px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--card); font-size: 15px; outline: none;
   transition: border-color .15s, box-shadow .15s;
 }
 .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--good-bg); }
+
+/* Actions du rang, calées à droite. Le groupe étant aligné sur le bord droit et
+   l'action principale étant la DERNIÈRE, sa position ne dépend d'aucun voisin :
+   les deux actions conditionnelles (retour, ↻) sont en tête et font grandir le
+   groupe vers la gauche. Mesuré : « Analyser » restait à 1264 px chargé et à
+   1321 px en chargement tant que « ↻ » venait après lui. Aucune largeur morte
+   n'est réservée à droite. */
+.search-actions {
+  display: flex; align-items: center; gap: 10px;
+  margin-left: auto; flex: 0 0 auto;
+}
+
+/* Accueil : un seul axe de centrage. Avant, le champ restait collé à gauche
+   pendant que l'invite `.empty` était centrée — deux axes pour une même page.
+   La classe s'éteint dès `loading` : `load()` remet `data = null`, donc la
+   garder jusqu'à la fiche ferait REBONDIR le champ au centre à chaque
+   rechargement (mesuré : « Analyser » passait de 1321 à 823 px), ce qui est
+   pire que le saut unique de l'aller. */
+.searchbar.is-hero {
+  position: static;
+  flex-direction: column; align-items: center; gap: 12px;
+  padding: 0; margin: 72px 0 0;
+}
+.searchbar.is-hero .search-wrap { flex: 0 0 auto; width: 100%; max-width: 420px; min-width: 0; }
+.searchbar.is-hero .search-actions { margin-left: 0; }
+.searchbar.is-hero .search-actions .btn { min-width: 160px; justify-content: center; }
+
+/* Repli mobile — APRÈS les règles de base, sinon `position: static` perdrait à
+   spécificité égale et le rang resterait collé sous 900 px. Deux rangs collants
+   mangeraient la hauteur utile d'un écran court, et le bandeau de rail est de
+   toute façon déjà en haut de page. */
+@media (max-width: 899px) {
+  .searchbar { position: static; flex-wrap: wrap; }
+  .section-tabs { position: static; }
+  /* Téléphone : le rang ne tient pas sur une ligne (champ + trois actions
+     dépassent 342 px de colonne). Le champ prend la largeur, les actions
+     passent dessous — plutôt qu'un débordement horizontal de 14 px. */
+  .searchbar .search-wrap { flex: 1 1 100%; }
+  .searchbar .search-actions { margin-left: 0; width: 100%; }
+}
 
 .suggestions {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0;
@@ -621,7 +780,13 @@ select.pf-ctl {
 .ds-input::-webkit-slider-thumb:active { cursor: grabbing; }
 
 /* --- KPI grid --- */
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+/* Plafond de 5 colonnes : au-delà, les tuiles s'aplatissent et les libellés
+   passent à la ligne. Le contenu élargi ne doit pas les étirer. */
+.kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+@media (min-width: 1400px) { .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .kpi { padding: 16px 18px; }
 .kpi .k-title { font-size: 12px; color: var(--text-soft); margin-bottom: 8px; }
 .kpi .k-value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
@@ -683,9 +848,22 @@ select.pf-ctl {
      au-delà, la liste défile — elle ne grandit jamais au-delà du graphe. */
   --pf-entry-menu-h: 260px;
 }
-.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
+/* Grille des cartes : FLEX en retour à la ligne, pas GRID.
+   Grid est incapable d'étirer une rangée incomplète : une carte seule sur trois
+   colonnes laissait 807 px de vide (mesuré), et un `repeat(3)` forcé produisait
+   exactement le même trou. `auto-fit` ne sauve que les groupes dont le nombre de
+   cartes est un multiple du nombre de colonnes.
+   Flex règle les deux cas d'un coup : les cartes se partagent la rangée
+   (`flex: 1 1 380px`, donc 380 px minimum — c'est ce qui décide du nombre de
+   colonnes) et une carte orpheline S'ÉTIRE jusqu'au bord. `flex-basis: 100%`
+   pour `wide`, qui remplace `grid-column: 1 / -1`.
+   Le plancher reste 380 px, mais `flex-shrink: 1` + `min-width: 0` le laissent
+   rétrécir sous 380 px de conteneur — sinon la grille imposait cette largeur à
+   la colonne et débordait à 390 px de fenêtre. */
+.charts-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.charts-grid > .card.mini { flex: 1 1 380px; min-width: 0; }
+.charts-grid > .card.mini.wide { flex-basis: 100%; }
 .mini { padding: 14px 16px; }
-.mini.wide { grid-column: 1 / -1; }
 .mini h3 { font-size: 13px; margin: 0 0 8px; font-weight: 600; }
 .mini h3 .info-btn {
   display: inline-block; cursor: pointer; font-size: 14px; color: var(--text-soft);
@@ -1340,7 +1518,11 @@ select.pf-ctl {
 /* Onglet : chevron seul (la largeur de la bande fait foi). `sticky` => il reste
    atteignable à n'importe quelle hauteur de lecture. */
 .thesis-pin {
-  position: sticky; top: 16px;
+  /* Collé sous l'en-tête à deux rangs (recherche + onglets) et non plus sous
+     rien : à `top: 16px` il glissait SOUS les rangs collants et devenait
+     inaccessible. Même géométrie que le plan et la barre markdown. */
+  position: sticky;
+  top: var(--head-h);
   width: var(--thesis-pad-x); height: 30px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px;
@@ -1357,6 +1539,25 @@ select.pf-ctl {
 .thesis-edge:hover .thesis-pin-lbl { opacity: 1; }
 .thesis-edge:hover .thesis-pin { color: var(--accent); border-color: var(--accent); }
 .thesis-pin:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Pas d'en-tête collant en dessous de 900 px (cf. le repli de `.searchbar`) :
+   les éléments collés de la fiche retrouvent leur ancrage simple. Ce bloc est
+   placé APRÈS les définitions concernées — à spécificité égale, c'est l'ordre du
+   fichier qui tranche ; dans le bloc mobile du haut, ces règles perdaient et le
+   `top` restait calculé (mesuré : 106 px à 720 px au lieu de 16). */
+@media (max-width: 899px) {
+  .thesis-pin,
+  .thesis-plan,
+  .md-toolbar { top: var(--head-top); }
+  /* Sans en-tête collant, il n'y a plus rien à dégager au-dessus des ancres. */
+  .md-body > :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: var(--head-top); }
+}
+
+/* Ancres internes de la thèse : `scrollIntoView({block:'start'})` les plaque en
+   haut de la fenêtre, donc SOUS l'en-tête collant (mesuré : titre à 36 px sur
+   « Synthèse », à −107 px sur « Fondement de la thèse ») — le sommaire semblait
+   inerte. La marge remet le titre sous les deux rangs. Les titres rendus par
+   `markdown.js` vivent dans `.md-body`. */
+.md-body > :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: var(--head-h); }
 /* Plan AFFICHÉ : l'onglet reste faiblement visible hors survol — sans lui, on
    perdrait le seul moyen de refermer (défaut d'origine). Le chevron s'inverse. */
 .thesis-pin.open { opacity: .45; }
@@ -1487,7 +1688,10 @@ select.pf-ctl {
 .md-toolbar {
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
   padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
-  position: sticky; top: 0; background: var(--bg); z-index: 2;
+  /* Sous l'en-tête collant, comme le plan et la poignée : à `top: 0` elle
+     passait dessous (mesuré à 1024×600 : 6 points de contrôle sur 7 renvoyaient
+     un autre élément). */
+  position: sticky; top: var(--head-h); background: var(--bg); z-index: 2;
 }
 .md-toolbar .spacer { flex: 1; }
 .md-toolbar button, .md-file {
@@ -1568,9 +1772,12 @@ select.pf-ctl {
   color: var(--text-soft); text-decoration: line-through;
 }
 
-/* --- Plan latéral (colonnes larges) ----------------------------------- */
+/* Plan latéral (colonnes larges). Il vit dans la colonne de contenu, donc il
+   passe SOUS l'en-tête collant à deux rangs — sinon ses premières entrées
+   (mesuré : « 1. Pitch d'Investissement », top 90) disparaissent dessous et
+   deviennent non cliquables. Même géométrie que la poignée. */
 .thesis-plan {
-  position: sticky; top: 16px; margin-top: 14px;
+  position: sticky; top: var(--head-h); margin-top: 14px;
   display: none; flex-direction: column; gap: 2px;
   border-left: 2px solid var(--border); padding-left: 12px;
 }

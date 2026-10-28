@@ -72,13 +72,22 @@ export const searchMixin = {
       return;
     }
     this.suggestions = [];
+    // Jeton de génération : `goHome()` l'incrémente pour invalider un chargement
+    // en vol. Sans lui, une réponse arrivée APRÈS le retour à l'accueil réécrivait
+    // `data` et le hash, rouvrant la fiche que l'utilisateur venait de quitter.
+    const generation = (this._loadGeneration || 0) + 1;
+    this._loadGeneration = generation;
     this.loading = true; this.error = ""; this.data = null;
     try {
       if (this.isRatioQuery()) {
         const [a, b] = this.ratioSegments().filter((p) => p.length);
-        this.data = await api.ratio(a, b);
+        const res = await api.ratio(a, b);
+        if (this._loadGeneration !== generation) return;
+        this.data = res;
       } else {
-        this.data = await api.stock(raw);
+        const res = await api.stock(raw);
+        if (this._loadGeneration !== generation) return;
+        this.data = res;
       }
       // #25.1 : une référence persistée est une droite de VALORISATION (prix
       // bruts). On ouvre la fiche sur cette vue — dividendes off, synchro on,
@@ -101,14 +110,18 @@ export const searchMixin = {
       // valeurs enregistrées (ou les défauts) pour la fiche qui vient d'arriver.
       if (typeof this.initValuation === "function") this.initValuation();
       this.$nextTick(() => {
+        // Le retour à l'accueil a pu survenir pendant ce tick : on ne réécrit
+        // alors ni le hash ni la section.
+        if (this._loadGeneration !== generation) return;
         // Fiche chargée : on applique la section demandée (deep-link) ou on
         // revient sur « Résumé », puis on (re)dessine ce qui est visible.
         try { this.applySectionsAfterLoad(); } catch (e) { console.error("applySections error:", e); }
       });
     } catch (e) {
+      if (this._loadGeneration !== generation) return;
       this.error = e.message;
     } finally {
-      this.loading = false;
+      if (this._loadGeneration === generation) this.loading = false;
     }
   },
 

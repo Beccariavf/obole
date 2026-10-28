@@ -16,11 +16,57 @@
 </head>
 <body>
 <div class="wrap" x-data="obole" x-init="init()"
-     @keydown.escape.window="watchPopoverOpen = false; watchRefOpen = false">
+     @keydown.escape.window="watchPopoverOpen = false; watchRefOpen = false; closeAnySpace()">
 
-  <!-- Recherche -->
-  <div class="searchbar">
-    <div class="logo">Ob<span>ole</span></div>
+  <div class="app-shell">
+
+  <!-- Rail : navigation entre les ESPACES (sortir de la fiche). Les sections de
+       la fiche vivent dans la barre d'onglets du contenu, pas ici : deux rangs,
+       deux sens. Le rail reste visible au défilement (sticky). -->
+  <aside class="app-rail" aria-label="Espaces d'Obole">
+    <button type="button" class="app-brand" @click="goHome()" title="Accueil — revenir à la recherche">
+      <span>Ob<span class="app-brand-accent">ole</span></span>
+    </button>
+    <nav class="app-rail-nav">
+      <template x-for="s in spaces" :key="s.id">
+        <button type="button" class="app-rail-btn"
+                :data-space="s.id"
+                :class="{ active: activeSpace() === s.id }"
+                :aria-current="activeSpace() === s.id ? 'page' : 'false'"
+                :aria-label="s.label"
+                :title="s.hint"
+                @click="openSpaceEntry(s.id)">
+          <span class="app-rail-ico" x-html="s.svg"></span>
+          <span class="app-rail-label" x-text="s.label"></span>
+        </button>
+      </template>
+    </nav>
+    <div class="app-rail-foot">
+      <template x-for="s in spacesFoot" :key="s.id">
+        <button type="button" class="app-rail-btn"
+                :data-space="s.id"
+                :class="{ active: activeSpace() === s.id }"
+                :aria-current="activeSpace() === s.id ? 'page' : 'false'"
+                :aria-label="s.label"
+                :title="s.hint"
+                @click="openSpaceEntry(s.id)">
+          <span class="app-rail-ico" x-html="s.svg"></span>
+          <span class="app-rail-label" x-text="s.label"></span>
+        </button>
+      </template>
+    </div>
+  </aside>
+
+  <main class="app-main">
+
+  <!-- En-tête de l'espace Analyse — deux rangs, collés ensemble.
+       Rang 1 : la recherche et SES actions. Le champ garde 420 px (au-delà, le
+       regard perd le curseur) ; les actions occupent la droite du rang, là où
+       tombait ~400 px de vide, et le retour grandit le groupe vers la gauche
+       sans jamais décaler « Analyser ». Rang 2 : les onglets de section.
+       Le collant s'éteint à l'accueil (`is-hero`) : un héros centré collé en
+       haut n'aurait plus rien d'un héros. -->
+  <div class="searchbar" :class="{ 'is-hero': !data && !loading }">
     <div class="search-wrap">
       <input class="search-input" type="text" placeholder="Ticker ou nom (ex. Total, Pernod, AAPL)"
              x-model="query" @input="onSearchInput()" @keydown.enter="pickFirstOrLoad()"
@@ -34,17 +80,14 @@
         </template>
       </div>
     </div>
-    <button class="btn" @click="backTo = null; load()">Analyser</button>
-    <button class="btn ghost" @click="refresh()" x-show="data" title="Rafraîchir les données">↻</button>
-    <button class="btn ghost" x-show="backTo" @click="backToIndex()"
-            :title="'Revenir à « ' + (backTo?.name || '') + ' »'">
-      <span x-text="'← Retour à « ' + (backTo?.name || '') + ' »'"></span>
-    </button>
-    <button class="btn ghost" @click="openIndices()" title="Indices personnalisés : crée tes propres paniers d'actions">Mes indices</button>
-    <button class="btn ghost" @click="openScreener()" title="Screener : sélectionne des actions selon des critères (droite de régression, rentabilité, valorisation)">Screener</button>
-    <button class="btn ghost" @click="openPortfolio()" title="Portefeuille : saisis tes achats/ventes/dividendes et suis tes positions">Portefeuille</button>
-    <button class="btn ghost" @click="openWatchlist()" title="Watchlist : valeurs suivies, tiers et marges de sécurité">★ Watchlist</button>
-    <button class="btn ghost" @click="openSettings()" title="Paramètres : réglage des moyennes mobiles et autres mesures techniques">⚙ Paramètres</button>
+    <div class="search-actions">
+      <button class="btn ghost search-back" x-show="backTo" @click="backToIndex()"
+              :title="'Revenir à « ' + (backTo?.name || '') + ' »'">
+        <span x-text="'← Retour à « ' + (backTo?.name || '') + ' »'"></span>
+      </button>
+      <button class="btn ghost" x-show="data" @click="refresh()" title="Rafraîchir les données">↻</button>
+      <button class="btn" @click="backTo = null; load()">Analyser</button>
+    </div>
   </div>
 
   <!-- États -->
@@ -57,31 +100,6 @@
   <!-- Fiche -->
   <template x-if="data && !loading">
     <div class="fiche-layout">
-      <!-- Rail vertical : une entrée par section (icône + libellé au survol).
-           La fiche n'affiche qu'une section à la fois ; l'entrée active est
-           marquée par `.active`. -->
-      <aside class="rail" aria-label="Sections de l'analyse">
-        <nav class="rail-nav">
-          <template x-for="s in sections" :key="s.id">
-            <button type="button" class="rail-btn"
-                    :data-section="s.id"
-                    :class="{ active: activeSection === s.id, disabled: !_sectionUsable(s.id) }"
-                    :aria-current="activeSection === s.id ? 'true' : 'false'"
-                    :aria-disabled="_sectionUsable(s.id) ? 'false' : 'true'"
-                    :disabled="!_sectionUsable(s.id)"
-                    :title="sectionTitle(s.id)"
-                    @click="setSection(s.id)">
-              <span class="rail-ico" x-html="s.svg"></span>
-              <!-- Pastille : une thèse existe pour ce titre (#21). L'état vient du
-                   payload `/api/stock` (`has_thesis`), donc sans appel réseau. -->
-              <span class="rail-dot" x-show="s.id === 'these' && thesisExists()"
-                    aria-hidden="true"></span>
-              <span class="rail-tip" x-text="s.label"></span>
-            </button>
-          </template>
-        </nav>
-      </aside>
-
       <div class="fiche-main">
       <!-- Header -->
       <div class="header">
@@ -128,6 +146,30 @@
           </div>
         </div>
       </div>
+
+      <!-- Onglets de section : deuxième rang de navigation, DANS la fiche.
+           Libellés lisibles (plus d'infobulle au survol), actif souligné en
+           accent. Le registre `sections.js::SECTIONS` reste la source unique :
+           onglets, filtrage des cartes et deep-link lisent le même ordre. -->
+      <nav class="section-tabs" aria-label="Sections de l'analyse">
+        <template x-for="s in sections" :key="s.id">
+          <button type="button" class="section-tab"
+                  :data-section="s.id"
+                  :class="{ active: activeSection === s.id, disabled: !_sectionUsable(s.id) }"
+                  :aria-current="activeSection === s.id ? 'true' : 'false'"
+                  :aria-disabled="_sectionUsable(s.id) ? 'false' : 'true'"
+                  :disabled="!_sectionUsable(s.id)"
+                  :title="sectionTitle(s.id)"
+                  @click="setSection(s.id)">
+            <span class="section-tab-ico" x-html="s.svg"></span>
+            <span class="section-tab-label" x-text="s.label"></span>
+            <!-- Pastille : une thèse existe pour ce titre (#21). L'état vient du
+                 payload `/api/stock` (`has_thesis`), donc sans appel réseau. -->
+            <span class="section-tab-dot" x-show="s.id === 'these' && thesisExists()"
+                  aria-hidden="true"></span>
+          </button>
+        </template>
+      </nav>
 
       <!-- Membres de l'indice : stats « coup d'œil » affichées dans la section
            « Composition » sous le graphe héro (cf. plus bas). -->
@@ -468,7 +510,7 @@
       <!-- Partie 1 : calculatrice de prix juste (pleine largeur) + partie 2 :
            courbes continues (croissance, multiples). Le calcul est fait côté
            client (miroir de engine/valuation_calc.py) : aucun aller-retour. -->
-      <div class="section section-breakout" x-show="activeSection === 'valorisation' && valuationAvailable()">
+      <div class="section" x-show="activeSection === 'valorisation' && valuationAvailable()">
         <div class="val-head">
           <h2>Calculatrice de prix juste</h2>
         </div>
@@ -1118,6 +1160,9 @@
       </div><!-- /fiche-main -->
     </div>
   </template>
+
+  </main><!-- /app-main -->
+  </div><!-- /app-shell -->
 
   <!-- Modale indices personnalisés -->
   <div class="modal-overlay" x-show="indicesOpen" @click.self="closeIndices()">

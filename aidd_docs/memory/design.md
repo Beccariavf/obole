@@ -65,10 +65,60 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
   pour que le tableau tienne dans la largeur.
 
+## Navigation (coquille)
+
+- **Deux rangs, deux sens.** Le **rail gauche** sort de la fiche : Analyse, Mes indices,
+  Screener, Portefeuille, Watchlist, puis **Paramètres en pied** (séparé par un filet — ce
+  n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
+  changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
+  Thèse & Société, Valorisation.
+- Le rail est **étiqueté (176 px) à partir de 1280 px** de fenêtre ; en dessous il passe en
+  **icônes seules (68 px)** jusqu'à 900 px, puis en **bandeau horizontal**. Le seuil est
+  calculé : à 1280 px le contenu garde assez de largeur pour deux colonnes de graphes,
+  en dessous un rail étiqueté coûterait plus qu'il n'apporte.
+- Le contenu est **fluide, plafonné à 1560 px** (au lieu de 1100 px figés) : la largeur
+  gagnée fait tenir une colonne de plus, elle n'étire pas les tuiles (plancher 380 px).
+- **La recherche est le rang 1 d'un en-tête collant à deux rangs** (recherche, puis
+  onglets de section collés dessous), dans la colonne Analyse — ni dans le rail (le rail
+  porte les *espaces*, pas l'entrée d'une espace), ni en bandeau global (les modales sont
+  plein écran : une barre globale serait masquée cinq fois sur six, tout en coûtant sa
+  hauteur au graphe héro). C'est ce rang qui **remplit** ce que la recherche laissait de
+  vide à droite : le champ garde 420 px (au-delà, le regard perd le curseur) et les
+  actions (Analyser, ↻, Retour) occupent la droite. Le bouton de retour est **en tête du
+  groupe calé à droite** : il grandit vers la gauche et ne décale jamais « Analyser ».
+  À l'accueil, le rang ne colle pas et devient un **héros centré** (un seul axe avec
+  l'invite). Sous 900 px, plus rien ne colle et le rang passe sur deux lignes.
+- L'entrée active du rail suit l'espace ouvert ; au repos c'est **Analyse**. La marque
+  ramène à l'accueil (aucune fiche, aucun espace, champ de recherche vidé).
+- **Échap referme la couche du dessus** : une modale imbriquée (zoom de graphe, export,
+  événements…) d'abord, l'espace ensuite. Les modales plein écran recouvrant le rail, le
+  clavier est le seul chemin de portefeuille à watchlist sans viser la croix.
+- **Les modales ne bougent pas** : seul leur déclencheur a déménagé de la barre de
+  recherche vers le rail.
+- **Grille de cartes en `flex-wrap`, sans colonnes.** `.charts-grid` répartit les cartes
+  par rangées (`flex: 1 1 380px`, plancher 380 px, `min-width: 0` pour rétrécir sous
+  390 px de fenêtre). Grid a été écarté pour deux raisons mesurées : un
+  `repeat(3, minmax(0,1fr))` forcé dès 1450 px laissait une colonne morte (443 px sur
+  « Dividende par action » et « Payout », 887 px pour la carte seule de « Retour à
+  l'actionnaire »), et `auto-fit` ne corrige que les groupes dont le nombre de cartes est
+  un multiple du nombre de colonnes — 7 cartes en 3+3+1 laissaient encore 807 px à
+  1440 px, et 4 cartes en 3+1 la même chose. Grid ne sait pas étirer une rangée
+  incomplète ; flex si (la carte orpheline s'étire jusqu'au bord).
+  Ce que décide la **taxonomie** (`config.DIVIDEND_GROUPS` / `QUANT_GROUPS`, champ
+  `wide`), c'est quelles cartes sont pleine largeur **par nature** — « Métriques clés »
+  l'est, parce que ses huit chiffres tiennent sur un rang en pleine largeur et sur trois
+  rangs en tuile étroite. Nuance assumée : le flex étire AUSSI la carte orpheline d'un
+  groupe impair (3+3+1 → la dernière occupe la rangée), ce qui est le prix payé pour
+  supprimer la colonne morte. Ce n'est donc pas `wide` qui rend une carte large, c'est
+  `wide` qui la rend large **même quand elle n'est pas seule sur sa rangée**.
+
 ## Accessibility
 
-- Rail de sections : entrée active marquée (`aria-current`), focus visible, navigation
-  clavier.
+- Rail et onglets : entrée active marquée (`aria-current`), focus visible, navigation
+  clavier. Les libellés des onglets sont toujours rendus (jamais une infobulle seule) ; en
+  rail d'icônes, le `<button>` porte un `aria-label` (le nom de l'espace) en plus du
+  `title` (son explication), donc il reste nommable une fois le libellé visuellement
+  retiré — les infobulles n'existent pas au tactile.
 - Fenêtre fixe du graphe héro : flèches ←/→ pour déplacer la fenêtre quand la zone est
   focus, `Shift` pour un pas fin.
 - Contraste assuré sur les fonds colorés (bandes σ, matrice de corrélation).

@@ -35,7 +35,8 @@ zoom plein écran d'un graphique (sans requête réseau).
 ## 3. Non-objectifs
 
 - Pas de **prochain paiement** ni de **statut** : yfinance Europe ne fournit aucun
-  calendrier fiable (seule une date ex-div approximative) -> « — » assumé.
+  calendrier fiable (seule une date ex-div approximative) — donc aucun champ, et
+  aucune ligne « — » au bandeau.
 - Pas de payout ratios au-delà de ~5 ans : les comptes yfinance sont plafonnés.
 - Pas de fiscalité (brut/net) ni de simulation de réinvestissement.
 - Pas de modification de la formule de régression (invariant métier).
@@ -52,7 +53,11 @@ zoom plein écran d'un graphique (sans requête réseau).
   en circulation), sérialisés dans le payload `chart` (décimation alignée).
 - 4.3 **Métriques clés** : Yield TTM, Payout TTM, années d'augmentation, années
   sans baisse, CAGR 5A/10A, fréquence (déduite du rythme des versements), dernier
-  paiement. « Prochain paiement » = « — ».
+  paiement. **Pas de « Prochain paiement »** : la source n'en fournit pas, et une
+  ligne à tiret ne renseignait sur rien tout en consommant un emplacement du
+  bandeau (corrigé après mesures). La carte est **pleine largeur** (`wide` dans
+  `config.DIVIDEND_GROUPS`) : ses chiffres tiennent sur un rang contre trois en
+  tuile étroite.
 - 4.4 **Dividende / Action** (barres) + **Croissance / Action** (barres %), pastilles
   Perf / CAGR.
 - 4.5 **Payout Ratios** et **Shareholder Payout Ratios** en multi-lignes (~5 ans).
@@ -235,7 +240,7 @@ artefact du correctif.
 - **Code mort retiré** : `engine/dividends.annual_by_year` et `stats` (aucun
   appelant hors tests).
 - **Commentaires alignés** : `drawYieldCard` (fenêtre par défaut, pas « héro »),
-  `data/yahoo` (prochain paiement = ligne « — » assumée côté front).
+  `data/yahoo` et `dividend.js` (aucun prochain paiement rendu, pas même un tiret).
 - **Fixtures de tests** : `quantitatif.test.js` mis à jour vers la taxonomie
   courante (`divbars`, `stacked`, `kpi`) ; doc `MODEL_VERSION` corrigée.
 

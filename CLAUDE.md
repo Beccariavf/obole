@@ -113,6 +113,29 @@ Le détail (rôle de chaque couche, décisions, pièges) est dans
 `aidd_docs/memory/architecture.md` ; la carte du dépôt dans `codebase-map.md` ; la surface
 REST dans `api.md` ; le pipeline de données dans `data.md`.
 
+**Coquille de navigation du front — deux rangs, deux sens.** Le **rail gauche** (`nav.js`,
+`.app-rail`) porte les *espaces* : Analyse, Mes indices, Screener, Portefeuille, Watchlist,
+puis Paramètres en pied. Les **onglets horizontaux** (`.section-tabs`, alimentés par
+`sections.js::SECTIONS`) portent les *sections de la fiche* : Résumé, Quantitatif,
+Dividende, Finance, Thèse & Société, Valorisation. Ne jamais mélanger les deux : une entrée
+d'espace n'est pas une section (elle ouvre une modale plein écran, inchangée), et une
+section ne sort pas de la fiche. Le clic sur un onglet écrit toujours `#<ticker>/<section>`.
+Le rail est étiqueté (176 px) à partir de 1280 px, en icônes seules (68 px) jusqu'à 900 px,
+en bandeau horizontal en dessous ; le contenu est fluide et plafonné à 1560 px. **Le rang
+de recherche est collant** (`--head-top`), avec les onglets collés dessous : deux rangs
+d'en-tête, le champ à 420 px et les actions calées à droite (le retour, en tête du groupe,
+ne décale jamais « Analyser ») ; à l'accueil il ne colle pas et devient un héros centré.
+**`.charts-grid` est en `flex-wrap`, jamais en `grid`** : `flex: 1 1 380px`, plancher
+380 px, `min-width: 0`. Grid ne sait pas étirer une rangée incomplète — 7 cartes en 3+3+1
+laissaient 807 px de colonne morte, 4 en 3+1 aussi. Attention à la nuance : `wide`
+(`flex-basis: 100%`, décidé par la taxonomie `config.*_GROUPS`, jamais par le JS) rend une
+carte large **par nature** ; le flex étire AUSSI la carte orpheline d'une rangée impaire,
+et c'est le prix accepté pour tuer la colonne morte. **Tout élément `sticky` de la fiche
+passe sous l'en-tête** via `--head-h` (plan de thèse, barre markdown, poignée, ancres
+`scroll-margin-top`) : un `top: 0` ou `top: 16px` oublié le fait recouvrir. Le rail défile
+sur lui-même si la fenêtre est plus courte que son contenu, et Échap referme la couche du
+dessus (modale imbriquée, puis espace). Détail : `design.md` §Navigation.
+
 ## Invariants à ne pas casser
 
 **La régression est calculée à TROIS endroits qui doivent rester cohérents :**

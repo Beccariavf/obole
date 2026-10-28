@@ -453,8 +453,8 @@ def _build_dividend(ticker: str, t, cashflow: pd.DataFrame, table: pd.DataFrame)
         "last_payment_value": last_value,
         "last_payment_date": last_date,
         # Prochain paiement : yfinance Europe ne fournit aucun calendrier fiable
-        # (seule une date ex-div approximative) -> aucun champ, le front affiche
-        # une ligne « — » assumée (cf. fiche #19 §4.3).
+        # (seule une date ex-div approximative) -> aucun champ du tout, et le
+        # front ne rend pas non plus de ligne « — » (cf. fiche #19 §4.3).
         # `stats` (régularité, CAGR, fréquence) est ajouté par services/analysis.
     }
 

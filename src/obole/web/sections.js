@@ -1,16 +1,14 @@
 // Obole — sections de la fiche entreprise : registre + navigation.
 //
-// La fiche n'affiche qu'UNE section à la fois (rail vertical à gauche). L'ordre
-// ci-dessous est la source unique : il pilote le rail, le filtrage des cartes
-// (charts.js::sectionGroups) et le deep-link `#<ticker>/<section>`.
+// La fiche n'affiche qu'UNE section à la fois (onglets horizontaux au-dessus du
+// contenu). L'ordre ci-dessous est la source unique : il pilote les onglets, le
+// filtrage des cartes (charts.js::sectionGroups) et le deep-link
+// `#<ticker>/<section>`.
 //
 // Les icônes sont des SVG inline (constantes du module, aucun contenu tiers ni
 // donnée utilisateur) : le front reste sans build et sans CDN.
 import { NON_CHART_TYPES } from "./charts.js";
-
-const icon = (paths) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
-  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+import { icon } from "./util.js";
 
 export const SECTIONS = [
   {
@@ -54,7 +52,7 @@ export const SECTIONS = [
 export const DEFAULT_SECTION = "resume";
 
 // Sections dont le contenu reste à construire (étapes 2→7 du chantier #16). Elles
-// apparaissent dans le rail comme repères de navigation, mais sont marquées
+// apparaissent en onglets comme repères de navigation, mais sont marquées
 // « à venir » — à distinguer d'une section vide faute de données pour le titre.
 // (#21 a livré « these » : elle n'est donc plus « à venir ».)
 export const PLANNED_SECTIONS = new Set();

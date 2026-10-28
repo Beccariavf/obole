@@ -18,7 +18,7 @@ test("import piloté : un brouillon proposé est validable depuis la fiche", asy
 
   // 1. Fiche RI.PA, section « Données complémentaires ».
   await page.goto("/#RI.PA/finance");
-  await expect(page.locator(".rail-btn.active")).toHaveAttribute("data-section", "finance");
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "finance");
 
   // 2. La bande « Imports à valider » est présente (même vide).
   const toggle = page.locator("button:has-text('Imports à valider')");

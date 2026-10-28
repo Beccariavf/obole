@@ -93,6 +93,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 26 | **Watchlist 2.0** : vue cadrans, jeu de convictions, Pot. 5A de valorisation | 🟡 Q2 | 🟠 | 4-5 sessions | **fait** | [→](chantiers/26-watchlist-cadrans-conviction.md) |
 | 26.1 | Watchlist : cadrans compacts (option A) | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/26.1-watchlist-cadrans-compact.md) |
 | 27 | Conviction → tiers par seuils absolus | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/27-conviction-tiers.md) |
+| 28 | **Coquille de navigation** (rail d'espaces + onglets de section) | 🟡 Q2 | 🟢 | 2 sessions | **fait** | [→](chantiers/28-coquille-navigation.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)

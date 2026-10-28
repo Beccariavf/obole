@@ -815,10 +815,13 @@ DIVIDEND_GROUPS = [
         "title": "Rendement",
         "cards": [
             # Dividend Yield = carte mise en avant (pleine largeur, hauteur héro de
-            # section). Les autres cartes restent en colonne simple (2 par ligne,
-            # comme le Quantitatif) : le front ne décide pas, il lit `wide`.
+            # section). « Métriques clés » l'est aussi : ses huit chiffres (yield et
+            # payout TTM, années d'augmentation et sans baisse, CAGR 5A et 10A,
+            # fréquence, dernier paiement) tiennent sur UN rang en pleine largeur,
+            # contre trois rangs en colonne simple (283 px de haut). Le front ne
+            # décide pas, il lit `wide`.
             {"type": "yield", "title": "Dividend Yield", "series": "div_yield", "wide": True},
-            {"type": "kpi", "title": "Métriques clés"},
+            {"type": "kpi", "title": "Métriques clés", "wide": True},
             {"type": "yield", "title": "Shareholder Yield", "series": "sh_yield"},
         ],
     },

@@ -24,10 +24,7 @@ import {
   PORTFOLIO_CORR_ANNOTATE_MAX,
   CHART_HEIGHTS,
 } from "./thresholds.js";
-
-const icon = (paths) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
-  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+import { icon } from "./util.js";
 
 // La section Performance (#17.4) se calcule toujours sur la durée MAX : pas de
 // sélecteur de période dans son bandeau (choix produit figé, cf. fiche #17.4).

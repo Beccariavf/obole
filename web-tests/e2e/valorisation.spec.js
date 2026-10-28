@@ -167,19 +167,27 @@ test("section Valorisation : boutons icônes (sans emoji) et graphe étalé (bre
   await expect(actions.locator("[aria-label='Télécharger']")).toBeVisible();
   await expect(actions.locator("[aria-label='Réinitialiser']")).toBeVisible();
 
-  // Breakout : la section Valorisation est plus large que sa colonne (.fiche-main),
-  // sans provoquer de scroll horizontal.
+  // Étalement : la section Valorisation occupe TOUTE la largeur de contenu
+  // disponible (1560 px plafonnés), sans provoquer de scroll horizontal. Le
+  // « breakout » qui la faisait déborder a disparu : le contenu est désormais
+  // déjà étalé, donc une marge de débordement aurait valu 0 partout.
   const dims = await page.evaluate(() => {
-    const sec = document.querySelector(".section-breakout");
+    const sec = document.querySelector(".section-breakout") ||
+      [...document.querySelectorAll(".section")].find((s) => s.getBoundingClientRect().width > 0);
     const main = document.querySelector(".fiche-main");
     return {
       secW: Math.round(sec.getBoundingClientRect().width),
       mainW: Math.round(main.getBoundingClientRect().width),
       scrollW: document.documentElement.scrollWidth,
       winW: window.innerWidth,
+      breakout: !!document.querySelector(".section-breakout"),
     };
   });
-  expect(dims.secW).toBeGreaterThan(dims.mainW);
+  expect(dims.breakout, "le breakout mort ne doit pas subsister").toBe(false);
+  expect(dims.secW).toBe(dims.mainW);
+  // À 1280 px (viewport par défaut de Playwright), le contenu plein écran fait
+  // toute la largeur restante : la coquille ne perd pas de place utile.
+  expect(dims.mainW).toBeGreaterThan(1000);
   expect(dims.scrollW).toBeLessThanOrEqual(dims.winW);
 
   // Le tracé Plotly occupe TOUTE la largeur du conteneur (sinon il retombe sur sa
@@ -195,10 +203,10 @@ test("section Valorisation : boutons icônes (sans emoji) et graphe étalé (bre
   await page.goto("/#RI.PA/quantitatif");
   await expect(page.locator(".header")).toBeVisible();
   const other = await page.evaluate(() => {
-    // Section RÉELLEMENT affichée (x-show masque les autres) : on exclut le
-    // breakout et les sections cachées, sinon on lirait une largeur de 0.
+    // Section RÉELLEMENT affichée (x-show masque les autres) : on ignore les
+    // sections cachées, sinon on lirait une largeur de 0.
     const sec = [...document.querySelectorAll(".section")]
-      .find((s) => !s.classList.contains("section-breakout") && s.getBoundingClientRect().width > 0);
+      .find((s) => s.getBoundingClientRect().width > 0);
     const main = document.querySelector(".fiche-main");
     return {
       secW: Math.round(sec.getBoundingClientRect().width),

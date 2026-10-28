@@ -138,11 +138,23 @@ describe("Dividende — métriques clés", () => {
     expect(titles).toContain("Dernier paiement");
   });
 
-  it("le prochain paiement est toujours « — » (jamais fourni par la source)", () => {
+  it("aucune ligne « prochain paiement » : la source n'en fournit pas", () => {
+    // yfinance Europe ne donne aucun calendrier fiable. Une ligne à tiret
+    // n'informe de rien et consommait un emplacement du bandeau : elle n'est
+    // plus rendue du tout.
     const comp = fiche();
-    const next = comp.dividendKeyMetrics().find((k) => k.title === "Prochain paiement");
-    expect(next).toBeDefined();
-    expect(next.display).toBe("—");
+    const titles = comp.dividendKeyMetrics().map((k) => k.title);
+    expect(titles).not.toContain("Prochain paiement");
+    // Les métriques réellement renseignées restent, elles, toutes présentes.
+    expect(titles).toEqual([
+      "Yield (TTM)",
+      "Payout (TTM)",
+      "Années d'augmentation",
+      "Années sans baisse",
+      "CAGR 5A",
+      "Fréquence",
+      "Dernier paiement",
+    ]);
   });
 
   it("la fréquence vient du serveur (stats.frequency), pas d'un calcul client", () => {
@@ -266,17 +278,19 @@ describe("Dividende — rendements continus", () => {
     expect(comp.defaultWindowYears(3)).toBe(3);
   });
 
-  it("la carte Dividend Yield est la seule en pleine largeur (héro de section)", () => {
+  it("les cartes pleine largeur viennent de la taxonomie, pas d'un type", () => {
     const comp = fiche();
     // Le caractère « wide » vient de la taxonomie (config.DIVIDEND_GROUPS), pas
-    // d'un type : seule la carte marquée `wide` l'est.
+    // d'un type : seules les cartes marquées `wide` le sont.
     expect(comp.isWideCard({ type: "yield", wide: true })).toBe(true);
-    for (const c of [{ type: "yield" }, { type: "divbars" }, { type: "divgrowth" }, { type: "lines" }, { type: "stacked" }, { type: "kpi" }]) {
+    for (const c of [{ type: "yield" }, { type: "divbars" }, { type: "divgrowth" }, { type: "lines" }, { type: "stacked" }]) {
       expect(comp.isWideCard(c)).toBe(false);
     }
-    // La taxonomie config marque bien Dividend Yield (et lui seul) en wide.
+    // La taxonomie config marque le héro de rendement ET le bandeau de métriques :
+    // neuf chiffres tiennent sur un rang en pleine largeur, contre trois rangs en
+    // colonne simple.
     const wideTitles = app.DIVIDEND_GROUPS.flatMap((g) => g.cards).filter((c) => c.wide).map((c) => c.title);
-    expect(wideTitles).toEqual(["Dividend Yield"]);
+    expect(wideTitles).toEqual(["Dividend Yield", "Métriques clés"]);
   });
 
   it("le tracé des rendements utilise la hauteur héro de la section (300) hors zoom", () => {

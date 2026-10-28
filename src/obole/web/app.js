@@ -6,6 +6,7 @@
 import { api } from "./api.js";
 import { applyMeta } from "./thresholds.js";
 import { searchMixin } from "./search.js";
+import { navMixin } from "./nav.js";
 import { screenerMixin } from "./screener.js";
 import { indicesMixin } from "./indices.js";
 import { chartsMixin } from "./charts.js";
@@ -156,6 +157,7 @@ export function obole() {
 
     // Méthodes assemblées depuis les modules ES (un domaine = un module).
     ...searchMixin,
+    ...navMixin,
     ...screenerMixin,
     ...indicesMixin,
     ...chartsMixin,
