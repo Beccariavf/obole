@@ -8,12 +8,14 @@ test("section Dividende : métriques clés et rendement continu tracé", async (
   await page.goto("/#RI.PA/dividende");
   await expect(page.locator(".header")).toBeVisible();
 
-  // Métriques clés (bandeau de chiffres) : yield et prochain paiement « — ».
+  // Métriques clés (bandeau de chiffres) : les valeurs renseignées sont là, et
+  // la ligne « Prochain paiement » — toujours vide avec yfinance Europe — a
+  // disparu (elle consommait un emplacement pour un tiret).
   const kpi = page.locator(".cagr-row").first();
   await expect(kpi).toBeVisible();
   await expect(kpi).toContainText("Yield (TTM)");
-  await expect(kpi).toContainText("Prochain paiement");
-  await expect(kpi).toContainText("—");
+  await expect(kpi).toContainText("Fréquence");
+  await expect(kpi).not.toContainText("Prochain paiement");
 
   // Rendement continu : la carte « Dividend Yield » trace une courbe Plotly.
   const yieldCard = page.locator(".card.mini", { hasText: "Dividend Yield" }).first();
