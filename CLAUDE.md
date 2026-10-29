@@ -118,8 +118,21 @@ REST dans `api.md` ; le pipeline de données dans `data.md`.
 puis Paramètres en pied. Les **onglets horizontaux** (`.section-tabs`, alimentés par
 `sections.js::SECTIONS`) portent les *sections de la fiche* : Résumé, Quantitatif,
 Dividende, Finance, Thèse & Société, Valorisation. Ne jamais mélanger les deux : une entrée
-d'espace n'est pas une section (elle ouvre une modale plein écran, inchangée), et une
+d'espace n'est pas une section (elle bascule sur une **vue sœur** dans `.app-main`), et une
 section ne sort pas de la fiche. Le clic sur un onglet écrit toujours `#<ticker>/<section>`.
+**Un espace est une PAGE, pas une couche** : `.app-view.view-<espace>` avec `x-show`, donc
+le rail reste visible **et cliquable** d'un espace à l'autre ; aucun hash d'URL, **aucune
+croix** (on sort par le rail, Échap ou la marque), **un seul espace affiché à la fois**
+(`openSpaceEntry` referme les autres) et un redraw de la fiche au retour (masquée, elle
+donnait une largeur nulle à Plotly). Les **couches secondaires restent des overlays** (zoom
+de graphe, export, événements, import CSV, conviction, détails du portefeuille). Une vue
+**n'impose ni hauteur ni défilement interne** (plus de `96vh`) : c'est le document qui
+défile, et un seul élément collant s'accroche à `--head-top` (`.pf-context`, en-tête du
+tableau du screener — corollaire : `.screen-table-wrap` ne crée aucun conteneur de
+défilement, sinon le `sticky` ne colle à rien, et le rail porte `left: 0` pour survivre au
+défilement horizontal que ce choix autorise). Une vue neuve repart du **haut de page**, et
+re-cliquer l'entrée déjà active ne réinitialise rien (le rail est la navigation permanente :
+c'est un clic réflexe qui coûtait l'état de travail).
 Le rail est étiqueté (176 px) à partir de 1280 px, en icônes seules (68 px) jusqu'à 900 px,
 en bandeau horizontal en dessous ; le contenu est fluide et plafonné à 1560 px. **Le rang
 de recherche est collant** (`--head-top`), avec les onglets collés dessous : deux rangs
