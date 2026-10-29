@@ -1,6 +1,6 @@
 ---
 objective: "L'onglet Momentum dit « satisfaite » et « frustrée », offre le chip Réf. sur l'historique, et affiche sous lui une table qui compare buy & hold à la stratégie sur la fenêtre visible."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Fiabilité de la Clara Vallis
