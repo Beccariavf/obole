@@ -1,6 +1,6 @@
 # #32 — Fiabilité, seconde lecture : in contre out
 
-> **Statut :** à faire · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
+> **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/momentum-in-out` · **Taille :** ~1 session
 
 > **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
@@ -123,4 +123,30 @@ le signal est bon — sans badge automatique.
 
 ## 8. Note de reprise
 
-_(vide — chantier non commencé)_
+**Livré.** La colonne « Clara Vallis » de la table de fiabilité a laissé la place aux deux
+paniers `in` et `out`, avec le buy & hold en repère.
+
+- **Moteur :** `engine/momentum_backtest.py` classe chaque séance de rendement dans le panier
+  de la position décidée la veille (aucune fuite), compose deux courbes conditionnelles qui
+  partent de 1 et ne contiennent que leurs séances, et mesure chacune avec les mêmes sept
+  mesures. Le CAGR est annualisé sur les **séances du panier** (`n/252`), le buy & hold suit
+  la même règle ; `trades` et `strategy_cagr_pct` sortent au premier niveau. `equity`,
+  `strategy_equity` et `positions` restent internes (tests de frais, d'hystérésis et de
+  décalage).
+- **Service et route :** contrat exact `{buy_hold, in, out, window, trades,
+  strategy_cagr_pct}` — plus de bloc `strategy`, plus d'`equity` ni de `positions` dans le
+  transport. Paramètres et codes d'erreur inchangés ; un panier vide renvoie des mesures
+  nulles et une part de 0 %.
+- **Interface :** trois colonnes de valeurs et sept lignes (dont la « Part des séances », qui
+  somme à 100 % entre in et out), pied `N trades · stratégie X %/an`, légende qui dit que le
+  drawdown des paniers est conditionnel. La polarité de `out` est **inversée** (positif =
+  rouge), `in` et buy & hold gardent la polarité standard, les trois mesures non signées
+  restent neutres. `caption` et `scope="col"` à jour.
+- **Preuve :** tests purs du moteur (partition, composition, panier vide, décalage, CAGR sur
+  les séances), tests API (six clés exactes, zéro fuite de `strategy`/`equity`/`positions`),
+  vitest (sept lignes × trois cellules, polarité inversée, panier vide, pied) et smoke
+  Playwright Chromium + WebKit (trois colonnes, pied, classes `good`/`bad`, défilement à
+  640 px).
+- **Reste hors périmètre :** pas de badge de verdict, pas de courbes in/out dessinées, pas de
+  changement de la règle d'hystérésis, des frais ni du décalage, pas de portage au screener,
+  à la watchlist ni au MCP.

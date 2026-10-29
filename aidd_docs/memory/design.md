@@ -72,11 +72,18 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   par régime, jamais un par séance) : une ligne bicolore se lirait mal sur vingt ans. Sa
   plage est propre (`momStart`/`momEnd`) et ne touche pas celle du héro ; un chip « Réf. »
   précède 1A mais le défaut reste 10 ans.
-  Sous l'historique, la carte **« Fiabilité de l'indicateur »** est un tableau à trois
-  colonnes (mesure, buy & hold, Clara Vallis) : nombres alignés à droite, `—` (avec
-  infobulle) pour une mesure non calculable, légende qui dit la **série** (brute/ajustée),
-  la **durée** et les **frais par ordre**. Sous 640 px, le tableau défile dans la carte et
-  la légende passe sur deux lignes.
+  Sous l'historique, la carte **« Fiabilité de l'indicateur »** est un tableau à **trois
+  colonnes de valeurs** — `Buy & hold`, `in`, `out` — et **sept lignes** : CAGR, volatilité,
+  Sharpe, Sortino, max drawdown, Calmar, part des séances. Nombres alignés à droite, `—`
+  (avec infobulle) pour une mesure non calculable, légende d'en-tête qui dit la **série**
+  (brute/ajustée), la **durée** et les **frais par ordre**, puis un **pied** `N trades ·
+  stratégie X %/an` et la phrase qui rappelle que le drawdown des paniers est
+  **conditionnel**. **Polarité** : bleu = bien, rouge = mal, mais la colonne `out` l'**inverse
+  localement** (un CAGR ou un Sharpe positif dehors est rouge : gagner quand on n'est pas
+  investi est un mauvais signe) ; volatilité, max drawdown et part des séances restent
+  neutres. Le CSS ne décide d'aucune couleur sémantique : il ne fait que rendre la classe
+  `good`/`bad` posée par le JS. Sous 640 px, le tableau défile dans la carte, le pied et la
+  légende passent sur deux lignes.
 
 ## Navigation (coquille)
 
