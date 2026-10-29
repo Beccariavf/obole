@@ -362,7 +362,7 @@ Une jauge dit l'état de la foule, pas si l'indicateur **marche** sur cet actif.
 
 **Règle** : investi quand le score **dépasse** `HIGH` (0,60), hors marché quand il **passe sous** `LOW` (0,35), état conservé entre les deux (hystérésis), départ hors marché. Le score de la séance `t` ne décide que la position de `t+1` : le rendement de `t+1` est `P[t+1]/P[t] − 1`, aucun regard sur le futur.
 
-**Frais** : `MOMENTUM_FEE_PCT = 0,1 %` **par ordre** (entrée et sortie, donc 0,2 % l'aller-retour) ; taux sans risque `MOMENTUM_RISK_FREE_PCT = 0` (`config.py`, exposés par `/api/meta`).
+**Frais** : `MOMENTUM_FEE_PCT = 0,1 %` **par ordre** (entrée et sortie, donc 0,2 % l'aller-retour) — exposé par `/api/meta` pour la légende ; taux sans risque `MOMENTUM_RISK_FREE_PCT = 0`, lu par le service dans `config.py` (non exposé, rien ne l'affiche).
 
 **Mesures** (pour chaque colonne) : CAGR géométrique sur la durée calendaire, volatilité annualisée des rendements quotidiens, Sharpe, Sortino, max drawdown, Calmar = CAGR / |max drawdown|, temps investi, nombre de trades. Sharpe, Sortino et drawdown sont ceux de `engine/portfolio.py` — une seule implémentation.
 

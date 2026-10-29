@@ -820,13 +820,14 @@
           <div class="card mom-backtest-card">
             <div class="mom-backtest-head">
               <h3>Fiabilité de l'indicateur</h3>
-              <span class="mom-backtest-legend" x-show="momBacktestRows().length"
+              <span class="mom-backtest-legend"
+                    x-show="momBacktestRows().length && !momBacktestLoading"
                     x-text="momBacktestLegend()"></span>
             </div>
             <p class="na" x-show="momBacktestLoading" aria-live="polite">Calcul du backtest…</p>
             <p class="na mom-backtest-error" x-show="!momBacktestLoading && momBacktestError"
                x-text="momBacktestError"></p>
-            <div class="mom-table-wrap" x-show="momBacktestRows().length">
+            <div class="mom-table-wrap" x-show="momBacktestRows().length && !momBacktestLoading">
               <table class="mom-table mom-backtest-table">
                 <caption class="sr-only">
                   Comparaison de buy &amp; hold et de la stratégie Clara Vallis sur la fenêtre affichée.

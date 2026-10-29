@@ -56,7 +56,8 @@ class TestStockBacktest:
         assert resp.status_code == 200
         data = resp.json()
         for column in ("buy_hold", "strategy"):
-            assert MEASURES <= set(data[column])
+            assert set(data[column]) == MEASURES  # ni equity ni positions
+        assert set(data) == {"buy_hold", "strategy", "window"}
         assert data["window"]["sessions"] == 800
         assert data["window"]["start"] == prices.raw.index[0].strftime("%Y-%m-%d")
         assert data["window"]["end"] == prices.raw.index[-1].strftime("%Y-%m-%d")

@@ -100,6 +100,36 @@ def _full_series(kind: str, ref: str | int, series: str) -> pd.Series:
     return clean
 
 
+_MEASURES = (
+    "cagr_pct",
+    "volatility_pct",
+    "sharpe",
+    "sortino",
+    "max_drawdown_pct",
+    "calmar",
+    "invested_pct",
+    "trades",
+)
+
+
+def _measures(block: dict) -> dict:
+    """Contrat public d'une colonne : les huit mesures, rien de plus.
+
+    Le moteur garde `equity` et `positions` pour ses tests (frais, hystérésis,
+    absence de fuite) ; la route ne les sérialise jamais (~300 Ko sur MAX).
+    """
+    return {key: block[key] for key in _MEASURES}
+
+
+def _public_result(result: dict) -> dict:
+    """Réduit le résultat du moteur au contrat `{buy_hold, strategy, window}`."""
+    return {
+        "buy_hold": _measures(result["buy_hold"]),
+        "strategy": _measures(result["strategy"]),
+        "window": result["window"],
+    }
+
+
 def momentum_backtest(
     kind: str,
     ref: str | int,
@@ -134,7 +164,7 @@ def momentum_backtest(
     # Coût à froid mesuré à ~35 ms sur 30 ans (satisfaction + backtest), donc
     # sous le seuil de 100 ms du plan : pas de cache de la série pleine.
     scores = cv.satisfaction_series(full, config.MOMENTUM_WINDOW)
-    return backtest_engine.backtest(
+    result = backtest_engine.backtest(
         window,
         scores.reindex(window.index),
         config.MOMENTUM_SATISFACTION_LOW,
@@ -142,3 +172,4 @@ def momentum_backtest(
         config.MOMENTUM_FEE_PCT,
         config.MOMENTUM_RISK_FREE_PCT,
     )
+    return _public_result(result)

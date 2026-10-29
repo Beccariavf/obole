@@ -205,8 +205,9 @@ def post_index_refresh(index_id: int) -> dict:
 def _validate_backtest_window(start: str, end: str, series: str) -> None:
     """Valide la fenêtre et la série d'un backtest. 422 sinon.
 
-    Les dates ISO sont validées ICI (pas par le service) : une query hostile ne
-    doit pas atteindre `pandas`. `series` est restreint à `raw|adj`.
+    Première barrière avant `pandas` (query hostile). Le service revalide de son
+    côté : il est appelable seul (MCP, tests, script), et sa validation est le
+    vrai contrat métier ; celle-ci n'est que la traduction HTTP anticipée.
     """
     try:
         start_day = date.fromisoformat(start)
@@ -768,9 +769,9 @@ def get_meta() -> dict:
             "high": config.MOMENTUM_SATISFACTION_HIGH,
             "table_windows": list(config.MOMENTUM_TABLE_WINDOWS),
             # Backtest de fiabilité (#31) : la légende affiche les frais PAR
-            # ORDRE et le taux sans risque, sans les recopier côté JS.
+            # ORDRE, sans les recopier côté JS. Le taux sans risque n'est pas
+            # exposé : le service le lit dans `config.py`, personne ne l'affiche.
             "fee_pct": config.MOMENTUM_FEE_PCT,
-            "risk_free_pct": config.MOMENTUM_RISK_FREE_PCT,
         },
         "quant_groups": config.QUANT_GROUPS,
         "dividend_groups": config.DIVIDEND_GROUPS,

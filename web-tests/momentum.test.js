@@ -18,7 +18,6 @@ beforeAll(() => {
       high: 0.6,
       table_windows: [1, 5, 10, 20, 0],
       fee_pct: 0.1,
-      risk_free_pct: 0,
     },
   });
 });
@@ -322,6 +321,17 @@ describe("fiabilité de l'indicateur", () => {
     expect(comp.momBacktestLegend()).toContain("ajustée, dividendes réinvestis");
   });
 
+  it("la légende d'un indice dit total-return, jamais « brut »", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.data.kind_payload = "basket";
+    comp.data.identity = { index_id: 7 };
+    comp.momBacktest = backtestPayload();
+    expect(comp.momSeries).toBe("raw"); // le radio ajusté est désactivé
+    const legend = comp.momBacktestLegend();
+    expect(legend).toContain("indice total-return, dividendes réinvestis");
+    expect(legend).not.toContain("non comptés");
+  });
+
   it("le chargement est visible tant que la requête court", async () => {
     const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
     let resolve;
@@ -339,14 +349,35 @@ describe("fiabilité de l'indicateur", () => {
     spy.mockRestore();
   });
 
+  it("changer de fiche vide les chiffres du ticker précédent", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolve;
+    const pending = new Promise((r) => {
+      resolve = r;
+    });
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockResolvedValueOnce(backtestPayload())
+      .mockReturnValueOnce(pending);
+    await comp.loadMomentumBacktest(); // RI.PA
+    expect(comp.momBacktest).not.toBeNull();
+    comp.data.identity = { ticker: "AI.PA" }; // autre référence
+    const p = comp.loadMomentumBacktest();
+    expect(comp.momBacktest).toBeNull(); // pas de chiffres d'un autre ticker
+    expect(comp.momBacktestLoading).toBe(true);
+    resolve(backtestPayload());
+    await p;
+    expect(comp.momBacktest).not.toBeNull();
+    spy.mockRestore();
+  });
+
   it("une erreur est visible et laisse le tableau vide", async () => {
     const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
     const spy = vi.spyOn(api, "momentumBacktest").mockRejectedValue(new Error("panne réseau"));
     await comp.loadMomentumBacktest();
     expect(comp.momBacktestError).toBe("panne réseau");
     expect(comp.momBacktest).toBeNull();
-    expect(comp.momBacktestLoading).toBe(false);
-    expect(comp.momBacktestRows()).toEqual([]);
+    expect(comp.momBacktestLoading).toBe(false);    expect(comp.momBacktestRows()).toEqual([]);
     spy.mockRestore();
   });
 

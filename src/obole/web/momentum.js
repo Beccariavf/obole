@@ -32,6 +32,7 @@ export const momentumMixin = {
   momBacktestError: "",
   _momBacktestToken: 0, // jeton : une réponse tardive ne remplace pas la récente
   _momBacktestKeyLoaded: "",
+  _momBacktestRefKey: "", // référence dont les chiffres sont affichés
 
   momData() {
     return this.data?.chart?.momentum || null;
@@ -201,6 +202,15 @@ export const momentumMixin = {
     const ref = this._momBacktestRef();
     const key = this._momBacktestKey();
     if (!ref || !key) return;
+    // Changer de fiche ne doit pas laisser les chiffres du ticker précédent
+    // sous les yeux pendant la requête : on vide l'état AVANT de demander.
+    const refKey = `${ref.kind}:${ref.ref}`;
+    if (refKey !== this._momBacktestRefKey) {
+      this._momBacktestRefKey = refKey;
+      this.momBacktest = null;
+      this.momBacktestError = "";
+      this._momBacktestKeyLoaded = "";
+    }
     if (key === this._momBacktestKeyLoaded && (this.momBacktest || this.momBacktestLoading)) {
       return; // même fenêtre, même série : rien de neuf à demander
     }
@@ -292,11 +302,11 @@ export const momentumMixin = {
       sortino: "Aucune baisse sur la fenêtre : le Sortino n'est pas calculable.",
       calmar: "Pas de baisse mesurable : le Calmar n'est pas calculable.",
     };
-    const nulls = { sharpe: "sharpe", sortino: "sortino", calmar: "calmar" };
-    for (const row of rows) {
-      const source = nulls[row.key];
-      if (source && (bh[source] == null || st[source] == null)) row.hint = hints[source];
-    }    return rows;
+    const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
+    for (const [key, hint] of Object.entries(hints)) {
+      if (bh[key] == null || st[key] == null) byKey[key].hint = hint;
+    }
+    return rows;
   },
 
   // Durée de la fenêtre tranchée par le serveur, en années ou en mois.
@@ -312,12 +322,19 @@ export const momentumMixin = {
     return Math.max(1, Math.round(days / 30.44)) + " mois";
   },
 
-  // La légende dit la série ET son sens : en brut, les dividendes ne sont pas
-  // comptés ; la lecture ajustée reste à un clic.
+  // La légende dit la série ET son sens. Un indice est chaîné en total-return
+  // (services/serialize.py) : sa série « brute » inclut déjà les dividendes.
+  // Pour une action, le brut ne les compte pas ; l'ajusté reste à un clic.
   momBacktestLegend() {
     if (!this.momBacktest) return "";
-    const brut = this.momSeries !== "adj";
-    const series = brut ? "brute, dividendes non comptés" : "ajustée, dividendes réinvestis";
+    let series;
+    if (this.data?.kind_payload === "basket") {
+      series = "indice total-return, dividendes réinvestis";
+    } else if (this.momSeries === "adj") {
+      series = "ajustée, dividendes réinvestis";
+    } else {
+      series = "brute, dividendes non comptés";
+    }
     const span = this.momBacktestSpan();
     const fee = MOMENTUM.fee_pct;
     const fees = fee == null ? "" : ` · frais ${this._momNum(fee)} % par ordre`;
