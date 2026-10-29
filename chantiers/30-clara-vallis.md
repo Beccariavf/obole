@@ -128,20 +128,20 @@ d'un piège.
 
 ## 5. Critères d'acceptation
 
-- [ ] L'onglet « Momentum » apparaît après « Valorisation » sur une action et sur un indice, et
+- [x] L'onglet « Momentum » apparaît après « Valorisation » sur une action et sur un indice, et
       **pas** sur un ratio.
-- [ ] Le score de satisfaction d'une fiche connue est reproductible : même série, même fenêtre,
+- [x] Le score de satisfaction d'une fiche connue est reproductible : même série, même fenêtre,
       même valeur (test unitaire sur une série synthétique).
-- [ ] Le walk-forward ne regarde jamais une séance postérieure à la date évaluée (test unitaire :
+- [x] Le walk-forward ne regarde jamais une séance postérieure à la date évaluée (test unitaire :
       ajouter une séance future ne change aucune valeur passée).
-- [ ] La table affiche les six colonnes, sur la fenêtre de référence par défaut.
-- [ ] La jauge, la courbe 12 mois et l'historique coloré se dessinent sur la fiche Pernod, sans
+- [x] La table affiche les six colonnes, sur la fenêtre de référence par défaut.
+- [x] La jauge, la courbe 12 mois et l'historique coloré se dessinent sur la fiche Pernod, sans
       erreur console.
-- [ ] Le toggle brut/ajusté change visiblement les trois blocs et la table.
-- [ ] Les chips 1A/5A/10A/Max et la double poignée bornent l'historique au bon intervalle.
-- [ ] `/api/meta` expose les seuils `MOMENTUM_*` et le front les lit (test de parité vert).
-- [ ] `pytest -m "not network"` et `cd web-tests && npm test` verts.
-- [ ] La calibration Pernod (`z = -3.81`, ±0.15) reste verte.
+- [x] Le toggle brut/ajusté change visiblement les trois blocs et la table.
+- [x] Les chips 1A/5A/10A/Max et la double poignée bornent l'historique au bon intervalle.
+- [x] `/api/meta` expose les seuils `MOMENTUM_*` et le front les lit (test de parité vert).
+- [x] `pytest -m "not network"` et `cd web-tests && npm test` verts.
+- [x] La calibration Pernod (`z = -3.81`, ±0.15) reste verte.
 
 ---
 
