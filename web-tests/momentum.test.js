@@ -377,7 +377,8 @@ describe("fiabilité de l'indicateur", () => {
     await comp.loadMomentumBacktest();
     expect(comp.momBacktestError).toBe("panne réseau");
     expect(comp.momBacktest).toBeNull();
-    expect(comp.momBacktestLoading).toBe(false);    expect(comp.momBacktestRows()).toEqual([]);
+    expect(comp.momBacktestLoading).toBe(false);
+    expect(comp.momBacktestRows()).toEqual([]);
     spy.mockRestore();
   });
 
