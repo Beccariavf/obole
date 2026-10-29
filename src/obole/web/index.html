@@ -729,9 +729,9 @@
               </template>
             </div>
             <div class="mom-series">
-              <label><input type="radio" value="raw" x-model="momSeries" /> brut</label>
+              <label><input type="radio" value="raw" x-model="momSeries" @change="$nextTick(() => drawMomentum())" /> brut</label>
               <label :class="{ disabled: !momHasAdj() }">
-                <input type="radio" value="adj" x-model="momSeries" :disabled="!momHasAdj()" /> ajusté
+                <input type="radio" value="adj" x-model="momSeries" :disabled="!momHasAdj()" @change="$nextTick(() => drawMomentum())" /> ajusté
               </label>
             </div>
           </div>
@@ -754,6 +754,63 @@
           </table>
           </div>
           <p class="na" x-show="!momRows().length">Pas assez de données pour calculer la table.</p>
+        </div>
+
+        <div class="mom-group-head">
+          <h2>Invalidation ? : La Clara Vallis</h2>
+        </div>
+        <div class="mom-blocks">
+          <div class="card mom-gauge-card">
+            <div class="mom-gauge-head">
+              <span class="mom-gauge-title">Satisfaction de la foule</span>
+              <span class="mom-gauge-value" x-text="momScore() == null ? '—' : fmt(momScore())"></span>
+            </div>
+            <div class="gauge mom-gauge" role="meter"
+                 :aria-valuenow="momScore() == null ? 0 : momScore()"
+                 aria-valuemin="0" aria-valuemax="1"
+                 :aria-label="'Satisfaction de la foule : ' + (momScore() == null ? 'inconnue' : fmt(momScore()))">
+              <div class="gauge-track">
+                <span class="mom-zone mom-zone-good" :style="'width:' + momZones().good + '%'"></span>
+                <span class="mom-zone mom-zone-neutral" :style="'width:' + momZones().neutral + '%'"></span>
+                <span class="mom-zone mom-zone-bad" :style="'width:' + momZones().bad + '%'"></span>
+                <span class="gauge-needle" :style="'left:' + momGaugePos() + '%'"></span>
+              </div>
+              <div class="gauge-scale"><span>gaz · satisfaite</span><span>liquide · frustrée</span></div>
+            </div>
+          </div>
+
+          <div class="card mom-year-card">
+            <h3>Un an d'évolution du score</h3>
+            <div class="mini-chart" id="mom-year"></div>
+            <p class="na" x-show="!momData()?.year?.dates?.length">Pas encore un an d'historique.</p>
+          </div>
+
+          <div class="card mom-history-card">
+            <h3>Historique du régime</h3>
+            <div class="mom-toolbar">
+              <div class="period-presets">
+                <button type="button" class="period-chip" @click="momPreset(1)">1A</button>
+                <button type="button" class="period-chip" @click="momPreset(5)">5A</button>
+                <button type="button" class="period-chip" @click="momPreset(10)">10A</button>
+                <button type="button" class="period-chip" @click="momPreset('max')">MAX</button>
+              </div>
+              <div class="mom-series">
+                <label><input type="checkbox" x-model="momLog" @change="$nextTick(() => drawMomentumHistory())" /> Échelle log</label>
+                <label><input type="checkbox" x-model="momShowReg" @change="$nextTick(() => drawMomentumHistory())" /> Droite</label>
+              </div>
+            </div>
+            <div class="mini-chart" id="mom-history"></div>
+            <div class="period period-detail">
+              <div class="dual-slider">
+                <div class="ds-track"></div>
+                <div class="ds-fill" :style="`left:${momPctStart()}%; right:${100 - momPctEnd()}%`"></div>
+                <input type="range" class="ds-input ds-min" min="0" :max="momMaxIdx()" x-model.number="momStart"
+                       @input="momClamp()" @change="drawMomentumHistory()" />
+                <input type="range" class="ds-input ds-max" min="0" :max="momMaxIdx()" x-model.number="momEnd"
+                       @input="momClamp()" @change="drawMomentumHistory()" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

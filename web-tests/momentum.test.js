@@ -1,8 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { applyMeta } from "../src/obole/web/thresholds.js";
 import { momentumMixin } from "../src/obole/web/momentum.js";
 
 // #30 : la table « monde de Markovitz » mesure le COURS (σ autour de la droite,
 // z, pente), pas le score de satisfaction — deux séries distinctes du payload.
+
+beforeAll(() => {
+  // Bornes calibrées, comme le payload /api/meta : sans elles, tout score
+  // tomberait au-dessus de 0 et le test ne dirait rien.
+  applyMeta({
+    reg_years_default: 20,
+    reg_years_financial: 30,
+    momentum: { window: 250, low: 0.35, high: 0.6, table_windows: [1, 5, 10, 20, 0] },
+  });
+});
 
 const DAY = 864e5;
 
@@ -93,6 +104,35 @@ describe("table monde de Markovitz", () => {
       "confidence",
     ]);
     for (const row of rows) expect(typeof row.value).toBe("string");
+  });
+
+  it("l'aiguille est à gauche pour une foule satisfaite", () => {
+    const prices = Array.from({ length: 300 }, (_, i) => 100 + i);
+    const comp = component(prices);
+    comp.data.chart.momentum.score_raw = 1.0;
+    expect(comp.momGaugePos()).toBe(0);
+    comp.data.chart.momentum.score_raw = 0.0;
+    expect(comp.momGaugePos()).toBe(100);
+    comp.data.chart.momentum.score_raw = null;
+    expect(comp.momGaugePos()).toBe(50);
+  });
+
+  it("les intervalles fusionnent les états contigus", () => {
+    const prices = Array.from({ length: 8 }, (_, i) => 100 + i);
+    const comp = component(prices);
+    // bas, bas, bas, neutre, neutre, haut, haut, bas
+    comp.data.chart.momentum.raw = [0.1, 0.1, 0.1, 0.5, 0.5, 0.8, 0.8, 0.1];
+    const runs = comp.momRuns();
+    expect(runs.map((r) => r.state)).toEqual(["bas", "neutre", "haut", "bas"]);
+    expect(runs[0]).toMatchObject({ start: 0, end: 2 });
+    expect(runs[3]).toMatchObject({ start: 7, end: 7 });
+  });
+
+  it("une série entièrement neutre donne un seul intervalle", () => {
+    const prices = Array.from({ length: 8 }, (_, i) => 100 + i);
+    const comp = component(prices);
+    comp.data.chart.momentum.raw = new Array(8).fill(0.5);
+    expect(comp.momRuns()).toHaveLength(1);
   });
 
   it("la bascule ajusté lit la série de cours ajustée", () => {
