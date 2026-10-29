@@ -256,7 +256,9 @@ test("screener : filtre manuel Capi -> requête émise avec les bornes convertie
   const capiMin = modal.locator(".screen-filter-col", { hasText: "Capi" }).locator("input").first();
   await capiMin.fill("5");
 
-  await modal.getByRole("button", { name: "Rechercher" }).click();
+  // Deux points d'entrée au scan sont assumés (en-tête + pied du panneau) :
+  // on vise celui de l'en-tête, le premier du document.
+  await modal.getByRole("button", { name: "Rechercher" }).first().click();
 
   // Le tableau se remplit (le scan est bien parti) et le body porte le filtre.
   await expect(modal.locator(".screen-table")).toBeVisible();
