@@ -47,6 +47,13 @@ export const SECTIONS = [
     label: "Valorisation",
     svg: icon('<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>'),
   },
+  {
+    id: "momentum",
+    label: "Momentum",
+    // Jauge : le régime de foule, entre le monde de Markovitz et celui de
+    // Mandelbrot (Clara Vallis, #30).
+    svg: icon('<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4.5-4.5"/><circle cx="12" cy="17" r="1.4"/>'),
+  },
 ];
 
 export const DEFAULT_SECTION = "resume";
@@ -137,6 +144,8 @@ export const sectionsMixin = {
   // — CAGR, KPI dividende — n'en ont pas). Source unique : `NON_CHART_TYPES`
   // est importée de `charts.js` (même règle que `isChartCard`, pas de dérive).
   expectedMiniIds() {
+    // Momentum : deux tracés dédiés (un an + historique), hors taxonomie.
+    if (this.activeSection === "momentum") return ["mom-year", "mom-history"];
     // La section Valorisation rend ses cartes par un template DÉDIÉ (calculatrice
     // + courbes) : `sectionGroups()` ne les expose pas. On lit donc directement
     // `valuationGroups()` pour que `scheduleRedraw` attende les bons conteneurs.
@@ -199,6 +208,14 @@ export const sectionsMixin = {
       this.drawMinis();
     } catch (e) {
       console.error("drawMinis error:", e);
+    }
+    // Momentum : deux tracés dédiés, hors du routage générique des cartes.
+    if (this.activeSection === "momentum" && typeof this.drawMomentum === "function") {
+      try {
+        this.drawMomentum();
+      } catch (e) {
+        console.error("drawMomentum error:", e);
+      }
     }
   },
 

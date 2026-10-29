@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
 from obole import config
@@ -27,6 +26,8 @@ from obole.models import (
     StockAnalysis,
     SummaryCard,
 )
+from obole.services.momentum import momentum_payload
+from obole.services.values import to_values as _vals
 
 if TYPE_CHECKING:
     from obole.models import WatchlistRun
@@ -142,13 +143,6 @@ def _downsample(series: pd.Series, max_points: int = 1200) -> pd.Series:
     if len(out) and out.index[-1] != series.index[-1]:
         out = pd.concat([out, series.iloc[[-1]]])
     return out
-
-
-def _vals(s: pd.Series) -> list:
-    return [
-        None if (v is None or (isinstance(v, float) and np.isnan(v))) else round(float(v), 4)
-        for v in s.to_numpy()
-    ]
 
 
 def chart_payload(prices: PriceSeries, fundamentals=None) -> dict:
@@ -383,6 +377,11 @@ def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: b
     }
     if include_chart:
         out["chart"] = basket_chart_payload(series)
+        # Un indice synthétique est déjà en total-return : `raw == adj`, pas de
+        # bascule possible côté front.
+        out["chart"]["momentum"] = momentum_payload(
+            f"INDEX:{analysis.index_id}", series, None, _downsample(series).index
+        )
     return out
 
 
@@ -879,4 +878,12 @@ def analysis_to_dict(
     }
     if include_chart:
         out["chart"] = chart_payload(prices, analysis.fundamentals)
+        # Momentum (Clara Vallis) : séries alignées sur la grille du graphe.
+        # La grille est recalculée depuis les prix, jamais lue du dict `chart` :
+        # le tracé et le momentum partagent la même décimation déterministe.
+        # Absent quand `include_chart=False` (MCP, prompt de thèse) : rien à
+        # tracer, donc rien à calculer.
+        out["chart"]["momentum"] = momentum_payload(
+            ident.ticker, prices.raw, prices.adjusted, _downsample(prices.raw).index
+        )
     return out

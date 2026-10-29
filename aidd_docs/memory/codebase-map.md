@@ -46,7 +46,8 @@ mixins), `nav.js` (coquille : registre des espaces, rail, entrée active, exclus
 vues d'espace, retour à l'accueil), `search.js`, `screener.js`, `indices.js`, `charts.js`,
 `cursor.js`, `exportcsv.js`,
 `events.js`, `settings.js`, `sections.js` (registre des sections et onglets), `summary.js`,
-`portfolio.js`, `portfolio-dividends.js`, `dividend.js`, `valorisation.js`, `thesis.js`,
+`portfolio.js`, `portfolio-dividends.js`, `dividend.js`, `valorisation.js`,
+`momentum.js` (onglet Momentum, table et jauge Clara Vallis), `thesis.js`,
 `suivi.js`, `watchlist.js`, `watchlist-dials.js`, `conviction.js`, `conviction-mixin.js`,
 `markdown.js`.
 Utilitaires : `api.js` (centralise tous les `fetch`), `thresholds.js`

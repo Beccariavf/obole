@@ -20,6 +20,7 @@ import { portfolioMixin } from "./portfolio.js";
 import { portfolioDividendsMixin } from "./portfolio-dividends.js";
 import { dividendMixin } from "./dividend.js";
 import { valorisationMixin } from "./valorisation.js";
+import { momentumMixin } from "./momentum.js";
 import { thesisMixin } from "./thesis.js";
 import { checkpointsMixin } from "./suivi.js";
 import { watchlistMixin } from "./watchlist.js";
@@ -171,6 +172,7 @@ export function obole() {
     ...portfolioDividendsMixin,
     ...dividendMixin,
     ...valorisationMixin,
+    ...momentumMixin,
     ...thesisMixin,
     ...checkpointsMixin,
     ...watchlistMixin,

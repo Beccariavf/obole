@@ -328,6 +328,35 @@ Visuel non extractible des PDF. Vraisemblablement dérivé du potentiel 5/10 ans
 ### 5.10 Cohérence pente ↔ fondamentaux (thèse de référence)
 Indicateur de **cohérence** : comparer `b` (pente boursière annualisée) à la croissance des bénéfices et au ROE. Affiché comme un check visuel (« le cours suit-il les bénéfices ? »).
 
+### 5.11 La Clara Vallis — régime de foule (momentum) ✅ calibré
+L'onglet « Momentum » lit l'état de la foule qui porte le cours, d'après la « stratégie du maçon » de Didier Darcet (*Psychologie des marchés*, Grand Angle). Indépendant de la valorisation : il ne dit pas combien vaut l'entreprise, mais si la foule est satisfaite ou frustrée.
+
+**Score de satisfaction** (250 entrées glissantes) :
+- Pour chaque séance `i` des 250 dernières, un « maçon » entre au cours `P_i`. Son creux et son sommet sont pris sur `[i, t]` ; sa bulle vaut `(P_t − min_i) / (max_i − min_i)`, ou `0,5` si `max_i = min_i` (l'entrée du jour n'a aucun parcours).
+- Le score est la moyenne des 250 bulles, dans `[0, 1]` : près de 1, la foule est satisfaite (le cours est près des plus hauts) ; près de 0, elle est frustrée.
+- Le walk-forward ne lit jamais une séance postérieure à `t` : à chaque date, la fenêtre est fermée à droite sur `t`.
+
+**Bornes** : `MOMENTUM_SATISFACTION_LOW = 0,35` et `HIGH = 0,60` (`config.py`), calibrées sur une série CAC 40 figée (2000 → 2023, `tests/fixtures/cac40_daily.csv`) :
+
+| Fenêtre | Moyenne | Verdict |
+|---|---:|---|
+| 2008-09 → 2009-03 | 0,174 | crise |
+| 2011-07 → 2011-10 | 0,239 | crise |
+| 2020-02 → 2020-04 | 0,255 | crise |
+| 2002-06 → 2002-10 | 0,174 | crise |
+| 2017 | 0,762 | calme |
+| 2021 | 0,859 | calme |
+| 2023 | 0,704 | calme |
+| 2015-06 → 2015-09 | 0,515 | neutre |
+
+Marge minimale : 0,095 côté crise, 0,104 côté calme. Le test est pur (hors ligne), verrouillé par `tests/test_clara_vallis_calibration.py`.
+
+**Table « monde de Markovitz »** : σ de la bande `(e^sigma − 1) × 100`, z, pente `(e^b − 1) × 100`, MM court/long et confiance `1 − R²`, sur la fenêtre de référence (date persistée, sinon 20 ans, 30 pour les financières). Recalculée côté client, comme le graphe héro.
+
+**Jauge** : aiguille à `(1 − score) × 100` ; gauche = gaz (foule satisfaite), droite = liquide (foule frustrée). **Historique** : cours + fond coloré par état (rouge sous `LOW`, bleu au-dessus de `HIGH`), en walk-forward.
+
+**Dégradations** : moins de 250 séances → score sur les entrées disponibles + badge « historique court » ; moins d'un an → pas de walk-forward ; indice → série brute = ajustée, bascule désactivée.
+
 ---
 
 ## 6. Données — yfinance

@@ -713,6 +713,14 @@ def get_meta() -> dict:
         "beta_min_points": config.BETA_MIN_POINTS,
         "corr_min_points": config.CORR_MIN_POINTS,
         "potential_horizons": list(config.POTENTIAL_HORIZONS),
+        # Clara Vallis (#30) : fenêtre de la foule, bornes de satisfaction
+        # calibrées et fenêtres du sélecteur. Aucune valeur côté JS.
+        "momentum": {
+            "window": config.MOMENTUM_WINDOW,
+            "low": config.MOMENTUM_SATISFACTION_LOW,
+            "high": config.MOMENTUM_SATISFACTION_HIGH,
+            "table_windows": list(config.MOMENTUM_TABLE_WINDOWS),
+        },
         "quant_groups": config.QUANT_GROUPS,
         "dividend_groups": config.DIVIDEND_GROUPS,
         # Page Dividende du PORTEFEUILLE (#17.5) : taxonomie des tuiles KPI,
@@ -736,6 +744,8 @@ def get_meta() -> dict:
             "mini": config.CHART_HEIGHT_MINI,
             "dividend_hero": config.CHART_HEIGHT_DIVIDEND_HERO,
             "valuation_hero": config.CHART_HEIGHT_VALUATION_HERO,
+            "momentum_year": config.CHART_HEIGHT_MOMENTUM_YEAR,
+            "momentum_history": config.CHART_HEIGHT_MOMENTUM_HISTORY,
             "portfolio_resume": config.CHART_HEIGHT_PORTFOLIO_RESUME,
             "portfolio_donut": config.CHART_HEIGHT_PORTFOLIO_DONUT,
             "portfolio_drawdown": config.CHART_HEIGHT_PORTFOLIO_DRAWDOWN,

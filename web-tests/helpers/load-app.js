@@ -9,7 +9,7 @@ const CONVICTION_JS_PATH = __CONVICTION_JS_PATH__;
 // #04 : `app.js` est désormais un module ES (plus de script classique évalué
 // par `vm`). On importe les modules réels : le composant Alpine vient de
 // `app.js`, les maths/seuils de `thresholds.js`, la charte de `theme.js`.
-import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS, WATCH_TIERS, WATCH_MIN_REF_POINTS, WATCH_MAX_ITEMS } from "../../src/obole/web/thresholds.js";
+import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS, WATCH_TIERS, WATCH_MIN_REF_POINTS, WATCH_MAX_ITEMS, MOMENTUM } from "../../src/obole/web/thresholds.js";
 import { C } from "../../src/obole/web/theme.js";
 import { obole } from "../../src/obole/web/app.js";
 import { chartsMixin } from "../../src/obole/web/charts.js";
@@ -48,6 +48,7 @@ export function loadApp() {
     get DIVIDEND_DEFAULT_WINDOW_YEARS() { return DIVIDEND_DEFAULT_WINDOW_YEARS; },
     get DIVIDEND_MIN_WINDOW_YEARS() { return DIVIDEND_MIN_WINDOW_YEARS; },
     get CHART_HEIGHTS() { return CHART_HEIGHTS; },
+    get MOMENTUM() { return MOMENTUM; },
     get PORTFOLIO_BENCHMARKS() { return PORTFOLIO_BENCHMARKS; },
     get PORTFOLIO_BENCHMARK_DEFAULT() { return PORTFOLIO_BENCHMARK_DEFAULT; },
     get PORTFOLIO_PERIODS() { return PORTFOLIO_PERIODS; },
@@ -351,6 +352,12 @@ export function metaFromConfig(source) {
     beta_min_points: Number(source.match(/BETA_MIN_POINTS\s*=\s*(\d+)/)[1]),
     corr_min_points: Number(source.match(/CORR_MIN_POINTS\s*=\s*(\d+)/)[1]),
     potential_horizons: [...source.match(/POTENTIAL_HORIZONS\s*=\s*\(([^)]*)\)/)[1].matchAll(/\d+/g)].map((m) => Number(m[0])),
+    momentum: {
+      window: Number(source.match(/MOMENTUM_WINDOW\s*=\s*(\d+)/)[1]),
+      low: Number(source.match(/MOMENTUM_SATISFACTION_LOW\s*=\s*([\d.]+)/)[1]),
+      high: Number(source.match(/MOMENTUM_SATISFACTION_HIGH\s*=\s*([\d.]+)/)[1]),
+      table_windows: [...source.match(/MOMENTUM_TABLE_WINDOWS\s*=\s*\(([^)]*)\)/)[1].matchAll(/\d+/g)].map((m) => Number(m[0])),
+    },
     quant_groups: parsePyQuantGroups(source),
     dividend_groups: parsePyDividendGroups(source),
     dividend_colors: parsePyDividendColors(source),

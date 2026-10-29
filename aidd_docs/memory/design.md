@@ -64,6 +64,13 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   0-100, aperçu « valeur / 100 ») et **une seule paire** Enregistrer / Rétablir pour tous
   les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
   pour que le tableau tienne dans la largeur.
+- **Momentum — La Clara Vallis** (#30) : onglet frère de Valorisation. Une **jauge
+  horizontale** (gaz à gauche, liquide à droite) dont l'aiguille vaut `(1 − score)` ; les
+  zones suivent les bornes calibrées, pas un 50/50. Le score et les bandes sont **bleu =
+  satisfaite, rouge = frustrée** — la sémantique habituelle, appliquée à un état de foule.
+  L'historique colore le **fond** par intervalles contigus (un rectangle par régime, jamais
+  un par séance) : une ligne bicolore se lirait mal sur vingt ans. Sa plage est propre
+  (`momStart`/`momEnd`) et ne touche pas celle du héro.
 
 ## Navigation (coquille)
 
@@ -71,7 +78,7 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   Screener, Portefeuille, Watchlist, puis **Paramètres en pied** (séparé par un filet — ce
   n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
   changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
-  Thèse & Société, Valorisation.
+  Thèse & Société, Valorisation, Momentum.
 - **Un espace est une PAGE, pas une couche.** Les cinq espaces sont des vues **sœurs** de
   l'analyse dans `.app-main` (`.app-view.view-<espace>`), sur lesquelles `x-show` bascule :
   le rail reste donc visible ET cliquable en permanence, et passer d'un espace à l'autre

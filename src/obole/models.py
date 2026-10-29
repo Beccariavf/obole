@@ -159,6 +159,21 @@ class RegressionResult:
 
 
 @dataclass(frozen=True)
+class SatisfactionResult:
+    """Satisfaction de la foule (Clara Vallis) sur une fenêtre glissante.
+
+    `value` dans [0, 1] : près de 1, la foule est satisfaite (le cours est près
+    des plus hauts parcourus) ; près de 0, elle est frustrée. `short_history`
+    signale une série plus courte que la fenêtre demandée — le score reste
+    calculé sur les entrées disponibles, jamais inventé.
+    """
+
+    value: float | None
+    n_used: int
+    short_history: bool
+
+
+@dataclass(frozen=True)
 class ScoredValue:
     """Une valeur numérique + son label calibré + sa polarité (pour la couleur)."""
 
