@@ -56,6 +56,11 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
 - La régression est recalculée à trois endroits (serveur + deux calculs client) : toute
   modification de formule doit toucher les trois (détail dans `CLAUDE.md` §Invariants).
 - Les moyennes mobiles sont précalculées serveur sur la série pleine, puis décimées.
+- Le **walk-forward Clara Vallis** est précalculé par `services/momentum.py` et caché par
+  référence (`kind` `momentum`, TTL des prix, purgé par `cache.invalidate`). Calculé sur la
+  série PLEINE puis réindexé sur la grille décimée — sur la série déjà décimée, 250 points
+  ne couvriraient pas 250 séances. Le moteur (`engine/clara_vallis.py`) est vectorisé par
+  `sliding_window_view` et découpé en blocs de 2 000 dates pour borner la mémoire.
 - Le screener écrit en base depuis plusieurs threads : SQLite en WAL avec `busy_timeout`.
 - `spikes/` contient des scripts de calibration jetables, exclus du lint et du format.
 - Les assets statiques sont servis avec un hash de contenu (`/static/x.js?v=<hash>`),

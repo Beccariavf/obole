@@ -95,7 +95,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 27 | Conviction → tiers par seuils absolus | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/27-conviction-tiers.md) |
 | 28 | **Coquille de navigation** (rail d'espaces + onglets de section) | 🟡 Q2 | 🟢 | 2 sessions | **fait** | [→](chantiers/28-coquille-navigation.md) |
 | 29 | **Espaces en pages** (rail visible et cliquable sur chaque espace) | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/28-coquille-navigation.md#suite--les-espaces-deviennent-des-pages) |
-| 30 | **La Clara Vallis** (onglet Momentum : régime de foule, walk-forward) | 🟡 Q2 | 🟢 | 3-4 sessions | à faire | [→](chantiers/30-clara-vallis.md) |
+| 30 | **La Clara Vallis** (onglet Momentum : régime de foule, walk-forward) | 🟡 Q2 | 🟢 | 3-4 sessions | **fait** | [→](chantiers/30-clara-vallis.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)

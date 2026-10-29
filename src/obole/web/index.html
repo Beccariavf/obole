@@ -730,7 +730,8 @@
             </div>
             <div class="mom-series">
               <label><input type="radio" value="raw" x-model="momSeries" @change="$nextTick(() => drawMomentum())" /> brut</label>
-              <label :class="{ disabled: !momHasAdj() }">
+              <label :class="{ disabled: !momHasAdj() }"
+                     :title="momHasAdj() ? '' : 'Série ajustée indisponible pour cet indice'">
                 <input type="radio" value="adj" x-model="momSeries" :disabled="!momHasAdj()" @change="$nextTick(() => drawMomentum())" /> ajusté
               </label>
             </div>
@@ -763,6 +764,8 @@
           <div class="card mom-gauge-card">
             <div class="mom-gauge-head">
               <span class="mom-gauge-title">Satisfaction de la foule</span>
+              <span class="chip warn mom-short" x-show="momData()?.short_history"
+                    title="Moins de 250 séances : le score porte sur les entrées disponibles">historique court</span>
               <span class="mom-gauge-value" x-text="momScore() == null ? '—' : fmt(momScore())"></span>
             </div>
             <div class="gauge mom-gauge" role="meter"

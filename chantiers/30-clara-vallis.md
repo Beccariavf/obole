@@ -1,6 +1,6 @@
 # #30 — La Clara Vallis : le régime de foule dans la fiche
 
-> **Statut :** à faire · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
+> **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/clara-vallis` (créée) · **Taille :** 3-4 sessions
 
 > **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
@@ -184,4 +184,9 @@ d'un piège.
 
 - **Plan :** `aidd_docs/tasks/2026_10/2026_10_29_clara-vallis/` (6 phases).
 - **Branche :** `feat/clara-vallis`.
-- **État :** spec écrite, plan validé, aucune phase commencée.
+- **État :** les six phases sont livrées. Moteur pur (`engine/clara_vallis.py`), payload
+  caché (`services/momentum.py`), seuils calibrés sur la fixture CAC 40, onglet avec table,
+  jauge, vue à un an et historique walk-forward. Vérifié en navigateur (Chromium + WebKit)
+  et par la suite complète.
+- **Reste à faire plus tard :** porter le score au screener ou à la watchlist (hors v1),
+  et rouvrir les bornes si la calibration doit changer de série.
