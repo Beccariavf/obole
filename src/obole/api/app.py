@@ -222,7 +222,14 @@ def _validate_backtest_window(start: str, end: str, series: str) -> None:
 
 @app.get("/api/stock/{ticker}/momentum-backtest")
 def get_stock_momentum_backtest(ticker: str, start: str, end: str, series: str = "raw") -> dict:
-    """Backtest buy & hold / stratégie d'une valeur sur la fenêtre demandée."""
+    """Marché pendant les séances in/out de la stratégie, sur la fenêtre demandée.
+
+    Réponse : `{buy_hold, in, out, window, trades, strategy_cagr_pct}`. Chaque
+    colonne porte les sept mêmes mesures (CAGR, volatilité, Sharpe, Sortino, max
+    drawdown, Calmar, part des séances) ; `trades` et le CAGR de la stratégie
+    (cash compris) sortent une fois, en premier niveau. Ni `equity`, ni
+    `positions`, ni bloc `strategy` ne sont transportés.
+    """
     _validate_backtest_window(start, end, series)
     try:
         return momentum_service.momentum_backtest("stock", ticker, start, end, series)
@@ -234,7 +241,11 @@ def get_stock_momentum_backtest(ticker: str, start: str, end: str, series: str =
 
 @app.get("/api/index/{index_id}/momentum-backtest")
 def get_index_momentum_backtest(index_id: int, start: str, end: str, series: str = "raw") -> dict:
-    """Backtest d'un indice personnalisé (série synthétique total-return)."""
+    """Marché in/out d'un indice personnalisé (série synthétique total-return).
+
+    Même contrat que la route d'une valeur : `{buy_hold, in, out, window,
+    trades, strategy_cagr_pct}`.
+    """
     _validate_backtest_window(start, end, series)
     try:
         return momentum_service.momentum_backtest("basket", index_id, start, end, series)

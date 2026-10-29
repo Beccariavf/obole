@@ -11,7 +11,8 @@ décimée : un walk-forward calculé sur la série déjà décimée ne couvrirai
 Le backtest de fiabilité (#31) suit la même règle : la satisfaction est calculée
 sur la série PLEINE, puis la fenêtre demandée est tranchée et passée au moteur.
 Un backtest sur la grille décimée raterait des croisements et fausserait les
-trades et le drawdown.
+trades et le drawdown. Depuis #32, il expose le marché pendant les séances in et
+out (plus le rendement réel de la stratégie, en pied).
 """
 
 from __future__ import annotations
@@ -107,26 +108,34 @@ _MEASURES = (
     "sortino",
     "max_drawdown_pct",
     "calmar",
-    "invested_pct",
-    "trades",
+    "sessions_pct",
 )
 
 
 def _measures(block: dict) -> dict:
-    """Contrat public d'une colonne : les huit mesures, rien de plus.
+    """Contrat public d'une colonne : les sept mesures, rien de plus.
 
-    Le moteur garde `equity` et `positions` pour ses tests (frais, hystérésis,
-    absence de fuite) ; la route ne les sérialise jamais (~300 Ko sur MAX).
+    Le moteur garde `equity` (et, pour la stratégie, ses positions) à
+    l'intérieur : la route ne les sérialise jamais (~300 Ko sur MAX).
     """
     return {key: block[key] for key in _MEASURES}
 
 
 def _public_result(result: dict) -> dict:
-    """Réduit le résultat du moteur au contrat `{buy_hold, strategy, window}`."""
+    """Réduit le résultat du moteur au contrat public du backtest.
+
+    `{buy_hold, in, out, window, trades, strategy_cagr_pct}` : le marché pendant
+    les séances in et out, plus le rendement réel de la stratégie (cash compris)
+    livré une seule fois, hors des colonnes — il ne doit pas redevenir une
+    comparaison. Ni `strategy`, ni `equity`, ni `positions` ne sortent d'ici.
+    """
     return {
         "buy_hold": _measures(result["buy_hold"]),
-        "strategy": _measures(result["strategy"]),
+        "in": _measures(result["in"]),
+        "out": _measures(result["out"]),
         "window": result["window"],
+        "trades": result["trades"],
+        "strategy_cagr_pct": result["strategy_cagr_pct"],
     }
 
 

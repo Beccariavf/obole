@@ -64,9 +64,17 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
 - Le **backtest de fiabilité Clara Vallis** vit dans `engine/momentum_backtest.py` (pur) : il
   reçoit les cours et la série de satisfaction, applique l'hystérésis (`LOW`/`HIGH`) avec un
   signal décalé d'un jour et des frais PAR ORDRE, et réutilise Sharpe, Sortino et drawdown de
-  `engine/portfolio.py`. `services/momentum.momentum_backtest` calcule la satisfaction sur la
-  série PLEINE puis tranche la fenêtre visible — jamais sur la grille décimée. Aucun cache :
-  le coût à froid mesuré (~35 ms sur 30 ans) reste sous le seuil de 100 ms du plan.
+  `engine/portfolio.py`. Depuis #32 il ne rend pas une courbe de stratégie mais le **marché
+  pendant les séances in et out** : chaque séance de rendement va dans le panier de la
+  position décidée la veille (les deux paniers partitionnent la fenêtre), chaque panier
+  compose sa courbe conditionnelle, et le **CAGR est annualisé sur les séances du panier**
+  (`n/252`), pas sur le calendrier — le buy & hold suit la même règle. `trades` et
+  `strategy_cagr_pct` sortent au premier niveau ; `equity`, `strategy_equity` et `positions`
+  restent internes au moteur. `services/momentum.momentum_backtest` calcule la satisfaction
+  sur la série PLEINE puis tranche la fenêtre visible — jamais sur la grille décimée — et ne
+  transporte que les clés `buy_hold`, `in`, `out`, `window`, `trades` et
+  `strategy_cagr_pct` (sept mesures par colonne, rien de plus). Aucun cache : le coût à froid mesuré (~35 ms sur 30 ans) reste sous
+  le seuil de 100 ms du plan.
 - Le screener écrit en base depuis plusieurs threads : SQLite en WAL avec `busy_timeout`.
 - `spikes/` contient des scripts de calibration jetables, exclus du lint et du format.
 - Les assets statiques sont servis avec un hash de contenu (`/static/x.js?v=<hash>`),

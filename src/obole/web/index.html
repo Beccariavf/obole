@@ -830,25 +830,31 @@
             <div class="mom-table-wrap" x-show="momBacktestRows().length && !momBacktestLoading">
               <table class="mom-table mom-backtest-table">
                 <caption class="sr-only">
-                  Comparaison de buy &amp; hold et de la stratégie Clara Vallis sur la fenêtre affichée.
+                  Le marché pendant les séances in et out de la fenêtre affichée, et le repère buy &amp; hold.
                 </caption>
                 <thead>
                   <tr>
                     <th scope="col">Mesure</th>
                     <th scope="col">Buy &amp; hold</th>
-                    <th scope="col">Clara Vallis</th>
+                    <th scope="col">in</th>
+                    <th scope="col">out</th>
                   </tr>
                 </thead>
                 <tbody>
                   <template x-for="r in momBacktestRows()" :key="r.key">
                     <tr>
                       <th scope="row" :title="r.hint || null" x-text="r.label"></th>
-                      <td x-text="r.buy_hold"></td>
-                      <td x-text="r.strategy"></td>
+                      <template x-for="(c, i) in r.cells" :key="i">
+                        <td :class="momCellClass(c)" x-text="c.value"></td>
+                      </template>
                     </tr>
                   </template>
                 </tbody>
               </table>
+            </div>
+            <div class="mom-backtest-foot" x-show="momBacktestRows().length && !momBacktestLoading">
+              <span class="mom-backtest-trades" x-text="momBacktestFoot()"></span>
+              <span class="mom-backtest-note" x-text="momBacktestNote()"></span>
             </div>
             <p class="na" x-show="!momBacktestLoading && !momBacktestError && !momBacktestRows().length">
               Fenêtre trop courte pour mesurer.

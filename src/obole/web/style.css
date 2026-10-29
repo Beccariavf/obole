@@ -996,8 +996,9 @@ select.pf-ctl {
 .mom-zone-bad { background: #FECACA; }
 .mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
 .mom-short { font-size: 10px; margin-left: 4px; }
-/* Backtest de fiabilité (#31) : la carte annonce la série et la durée, le
-   tableau aligne les nombres à droite (mesures lisibles, comparaison directe). */
+/* Backtest de fiabilité (#31 puis #32) : la carte annonce la série et la durée,
+   le tableau aligne les nombres à droite (mesures lisibles, comparaison
+   directe) et les trois colonnes portent la polarité de leur lecture. */
 .mom-backtest-head {
   display: flex; justify-content: space-between; align-items: baseline;
   gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
@@ -1006,7 +1007,20 @@ select.pf-ctl {
 .mom-backtest-legend { font-size: 12px; color: var(--text-soft); }
 .mom-backtest-table th[scope="row"] { text-align: left; font-weight: 500; }
 .mom-backtest-table thead th:not(:first-child), .mom-backtest-table td { text-align: right; }
+/* Polarité globale bleu = bien, rouge = mal. La colonne `out` reçoit son `good`
+   INVERSÉ du JS (gagner dehors est mauvais signe) : la classe, elle, reste la
+   même, donc aucune couleur n'est décidée ici. */
+.mom-backtest-table td.good { color: var(--accent); }
+.mom-backtest-table td.bad { color: var(--bad); }
 .mom-backtest-error { color: var(--bad); }
+/* Pied : le rendement réel de la stratégie (hors colonnes) puis la légende de
+   lecture, qui dit que le drawdown des paniers est conditionnel. */
+.mom-backtest-foot {
+  display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.mom-backtest-trades { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mom-backtest-note { font-size: 12px; color: var(--text-soft); line-height: 1.4; }
 /* Sous 640 px, la légende passe sur deux lignes et le tableau défile DANS la
    carte : le conteneur `.mom-table-wrap` porte l'overflow, la carte garde sa
    largeur. Un min-width rend le défilement effectif au lieu d'écraser les
@@ -1018,6 +1032,7 @@ select.pf-ctl {
   .mom-backtest-card { width: calc(100vw - 32px); max-width: 100%; }
   .mom-backtest-head { flex-direction: column; align-items: flex-start; gap: 4px; }
   .mom-backtest-legend { line-height: 1.4; }
+  .mom-backtest-foot { flex-direction: column; gap: 4px; }
   .mom-backtest-table { min-width: 680px; }
 }
 /* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :

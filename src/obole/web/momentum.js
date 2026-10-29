@@ -171,7 +171,12 @@ export const momentumMixin = {
     ];
   },
 
-  // --- Fiabilité de l'indicateur (backtest, #31) ----------------------------
+  // --- Fiabilité de l'indicateur (backtest, #31 puis #32) -------------------
+  //
+  // Depuis #32, la table ne compare plus la stratégie au buy & hold (deux
+  // expositions différentes) : elle montre le MARCHÉ pendant les séances in et
+  // out, séparées par la position décidée la veille. Le rendement réel de la
+  // stratégie reste en pied, hors des colonnes.
 
   // Nature de la référence pour le backtest : une action ou un indice.
   // Un ratio n'en a pas (l'onglet est désactivé).
@@ -256,57 +261,131 @@ export const momentumMixin = {
     return n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
+  // Polarité d'une mesure SIGNÉE, selon la colonne. Convention globale bleu =
+  // bien, rouge = mal ; la colonne `out` l'INVERSE localement : gagner quand on
+  // est dehors est un mauvais signe (le signal n'a rien évité), donc un CAGR ou
+  // un Sharpe positif y est rouge. Un zéro ne dit rien : il reste neutre.
+  // `value` est la valeur AFFICHÉE (déjà arrondie) : voir `_momShown`.
+  _momBacktestGood(value, column) {
+    const v = Number(value);
+    if (value == null || !Number.isFinite(v) || v === 0) return null;
+    return column === "out" ? v < 0 : v > 0;
+  },
+
+  // Valeur telle qu'elle est LUE (deux décimales, comme `_momNum`) : la couleur
+  // suit ce que l'écran montre. Un CAGR de 0,0004 % s'affiche « 0,00 % » ; le
+  // colorer bleu ou rouge lui prêterait un signe que le lecteur ne voit pas.
+  // Arrondi demi vers l'EXTÉRIEUR, comme `Intl` : −0,005 s'affiche « -0,01 % »
+  // et doit donc se colorer, là où `Math.round` arrondirait vers zéro.
+  _momShown(value) {
+    const n = Number(value);
+    if (value == null || !Number.isFinite(n)) return null;
+    return (Math.sign(n) * Math.round(Math.abs(n) * 100)) / 100;
+  },
+
+  // Classe CSS d'une cellule : elle ne décide d'aucune couleur sémantique, elle
+  // traduit en classe le `good` calculé par `momBacktestRows()` (polarité
+  // standard, ou inversée pour la colonne `out`).
+  momCellClass(cell) {
+    if (cell?.good === true) return "good";
+    if (cell?.good === false) return "bad";
+    return "";
+  },
+
   momBacktestRows() {
     const b = this.momBacktest;
-    if (!b?.buy_hold || !b?.strategy) return [];
+    if (!b?.buy_hold || !b?.in || !b?.out) return [];
     const pct = (v) => (v == null ? "—" : this._momNum(v) + " %");
     const num = (v) => (v == null ? "—" : this._momNum(v));
-    const int = (v) => (v == null ? "—" : String(Math.round(Number(v))));
-    const bh = b.buy_hold;
-    const st = b.strategy;
-    const rows = [
-      { key: "cagr", label: "CAGR", buy_hold: pct(bh.cagr_pct), strategy: pct(st.cagr_pct) },
+    // Une ligne par mesure, trois cellules dans l'ordre des colonnes. `signed`
+    // dit si la polarité s'applique (les autres mesures restent neutres : une
+    // volatilité ou un drawdown n'est ni bien ni mal en soi).
+    const specs = [
+      { key: "cagr", label: "CAGR", field: "cagr_pct", fmt: pct, signed: true },
       {
         key: "volatility",
         label: "Volatilité",
-        buy_hold: pct(bh.volatility_pct),
-        strategy: pct(st.volatility_pct),
+        field: "volatility_pct",
+        fmt: pct,
+        signed: false,
       },
-      { key: "sharpe", label: "Sharpe", buy_hold: num(bh.sharpe), strategy: num(st.sharpe) },
-      { key: "sortino", label: "Sortino", buy_hold: num(bh.sortino), strategy: num(st.sortino) },
+      { key: "sharpe", label: "Sharpe", field: "sharpe", fmt: num, signed: true },
+      { key: "sortino", label: "Sortino", field: "sortino", fmt: num, signed: true },
       {
         key: "max_drawdown",
         label: "Max drawdown",
-        buy_hold: pct(bh.max_drawdown_pct),
-        strategy: pct(st.max_drawdown_pct),
+        field: "max_drawdown_pct",
+        fmt: pct,
+        signed: false,
       },
-      { key: "calmar", label: "Calmar", buy_hold: num(bh.calmar), strategy: num(st.calmar) },
+      { key: "calmar", label: "Calmar", field: "calmar", fmt: num, signed: true },
       {
-        key: "invested",
-        label: "Temps investi",
-        buy_hold: pct(bh.invested_pct),
-        strategy: pct(st.invested_pct),
-      },
-      {
-        key: "trades",
-        label: "Trades",
-        buy_hold: int(bh.trades),
-        strategy: int(st.trades),
+        key: "sessions",
+        label: "Part des séances",
+        field: "sessions_pct",
+        fmt: pct,
+        signed: false,
       },
     ];
+    const columns = ["buy_hold", "in", "out"];
+    const rows = specs.map((spec) => ({
+      key: spec.key,
+      label: spec.label,
+      cells: columns.map((column) => {
+        const raw = b[column]?.[spec.field];
+        if (!spec.signed) return { value: spec.fmt(raw), good: null };
+        // Une seule valeur arrondie : elle est à la fois ce que l'écran affiche
+        // et ce que la couleur lit. Formater la valeur brute puis la colorer
+        // après un second arrondi faisait vivre deux règles pour un chiffre.
+        const shown = this._momShown(raw);
+        return {
+          value: shown == null ? "—" : spec.fmt(shown),
+          good: this._momBacktestGood(shown, column),
+        };
+      }),
+    }));
     // Infobulles des mesures non calculables : le tiret reste, l'explication
-    // évite de le lire comme une panne (série plate, aucune baisse, fenêtre
-    // trop courte).
+    // évite de le lire comme une panne (série plate, aucune baisse, panier vide).
     const hints = {
       sharpe: "Volatilité nulle ou fenêtre trop courte : le Sharpe n'est pas calculable.",
       sortino: "Aucune baisse sur la fenêtre : le Sortino n'est pas calculable.",
       calmar: "Pas de baisse mesurable : le Calmar n'est pas calculable.",
     };
-    const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
-    for (const [key, hint] of Object.entries(hints)) {
-      if (bh[key] == null || st[key] == null) byKey[key].hint = hint;
+    for (const row of rows) {
+      const hint = hints[row.key];
+      if (hint && row.cells.some((c) => c.value === "—")) row.hint = hint;
     }
     return rows;
+  },
+
+  // Nombre de trades de la stratégie, « — » s'il manque.
+  momBacktestTrades() {
+    const trades = this.momBacktest?.trades;
+    const n = Number(trades);
+    if (trades == null || !Number.isFinite(n)) return "—";
+    return String(Math.round(n));
+  },
+
+  // Pied de table : le nombre de trades et le rendement RÉEL de la stratégie
+  // (cash compris). Il reste hors des colonnes : le lecteur garde ce qu'il a
+  // obtenu sans en refaire une comparaison avec le buy & hold.
+  momBacktestFoot() {
+    if (!this.momBacktest) return "";
+    const trades = this.momBacktestTrades();
+    const label = trades === "—" ? "—" : `${trades} trade${Number(trades) > 1 ? "s" : ""}`;
+    const cagr = this.momBacktest.strategy_cagr_pct;
+    const rate = cagr == null ? "—" : this._momNum(cagr) + " %";
+    return `${label} · stratégie ${rate}/an`;
+  },
+
+  // Légende de lecture de la table : ce que mesure chaque colonne, et la nature
+  // CONDITIONNELLE du drawdown des paniers (leur pire série de pertes, pas un
+  // creux vécu : les séances d'un panier ne sont pas contiguës).
+  momBacktestNote() {
+    return (
+      "Le marché pendant les séances in et out ; la stratégie n'est investie " +
+      "qu'une partie du temps. Le drawdown des paniers est conditionnel."
+    );
   },
 
   // Durée de la fenêtre tranchée par le serveur, en années ou en mois.

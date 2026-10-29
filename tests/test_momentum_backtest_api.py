@@ -13,6 +13,8 @@ from obole.api.app import app
 from obole.data.yahoo import TickerNotFound
 from obole.services.indices import IndexNotFound
 
+# Les sept mesures de chaque colonne (in, out, buy & hold). `trades` ne vit plus
+# dans une colonne : il sort une fois, au premier niveau.
 MEASURES = {
     "cagr_pct",
     "volatility_pct",
@@ -20,9 +22,10 @@ MEASURES = {
     "sortino",
     "max_drawdown_pct",
     "calmar",
-    "invested_pct",
-    "trades",
+    "sessions_pct",
 }
+COLUMNS = ("buy_hold", "in", "out")
+TOP_LEVEL = {"buy_hold", "in", "out", "window", "trades", "strategy_cagr_pct"}
 
 
 @pytest.fixture
@@ -51,16 +54,34 @@ def _get_stock(client: TestClient, prices, series: str = "raw"):
 
 
 class TestStockBacktest:
-    def test_200_carries_both_columns(self, client, prices):
+    def test_200_carries_the_six_payload_entries(self, client, prices):
         resp = _get_stock(client, prices)
         assert resp.status_code == 200
         data = resp.json()
-        for column in ("buy_hold", "strategy"):
+        # Six clés de premier niveau : trois colonnes, la fenêtre, les trades et
+        # le CAGR de la stratégie. Rien de plus.
+        assert set(data) == TOP_LEVEL
+        for column in COLUMNS:
             assert set(data[column]) == MEASURES  # ni equity ni positions
-        assert set(data) == {"buy_hold", "strategy", "window"}
+        assert isinstance(data["trades"], int)
+        assert data["trades"] >= 0
+        assert "strategy_cagr_pct" in data
         assert data["window"]["sessions"] == 800
         assert data["window"]["start"] == prices.raw.index[0].strftime("%Y-%m-%d")
         assert data["window"]["end"] == prices.raw.index[-1].strftime("%Y-%m-%d")
+
+    def test_no_equity_positions_or_strategy_leaks(self, client, prices):
+        body = _get_stock(client, prices).text
+        for forbidden in ('"strategy"', '"equity"', '"positions"'):
+            assert forbidden not in body
+        assert "strategy_cagr_pct" in body  # le seul « strategy » restant
+
+    def test_in_and_out_shares_sum_to_hundred(self, client, prices):
+        data = _get_stock(client, prices).json()
+        in_pct = data["in"]["sessions_pct"]
+        out_pct = data["out"]["sessions_pct"]
+        assert in_pct + out_pct == pytest.approx(100.0, abs=1e-6)
+        assert data["buy_hold"]["sessions_pct"] == 100.0
 
     def test_404_on_unknown_ticker(self, client, prices):
         start, end = _bounds(prices)
@@ -104,7 +125,9 @@ class TestIndexBacktest:
         assert resp.status_code == 200
         data = resp.json()
         assert data["window"]["sessions"] == 800
-        assert MEASURES <= set(data["strategy"])
+        assert set(data) == TOP_LEVEL
+        for column in COLUMNS:
+            assert MEASURES <= set(data[column])
 
     def test_404_on_unknown_index(self, client, prices):
         start, end = _bounds(prices)
@@ -116,6 +139,28 @@ class TestIndexBacktest:
                 f"/api/index/999/momentum-backtest?start={start}&end={end}&series=raw"
             )
         assert resp.status_code == 404
+
+
+class TestEmptyBucket:
+    def test_fully_invested_window_has_an_empty_out_bucket(self, client, prices):
+        """Aucune séance dehors : out à mesures nulles, part 0 %, pas d'erreur."""
+        scores = pd.Series(0.9, index=prices.raw.index)
+        start, end = _bounds(prices)
+        with (
+            patch("obole.services.momentum.yahoo.fetch_prices", return_value=prices),
+            patch("obole.services.momentum.cv.satisfaction_series", return_value=scores),
+        ):
+            resp = client.get(
+                f"/api/stock/FAKE/momentum-backtest?start={start}&end={end}&series=raw"
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["in"]["sessions_pct"] == 100.0
+        assert data["out"]["sessions_pct"] == 0.0
+        for key in MEASURES - {"sessions_pct"}:
+            assert data["out"][key] is None
+        # La colonne in reste mesurable : la table a bien trois colonnes remplies.
+        assert data["in"]["cagr_pct"] is not None
 
 
 class TestValidation:

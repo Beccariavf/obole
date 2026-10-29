@@ -236,24 +236,37 @@ describe("api.momentumBacktest", () => {
   });
 });
 
-// #31 : la carte « Fiabilité de l'indicateur » compare buy & hold et la
-// stratégie sur la fenêtre visible. Le backtest est calculé côté serveur (la
-// grille du graphe est décimée) ; le front ne fait que charger et formater.
-function backtestPayload({ cagr = 6.8, strategyCagr = 9.1 } = {}) {
-  const block = (value) => ({
-    cagr_pct: value,
+// #31 puis #32 : la carte « Fiabilité de l'indicateur » montre le MARCHÉ pendant
+// les séances in et out, plus le rendement réel de la stratégie en pied. Le
+// backtest est calculé côté serveur (la grille du graphe est décimée) ; le front
+// ne fait que charger, formater et colorer.
+function backtestBlock(overrides = {}) {
+  return {
+    cagr_pct: 6.8,
     volatility_pct: 18.2,
     sharpe: 0.37,
     sortino: null,
     max_drawdown_pct: -38.4,
     calmar: 0.18,
-    invested_pct: 100,
-    trades: 1,
-  });
+    sessions_pct: 100,
+    ...overrides,
+  };
+}
+
+function backtestPayload({
+  cagr = 6.8,
+  inCagr = 9.1,
+  outCagr = -2.4,
+  trades = 27,
+  strategyCagr = 4.2,
+} = {}) {
   return {
-    buy_hold: block(cagr),
-    strategy: { ...block(strategyCagr), invested_pct: 64, trades: 7 },
+    buy_hold: backtestBlock({ cagr_pct: cagr }),
+    in: backtestBlock({ cagr_pct: inCagr, sessions_pct: 64 }),
+    out: backtestBlock({ cagr_pct: outCagr, sessions_pct: 36, sharpe: -0.11 }),
     window: { start: "2015-01-02", end: "2024-12-31", sessions: 2561 },
+    trades,
+    strategy_cagr_pct: strategyCagr,
   };
 }
 
@@ -265,11 +278,11 @@ function loadedComponent(prices) {
 }
 
 describe("fiabilité de l'indicateur", () => {
-  it("huit mesures, deux colonnes, formatées", () => {
+  it("sept mesures, trois colonnes, formatées", () => {
     const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
     comp.momBacktest = backtestPayload();
     const rows = comp.momBacktestRows();
-    expect(rows).toHaveLength(8);
+    expect(rows).toHaveLength(7);
     expect(rows.map((r) => r.key)).toEqual([
       "cagr",
       "volatility",
@@ -277,27 +290,119 @@ describe("fiabilité de l'indicateur", () => {
       "sortino",
       "max_drawdown",
       "calmar",
-      "invested",
-      "trades",
+      "sessions",
     ]);
     for (const row of rows) {
-      expect(typeof row.buy_hold).toBe("string");
-      expect(typeof row.strategy).toBe("string");
+      expect(row.cells).toHaveLength(3); // Buy & hold, in, out
+      for (const cell of row.cells) expect(typeof cell.value).toBe("string");
     }
-    expect(rows[0].buy_hold).toBe("6,80 %");
-    expect(rows[0].strategy).toBe("9,10 %");
-    expect(rows[2].buy_hold).toBe("0,37");
-    expect(rows[7].strategy).toBe("7");
+    expect(rows[0].label).toBe("CAGR");
+    expect(rows[0].cells.map((c) => c.value)).toEqual(["6,80 %", "9,10 %", "-2,40 %"]);
+    expect(rows[2].cells[0].value).toBe("0,37");
+    expect(rows[6].label).toBe("Part des séances");
+    expect(rows[6].cells.map((c) => c.value)).toEqual(["100,00 %", "64,00 %", "36,00 %"]);
+  });
+
+  it("la polarité est standard en in et INVERSÉE en out", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    // Même CAGR positif dans les deux paniers : bleu dedans, rouge dehors.
+    comp.momBacktest = backtestPayload({ inCagr: 2.4, outCagr: 2.4 });
+    const cagr = comp.momBacktestRows().find((r) => r.key === "cagr");
+    expect(cagr.cells[0].good).toBe(true); // buy & hold, polarité standard
+    expect(cagr.cells[1].good).toBe(true); // in, positif = bon signe
+    expect(cagr.cells[2].good).toBe(false); // out, positif = mauvais signe
+    expect(comp.momCellClass(cagr.cells[1])).toBe("good");
+    expect(comp.momCellClass(cagr.cells[2])).toBe("bad");
+    // Un out négatif redevient bleu : le signal a bien évité les baisses.
+    comp.momBacktest.out.cagr_pct = -2.4;
+    const reverse = comp.momBacktestRows().find((r) => r.key === "cagr");
+    expect(reverse.cells[2].good).toBe(true);
+    expect(comp.momCellClass(reverse.cells[2])).toBe("good");
+  });
+
+  it("une valeur qui s'affiche 0,00 % reste neutre", () => {
+    // La couleur suit la valeur LUE : 0,0004 % s'affiche « 0,00 % », donc ni
+    // bleu ni rouge — sinon la table prêterait un signe invisible à l'écran.
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload({ inCagr: 0.0004, outCagr: 0.0004 });
+    const cagr = comp.momBacktestRows().find((r) => r.key === "cagr");
+    expect(cagr.cells[1].value).toBe("0,00 %");
+    expect(cagr.cells[1].good).toBeNull();
+    expect(cagr.cells[2].good).toBeNull();
+    expect(comp.momCellClass(cagr.cells[2])).toBe("");
+    // Un négatif négligeable s'affiche « -0,00 % » : neutre aussi.
+    comp.momBacktest.in.cagr_pct = -0.0004;
+    expect(comp.momBacktestRows()[0].cells[1].value).toBe("-0,00 %");
+    expect(comp.momBacktestRows()[0].cells[1].good).toBeNull();
+    // Juste au-dessus, l'arrondi affiche un signe : la couleur revient.
+    comp.momBacktest.in.cagr_pct = 0.006;
+    expect(comp.momBacktestRows()[0].cells[1].value).toBe("0,01 %");
+    expect(comp.momBacktestRows()[0].cells[1].good).toBe(true);
+    // La frontière exacte : −0,005 s'affiche « -0,01 % », donc se colore
+    // (arrondi demi vers l'extérieur, comme Intl — pas vers zéro).
+    comp.momBacktest.in.cagr_pct = -0.005;
+    expect(comp.momBacktestRows()[0].cells[1].value).toBe("-0,01 %");
+    expect(comp.momBacktestRows()[0].cells[1].good).toBe(false);
+  });
+
+  it("les mesures non signées restent neutres, dans toutes les colonnes", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    for (const key of ["volatility", "max_drawdown", "sessions"]) {
+      const row = comp.momBacktestRows().find((r) => r.key === key);
+      for (const cell of row.cells) {
+        expect(cell.good).toBeNull();
+        expect(comp.momCellClass(cell)).toBe("");
+      }
+    }
   });
 
   it("une mesure absente affiche un tiret, jamais NaN", () => {
     const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
     comp.momBacktest = backtestPayload();
     const sortino = comp.momBacktestRows().find((r) => r.key === "sortino");
-    expect(sortino.buy_hold).toBe("—");
+    for (const cell of sortino.cells) expect(cell.value).toBe("—");
     expect(sortino.hint).toContain("Aucune baisse");
     comp.momBacktest.buy_hold.sharpe = Infinity;
-    expect(comp.momBacktestRows()[2].buy_hold).toBe("—");
+    expect(comp.momBacktestRows()[2].cells[0].value).toBe("—");
+  });
+
+  it("un panier vide donne un tiret par mesure et 0 % de part", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    // Fenêtre entièrement investie : out n'a aucune séance.
+    Object.assign(comp.momBacktest.out, {
+      cagr_pct: null,
+      volatility_pct: null,
+      sharpe: null,
+      sortino: null,
+      max_drawdown_pct: null,
+      calmar: null,
+      sessions_pct: 0,
+    });
+    const rows = comp.momBacktestRows();
+    for (const row of rows.slice(0, 6)) expect(row.cells[2].value).toBe("—");
+    expect(rows[6].cells[2].value).toBe("0,00 %");
+    expect(rows[6].cells[2].good).toBeNull();
+    // La table reste construite : aucune ligne perdue, aucun crash.
+    expect(rows).toHaveLength(7);
+  });
+
+  it("le pied affiche les trades et le CAGR de la stratégie", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    expect(comp.momBacktestTrades()).toBe("27");
+    expect(comp.momBacktestFoot()).toBe("27 trades · stratégie 4,20 %/an");
+    expect(comp.momBacktestNote()).toContain("conditionnel");
+    expect(comp.momBacktestNote()).toContain("séances in et out");
+    // Un trade au singulier, et l'absence de trades reste lisible.
+    comp.momBacktest.trades = 1;
+    expect(comp.momBacktestFoot()).toContain("1 trade ·");
+    comp.momBacktest.trades = null;
+    expect(comp.momBacktestTrades()).toBe("—");
+    expect(comp.momBacktestFoot()).toContain("— ·");
+    comp.momBacktest.strategy_cagr_pct = null;
+    expect(comp.momBacktestFoot()).toContain("stratégie —/an");
   });
 
   it("un échec réseau est traduit en message lisible", async () => {
@@ -345,7 +450,7 @@ describe("fiabilité de l'indicateur", () => {
     resolve(backtestPayload());
     await p;
     expect(comp.momBacktestLoading).toBe(false);
-    expect(comp.momBacktestRows()).toHaveLength(8);
+    expect(comp.momBacktestRows()).toHaveLength(7);
     spy.mockRestore();
   });
 
