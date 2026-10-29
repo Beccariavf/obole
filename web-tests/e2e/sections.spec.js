@@ -833,6 +833,26 @@ test("espaces : ouvrir une vue repart du haut, re-cliquer ne détruit rien", asy
 });
 
 test("espaces : les graphes d'une vue se remettent à l'échelle à l'entrée", async ({ page }) => {
+  // Correctif de test pré-existant : la base e2e n'a aucun portefeuille seedé,
+  // donc `#pf-summary-plot` n'avait rien à tracer et le test échouait sur la
+  // base comme sur les branches. On mocke un résumé minimal NON VIDE pour que
+  // le graphe existe — l'intention testée reste le redimensionnement à l'entrée.
+  const summary = {
+    dates: ["2025-01-02", "2025-02-03", "2025-03-03", "2025-04-01"],
+    period: "1a",
+    period_start: null,
+    benchmark: { key: "world", ticker: "CW8.PA", label: "MSCI World" },
+    portfolio: [100, 101, 103, 104],
+    benchmark_curve: [100, 100.5, 101.5, 102],
+    kpis: {},
+    accounts: [],
+    holdings: [],
+    account: null,
+    top: [],
+    flop: [],
+    warnings: [],
+  };
+  await page.route("**/api/portfolio/summary**", (route) => route.fulfill({ json: summary }));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.locator(".app-rail-btn[data-space='portfolio']").click();
