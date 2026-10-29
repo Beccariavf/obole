@@ -64,13 +64,19 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   0-100, aperçu « valeur / 100 ») et **une seule paire** Enregistrer / Rétablir pour tous
   les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
   pour que le tableau tienne dans la largeur.
-- **Momentum — La Clara Vallis** (#30) : onglet frère de Valorisation. Une **jauge
-  horizontale** (gaz à gauche, liquide à droite) dont l'aiguille vaut `(1 − score)` ; les
-  zones suivent les bornes calibrées, pas un 50/50. Le score et les bandes sont **bleu =
-  satisfaite, rouge = frustrée** — la sémantique habituelle, appliquée à un état de foule.
-  L'historique colore le **fond** par intervalles contigus (un rectangle par régime, jamais
-  un par séance) : une ligne bicolore se lirait mal sur vingt ans. Sa plage est propre
-  (`momStart`/`momEnd`) et ne touche pas celle du héro.
+- **Momentum — La Clara Vallis** (#30, #31) : onglet frère de Valorisation. Une **jauge
+  horizontale** (« satisfaite » à gauche, « frustrée » à droite) dont l'aiguille vaut
+  `(1 − score)` ; les zones suivent les bornes calibrées, pas un 50/50. Le score et les
+  bandes sont **bleu = satisfaite, rouge = frustrée** — la sémantique habituelle, appliquée
+  à un état de foule. L'historique colore le **fond** par intervalles contigus (un rectangle
+  par régime, jamais un par séance) : une ligne bicolore se lirait mal sur vingt ans. Sa
+  plage est propre (`momStart`/`momEnd`) et ne touche pas celle du héro ; un chip « Réf. »
+  précède 1A mais le défaut reste 10 ans.
+  Sous l'historique, la carte **« Fiabilité de l'indicateur »** est un tableau à trois
+  colonnes (mesure, buy & hold, Clara Vallis) : nombres alignés à droite, `—` (avec
+  infobulle) pour une mesure non calculable, légende qui dit la **série** (brute/ajustée),
+  la **durée** et les **frais par ordre**. Sous 640 px, le tableau défile dans la carte et
+  la légende passe sur deux lignes.
 
 ## Navigation (coquille)
 

@@ -296,8 +296,19 @@ describe("fiabilité de l'indicateur", () => {
     comp.momBacktest = backtestPayload();
     const sortino = comp.momBacktestRows().find((r) => r.key === "sortino");
     expect(sortino.buy_hold).toBe("—");
+    expect(sortino.hint).toContain("Aucune baisse");
     comp.momBacktest.buy_hold.sharpe = Infinity;
     expect(comp.momBacktestRows()[2].buy_hold).toBe("—");
+  });
+
+  it("un échec réseau est traduit en message lisible", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    await comp.loadMomentumBacktest();
+    expect(comp.momBacktestError).toContain("le serveur ne répond pas");
+    spy.mockRestore();
   });
 
   it("la légende annonce la série et la durée", () => {

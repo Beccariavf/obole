@@ -1007,6 +1007,19 @@ select.pf-ctl {
 .mom-backtest-table th[scope="row"] { text-align: left; font-weight: 500; }
 .mom-backtest-table thead th:not(:first-child), .mom-backtest-table td { text-align: right; }
 .mom-backtest-error { color: var(--bad); }
+/* Sous 640 px, la légende passe sur deux lignes et le tableau défile DANS la
+   carte : le conteneur `.mom-table-wrap` porte l'overflow, la carte garde sa
+   largeur. Un min-width rend le défilement effectif au lieu d'écraser les
+   colonnes. */
+@media (max-width: 640px) {
+  /* La fiche est en flex-colonne `align-items:start` : une carte large impose sa
+     largeur max-content à toute la page. On plafonne donc CETTE carte à la
+     fenêtre pour que le tableau défile DANS elle au lieu d'élargir la page. */
+  .mom-backtest-card { width: calc(100vw - 32px); max-width: 100%; }
+  .mom-backtest-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .mom-backtest-legend { line-height: 1.4; }
+  .mom-backtest-table { min-width: 680px; }
+}
 /* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :
    sans hauteur fixe, Plotly pilote le div et la règle « conteneur = layout » de
    design.md n'était pas tenue. */

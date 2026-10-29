@@ -7,9 +7,10 @@ test("section Momentum : table, jauge et deux tracés", async ({ page }) => {
   await page.goto("/#RI.PA/momentum");
   await expect(page.locator(".section-tab.active")).toHaveText("Momentum");
 
-  // Table : six mesures, six en-têtes.
-  await expect(page.locator(".mom-table thead th")).toHaveCount(6);
-  await expect(page.locator(".mom-table tbody td")).toHaveCount(6);
+  // Table « monde de Markovitz » : six mesures, six en-têtes. Scopée à sa carte :
+  // la table de fiabilité porte elle aussi la classe `.mom-table`.
+  await expect(page.locator(".mom-card .mom-table thead th")).toHaveCount(6);
+  await expect(page.locator(".mom-card .mom-table tbody td")).toHaveCount(6);
 
   // Jauge : role=meter, valeur annoncée, aiguille positionnée.
   const meter = page.locator(".mom-gauge");
@@ -33,11 +34,53 @@ test("section Momentum : table, jauge et deux tracés", async ({ page }) => {
 
 test("section Momentum : changer de fenêtre change la table", async ({ page }) => {
   await page.goto("/#RI.PA/momentum");
-  await expect(page.locator(".mom-table")).toBeVisible();
-  const sigma = () => page.locator(".mom-table tbody td").first().textContent();
+  await expect(page.locator(".mom-card .mom-table")).toBeVisible();
+  const sigma = () => page.locator(".mom-card .mom-table tbody td").first().textContent();
   const before = await sigma();
   await page.locator(".mom-card .period-chip", { hasText: "1A" }).click();
   await expect.poll(sigma).not.toBe(before);
+});
+
+test("section Momentum : fiabilité, huit mesures et deux colonnes", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+
+  const table = page.locator(".mom-backtest-table");
+  await expect(table).toBeVisible({ timeout: 30_000 });
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+  await expect(table.locator("thead th")).toHaveCount(3);
+  await expect(table.locator("caption")).toContainText("Comparaison");
+  for (const th of await table.locator("thead th").all()) {
+    await expect(th).toHaveAttribute("scope", "col");
+  }
+
+  // Changer la fenêtre relance le calcul : au moins un chiffre bouge.
+  const cagr = () => table.locator("tbody tr").first().locator("td").first().textContent();
+  const before = await cagr();
+  await page.locator(".mom-history-card .period-chip", { hasText: "1A" }).click();
+  await expect.poll(cagr).not.toBe(before);
+
+  // Aucune erreur console sur la fiche.
+  expect(errors).toEqual([]);
+});
+
+test("fiabilité : le tableau défile dans sa carte sous 640 px", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 900 });
+  await page.goto("/#RI.PA/momentum");
+  await expect(page.locator(".mom-backtest-table")).toBeVisible({ timeout: 30_000 });
+  const layout = await page.evaluate(() => {
+    const card = document.querySelector(".mom-backtest-card");
+    const wrap = card.querySelector(".mom-table-wrap");
+    const c = card.getBoundingClientRect();
+    const w = wrap.getBoundingClientRect();
+    return {
+      scrolls: wrap.scrollWidth > wrap.clientWidth,
+      inside: w.right <= c.right + 1 && w.left >= c.left - 1,
+    };
+  });
+  expect(layout.scrolls).toBe(true);
+  expect(layout.inside).toBe(true);
 });
 
 test("ratio : l'onglet Momentum est désactivé", async ({ page }) => {

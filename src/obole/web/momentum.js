@@ -228,7 +228,12 @@ export const momentumMixin = {
     } catch (e) {
       if (token !== this._momBacktestToken) return;
       this.momBacktest = null;
-      this.momBacktestError = e?.message || "Calcul du backtest impossible.";
+      // Un échec réseau parle anglais (« Failed to fetch ») : on le traduit en
+      // une phrase lisible ; les messages métier du serveur sont déjà français.
+      const message = e?.message || "";
+      this.momBacktestError = /failed to fetch|networkerror|load failed/i.test(message)
+        ? "Calcul impossible : le serveur ne répond pas. Réessayez."
+        : message || "Calcul du backtest impossible.";
     } finally {
       if (token === this._momBacktestToken) this.momBacktestLoading = false;
     }
@@ -249,7 +254,7 @@ export const momentumMixin = {
     const int = (v) => (v == null ? "—" : String(Math.round(Number(v))));
     const bh = b.buy_hold;
     const st = b.strategy;
-    return [
+    const rows = [
       { key: "cagr", label: "CAGR", buy_hold: pct(bh.cagr_pct), strategy: pct(st.cagr_pct) },
       {
         key: "volatility",
@@ -279,6 +284,19 @@ export const momentumMixin = {
         strategy: int(st.trades),
       },
     ];
+    // Infobulles des mesures non calculables : le tiret reste, l'explication
+    // évite de le lire comme une panne (série plate, aucune baisse, fenêtre
+    // trop courte).
+    const hints = {
+      sharpe: "Volatilité nulle ou fenêtre trop courte : le Sharpe n'est pas calculable.",
+      sortino: "Aucune baisse sur la fenêtre : le Sortino n'est pas calculable.",
+      calmar: "Pas de baisse mesurable : le Calmar n'est pas calculable.",
+    };
+    const nulls = { sharpe: "sharpe", sortino: "sortino", calmar: "calmar" };
+    for (const row of rows) {
+      const source = nulls[row.key];
+      if (source && (bh[source] == null || st[source] == null)) row.hint = hints[source];
+    }    return rows;
   },
 
   // Durée de la fenêtre tranchée par le serveur, en années ou en mois.

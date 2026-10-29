@@ -828,6 +828,9 @@
                x-text="momBacktestError"></p>
             <div class="mom-table-wrap" x-show="momBacktestRows().length">
               <table class="mom-table mom-backtest-table">
+                <caption class="sr-only">
+                  Comparaison de buy &amp; hold et de la stratégie Clara Vallis sur la fenêtre affichée.
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">Mesure</th>
@@ -838,7 +841,7 @@
                 <tbody>
                   <template x-for="r in momBacktestRows()" :key="r.key">
                     <tr>
-                      <th scope="row" x-text="r.label"></th>
+                      <th scope="row" :title="r.hint || null" x-text="r.label"></th>
                       <td x-text="r.buy_hold"></td>
                       <td x-text="r.strategy"></td>
                     </tr>

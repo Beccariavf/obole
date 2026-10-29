@@ -353,9 +353,22 @@ Marge minimale : 0,095 côté crise, 0,104 côté calme. Le test est pur (hors l
 
 **Table « monde de Markovitz »** : σ de la bande `(e^sigma − 1) × 100`, z, pente `(e^b − 1) × 100`, MM court/long et confiance `1 − R²`, sur la fenêtre de référence (date persistée, sinon 20 ans, 30 pour les financières). Recalculée côté client, comme le graphe héro.
 
-**Jauge** : aiguille à `(1 − score) × 100` ; gauche = gaz (foule satisfaite), droite = liquide (foule frustrée). **Historique** : cours + fond coloré par état (rouge sous `LOW`, bleu au-dessus de `HIGH`), en walk-forward.
+**Jauge** : aiguille à `(1 − score) × 100` ; gauche = **satisfaite**, droite = **frustrée**. **Historique** : cours + fond coloré par état (rouge sous `LOW`, bleu au-dessus de `HIGH`), en walk-forward ; un chip **« Réf. »** précède 1A et applique la fenêtre de référence, le défaut restant 10 ans.
 
 **Dégradations** : moins de 250 séances → score sur les entrées disponibles + badge « historique court » ; moins d'un an → pas de walk-forward ; indice → série brute = ajustée, bascule désactivée.
+
+### 5.12 Fiabilité de la Clara Vallis — buy & hold contre la stratégie (#31)
+Une jauge dit l'état de la foule, pas si l'indicateur **marche** sur cet actif. Sous l'historique, la carte « Fiabilité de l'indicateur » compare, sur la fenêtre visible, un buy & hold et une stratégie pilotée par le score.
+
+**Règle** : investi quand le score **dépasse** `HIGH` (0,60), hors marché quand il **passe sous** `LOW` (0,35), état conservé entre les deux (hystérésis), départ hors marché. Le score de la séance `t` ne décide que la position de `t+1` : le rendement de `t+1` est `P[t+1]/P[t] − 1`, aucun regard sur le futur.
+
+**Frais** : `MOMENTUM_FEE_PCT = 0,1 %` **par ordre** (entrée et sortie, donc 0,2 % l'aller-retour) ; taux sans risque `MOMENTUM_RISK_FREE_PCT = 0` (`config.py`, exposés par `/api/meta`).
+
+**Mesures** (pour chaque colonne) : CAGR géométrique sur la durée calendaire, volatilité annualisée des rendements quotidiens, Sharpe, Sortino, max drawdown, Calmar = CAGR / |max drawdown|, temps investi, nombre de trades. Sharpe, Sortino et drawdown sont ceux de `engine/portfolio.py` — une seule implémentation.
+
+**Calcul** : côté SERVEUR, sur la série **pleine résolution** (la grille du graphe est décimée : un backtest dessus raterait des croisements), puis la fenêtre visible est tranchée. Deux routes : `GET /api/stock/{ticker}/momentum-backtest` et `GET /api/index/{id}/momentum-backtest` (`start`, `end`, `series=raw|adj` ; 422 sinon, 404 pour une référence inconnue). Le backtest suit la bascule brut/ajusté : en brut les dividendes ne sont pas comptés, la légende le dit.
+
+**Dégradations** : fenêtre de moins de deux séances → message explicite ; aucun trade → 0 trade et équité plate ; aucune baisse → Sortino `—` avec infobulle ; série plate → Sharpe `—` ; échec réseau → message lisible, tableau masqué.
 
 ---
 
