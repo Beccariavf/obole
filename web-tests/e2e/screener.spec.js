@@ -64,7 +64,7 @@ test("screener : accueil, filtres repliables et colonne Entreprise gelée", asyn
   await page.goto("/");
   await page.getByRole("button", { name: "Screener" }).click();
 
-  const modal = page.locator(".modal.modal-screen");
+  const modal = page.locator(".app-view.view-screener");
   await expect(modal).toBeVisible();
 
   // 1. Écran d'accueil : hero + CTA + presets (issus de /api/screener/meta).
@@ -111,9 +111,35 @@ test("screener : accueil, filtres repliables et colonne Entreprise gelée", asyn
     modal.locator(".screen-table tbody .screen-col-anchor .screen-ticker").first(),
   ).toHaveText("RI.PA");
 
-  // 8. Défilement horizontal : l'ancre reste visible.
-  const wrap = modal.locator(".screen-table-wrap");
-  await wrap.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  // 8. Défilement horizontal RÉEL : dans une vue, c'est le DOCUMENT qui défile
+  //    en largeur (le wrapper n'a plus de défilement propre, sinon l'en-tête du
+  //    tableau ne collerait plus à la fenêtre). On pousse donc `window`, et on
+  //    vérifie que la colonne « Entreprise » reste à sa place à l'écran, ET que
+  //    le rail n'est pas emporté par ce défilement horizontal.
+  const avantX = await page.evaluate(() => {
+    const rail = document.querySelector(".app-rail").getBoundingClientRect();
+    const th = document.querySelector(".screen-table th.screen-col-anchor").getBoundingClientRect();
+    return { rail: Math.round(rail.x), th: Math.round(th.x) };
+  });
+  const defilable = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 20,
+  );
+  if (defilable) {
+    await page.evaluate(() => window.scrollTo(document.documentElement.scrollWidth, 0));
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => window.scrollX)).toBeGreaterThan(0);
+    const apresX = await page.evaluate(() => {
+      const rail = document.querySelector(".app-rail").getBoundingClientRect();
+      const th = document
+        .querySelector(".screen-table th.screen-col-anchor")
+        .getBoundingClientRect();
+      return { rail: Math.round(rail.x), th: Math.round(th.x) };
+    });
+    expect(apresX.th, "colonne Entreprise gelée à l'écran").toBe(avantX.th);
+    expect(Math.abs(apresX.rail - avantX.rail), "rail non emporté par le défilement X")
+      .toBeLessThanOrEqual(1);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
   await expect(anchor).toBeVisible();
 
   // 9. Retour à l'accueil : les presets redeviennent accessibles sans fermer la modale.
@@ -154,7 +180,7 @@ test("screener : design A (groupes, badges) et score par compromis", async ({ pa
 
   await page.goto("/");
   await page.getByRole("button", { name: "Screener" }).click();
-  const modal = page.locator(".modal.modal-screen");
+  const modal = page.locator(".app-view.view-screener");
   await modal.locator(".screen-home").waitFor();
 
   // Design A : 4 groupes thématiques, repliables, badge visible même replié.
@@ -223,7 +249,7 @@ test("screener : filtre manuel Capi -> requête émise avec les bornes convertie
 
   await page.goto("/");
   await page.getByRole("button", { name: "Screener" }).click();
-  const modal = page.locator(".modal.modal-screen");
+  const modal = page.locator(".app-view.view-screener");
   await modal.locator(".screen-home").waitFor();
 
   // Le groupe « Taille » (capi) est ouvert par défaut : on saisit la borne min.
@@ -242,4 +268,62 @@ test("screener : filtre manuel Capi -> requête émise avec les bornes convertie
   await expect(modal.getByText("Calcul du scan en cours…")).toHaveCount(0);
 
   expect(consoleErrors, "aucune erreur JS en console").toEqual([]);
+});
+
+test("screener : l'en-tête du tableau reste accroché pendant le défilement (vue)", async ({
+  page,
+}) => {
+  await page.route("**/api/screener/run", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        source: "test",
+        count: 40,
+        tickers_count: 40,
+        rows: Array.from({ length: 40 }, (_, i) => ({
+          ticker: `T${String(i).padStart(2, "0")}.PA`,
+          name: `Titre ${i}`,
+          market_cap: 2e9 + i * 1e8,
+          z: -1 - i / 40,
+          pente_pct: 6,
+          ecart_type_pct: 22,
+          pot_5y_pct: 30,
+          pot_10y_pct: 60,
+          trend_bullish: 1,
+          roe_pct: 12,
+          per: 14,
+          p_b: 1.4,
+          p_fcf: 12,
+          fcf_yield_pct: 5,
+          quality_score: 60,
+          colors: {},
+        })),
+      }),
+    }),
+  );
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Screener" }).click();
+  const vue = page.locator(".app-view.view-screener");
+  await vue.locator(".screen-home").waitFor();
+  await vue.locator(".screen-preset").first().click();
+  await vue.locator(".screen-table").waitFor();
+
+  // Dans une VUE, c'est le document qui défile : l'en-tête de tableau doit donc
+  // s'accrocher à la fenêtre. Un `overflow-y: auto` sur le wrapper le
+  // rattacherait à une barre interne qui ne défile jamais — l'en-tête
+  // disparaîtrait alors au premier défilement, sans rien pour le signaler.
+  const seal = vue.locator(".screen-table thead th").first();
+  await expect(seal).toHaveText("Entreprise");
+  await page.mouse.wheel(0, 900);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const colle = await seal.boundingBox();
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(250);
+  const encore = await seal.boundingBox();
+  expect(Math.round(encore.y), "en-tête de tableau accroché").toBe(Math.round(colle.y));
+  expect(Math.abs(Math.round(colle.y) - 16), "accroché à --head-top").toBeLessThanOrEqual(1);
+  await expect(seal).toBeVisible();
 });

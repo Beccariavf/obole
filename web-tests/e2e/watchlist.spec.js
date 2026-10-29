@@ -195,7 +195,7 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
   expect(iSettings).toBeGreaterThan(iWatch);
 
   await page.locator(".app-rail-btn[data-space='watchlist']").click();
-  await expect(page.locator(".modal.modal-watchlist h3")).toHaveText("Watchlist");
+  await expect(page.locator(".app-view.view-watchlist h3")).toHaveText("Watchlist");
   // La vue cadrans est le défaut ; ce test vérifie le tableau dense.
   await page.locator(".wl-view-toggle button", { hasText: "Tableau" }).click();
 
@@ -250,11 +250,11 @@ test("watchlist : bouton, modale, compteurs et classement", async ({ page }) => 
 
   // Ligne cliquable : ouvre la fiche, la modale se ferme, le retour la rouvre.
   await page.locator(".wl-table tbody tr").nth(0).click();
-  await expect(page.locator(".modal.modal-watchlist")).toBeHidden();
+  await expect(page.locator(".app-view.view-watchlist")).toBeHidden();
   await expect(page.locator(".header")).toBeVisible();
   await expect(page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" })).toBeVisible();
   await page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" }).click();
-  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
 });
 
 test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => {
@@ -286,7 +286,7 @@ test("watchlist : vue cadrans par tier et bascule tableau", async ({ page }) => 
   await firstCard.locator(".wl-card-foot .btn", { hasText: "Voir" }).click();
   await expect(page.locator(".header")).toBeVisible();
   await page.locator(".searchbar .btn.ghost", { hasText: "Retour à « Watchlist »" }).click();
-  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
 
   // ✕ retire la carte (dialog accepté, DELETE intercepté).
   page.once("dialog", (dialog) => dialog.accept());
@@ -321,7 +321,7 @@ test("watchlist : état vide", async ({ page }) => {
   await routeWatchlist(page, { run: { generated_at: 1700000000, count: 0, rows: [] }, items: [] });
   await page.goto("/");
   await page.locator(".app-rail-btn[data-space='watchlist']").click();
-  await expect(page.locator(".modal.modal-watchlist")).toContainText("Ta watchlist est vide");
+  await expect(page.locator(".app-view.view-watchlist")).toContainText("Ta watchlist est vide");
 });
 
 test("étoile : ajout puis retrait, sans recharger la fiche", async ({ page }) => {
@@ -467,7 +467,7 @@ test("watchlist : jeu de convictions, seuils et application T3 → T2", async ({
   expect(calls).toContainEqual({ ticker: "MC.PA", tier: 2 });
 
   await page.locator(".cv-result-actions .btn", { hasText: "Fermer" }).click();
-  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
   await expect(page.locator(".modal.modal-conviction")).toBeHidden();
 });
 
@@ -519,8 +519,10 @@ test("paramètres : seuils de conviction, sauvegarde et rétablissement", async 
   await page.goto("/");
 
   const open = () => page.locator(".app-rail-btn[data-space='settings']").click();
+  // Une vue n'a plus de croix : on sort par le rail (« Analyse »).
+  const close = () => page.locator(".app-rail-btn[data-space='analyse']").click();
   await open();
-  const modal = page.locator(".modal.modal-settings");
+  const modal = page.locator(".app-view.view-settings");
   await expect(modal).toBeVisible();
   const conviction = modal.locator("section", { hasText: "Conviction" });
   const fields = conviction.locator(".settings-field input");
@@ -544,7 +546,7 @@ test("paramètres : seuils de conviction, sauvegarde et rétablissement", async 
   expect(settings.puts[0].values.conviction_tier2_min).toBe(41);
 
   // Rouvrir affiche les valeurs du serveur simulé.
-  await modal.locator(".idx-head button", { hasText: "✕" }).click();
+  await close();
   await expect(modal).toBeHidden();
   await open();
   await expect(fields.nth(0)).toHaveValue("55");
@@ -567,7 +569,7 @@ test("paramètres : seuils de conviction, sauvegarde et rétablissement", async 
   await modal.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(modal).toContainText("Le seuil Tier 1 doit être supérieur au seuil Tier 2");
   await expect(fields.nth(0)).toHaveValue("40");
-  await modal.locator(".idx-head button", { hasText: "✕" }).click();
+  await close();
   await open();
   await expect(fields.nth(0)).toHaveValue("55");
   await expect(fields.nth(1)).toHaveValue("41");

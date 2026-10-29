@@ -146,7 +146,7 @@ test("portefeuille : le bandeau de contexte reste visible pendant le défilement
   for (const kind of ["transactions", "dividends", "positions"]) {
     await page.route(`**/api/portfolio/${kind}**`, (route) => route.fulfill({ json: [] }));
   }
-  // Un résumé long (Top/Flop remplis) rend `.pf-main` réellement défilable.
+  // Un résumé long (Top/Flop remplis) rend la VUE réellement défilable.
   const long = {
     dates: [], period: "1a", period_start: null,
     benchmark: { key: "world", ticker: "CW8.PA", label: "MSCI World" },
@@ -163,19 +163,23 @@ test("portefeuille : le bandeau de contexte reste visible pendant le défilement
   await expect(context).toBeVisible();
   expect(await context.evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
 
-  // Défilement RÉEL de la zone principale : le bandeau ne bouge pas d'un pixel,
-  // et reste visible en haut de la modale (sinon le contexte se perd en bas
-  // d'un long tableau).
-  const before = await context.boundingBox();
-  const main = page.locator(".pf-main");
-  const scrollable = await main.evaluate((el) => el.scrollHeight > el.clientHeight + 20);
-  if (scrollable) {
-    await main.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    await page.waitForTimeout(120);
-  }
-  const after = await context.boundingBox();
+  // Défilement RÉEL : dans une vue, c'est le DOCUMENT qui défile (plus de
+  // `.pf-main` à hauteur imposée). Le bandeau se décolle de sa position de flux
+  // puis s'accroche à `--head-top` : il ne bouge plus d'un pixel ensuite, sinon
+  // le contexte se perd en bas d'un long tableau.
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const colle = await context.boundingBox();
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(200);
+  const encore = await context.boundingBox();
   await expect(context).toBeVisible();
-  expect(Math.round(after.y), "bandeau ancré malgré le défilement").toBe(Math.round(before.y));
+  expect(Math.round(encore.y), "bandeau accroché au défilement").toBe(Math.round(colle.y));
+  expect(
+    Math.abs(Math.round(colle.y) - 16),
+    "accroché à la même hauteur que le rail (--head-top)",
+  ).toBeLessThanOrEqual(1);
 });
 
 test("portefeuille : bouton, onglets et saisie d'une position (décimales)", async ({ page }) => {
@@ -233,18 +237,27 @@ test("portefeuille : bouton, onglets et saisie d'une position (décimales)", asy
   await expect(page.locator(".searchbar .btn.ghost", { hasText: "Portefeuille" })).toHaveCount(0);
 
   await page.locator(".app-rail-btn[data-space='portfolio']").click();
-  await expect(page.locator(".modal.modal-portfolio h3", { hasText: "Portefeuille" })).toBeVisible();
+  await expect(page.locator(".app-view.view-portfolio .view-head h3", { hasText: "Portefeuille" })).toBeVisible();
 
-  // L'espace portefeuille est PLEIN ÉCRAN (fiche 00-socle) : la règle CSS
-  // `.modal.modal-portfolio` doit s'appliquer, sinon la modale retombe sur le
-  // `.modal` de base (600px / 80vh) et l'onglet Positions devient illisible.
-  const modal = page.locator(".modal.modal-portfolio");
+  // L'espace portefeuille est une PAGE de la coquille : elle occupe TOUTE la
+  // colonne de contenu (`.app-main`) et le rail reste visible à sa gauche. Une
+  // couche plein écran recouvrirait le rail — c'est précisément ce que la vue
+  // supprime.
+  const modal = page.locator(".app-view.view-portfolio");
   const box = await modal.boundingBox();
-  const vw = await page.evaluate(() => window.innerWidth);
-  const vh = await page.evaluate(() => window.innerHeight);
-  expect(box, "modale portefeuille mesurable").not.toBeNull();
-  expect(box.width, "largeur plein écran").toBeGreaterThan(vw * 0.9);
-  expect(box.height, "hauteur plein écran").toBeGreaterThan(vh * 0.9);
+  const mainBox = await page.locator(".app-main").boundingBox();
+  const railBox = await page.locator(".app-rail").boundingBox();
+  expect(box, "vue portefeuille mesurable").not.toBeNull();
+  expect(box.width, "la vue occupe la colonne de contenu").toBeGreaterThanOrEqual(
+    mainBox.width - 1,
+  );
+  expect(railBox, "rail visible").not.toBeNull();
+  expect(
+    box.x,
+    "la vue commence à droite du rail",
+  ).toBeGreaterThanOrEqual(railBox.x + railBox.width - 1);
+  // Et le rail reste cliquable : c'est lui qui commande le changement d'espace.
+  await expect(page.locator(".app-rail-btn[data-space='analyse']")).toBeVisible();
 
   // Onglets horizontaux : 5 sections, « Résumé » active par défaut (#17.1).
   const tabs = page.locator(".pf-tabs .pf-tab");
@@ -443,12 +456,12 @@ test("portefeuille : revenir à « Tous les comptes » recharge sans 422", async
 
   await page.goto("/");
   await page.locator(".app-rail-btn[data-space='portfolio']").click();
-  await expect(page.locator(".modal.modal-portfolio .idx-head h3")).toBeVisible();
+  await expect(page.locator(".app-view.view-portfolio .view-head h3")).toBeVisible();
 
   const selector = page.locator(".pf-context .pf-account-select");
   await selector.selectOption("1"); // compte précis
   await selector.selectOption(""); // retour à « Tous les comptes »
-  await expect(page.locator(".modal.modal-portfolio")).toBeVisible();
+  await expect(page.locator(".app-view.view-portfolio")).toBeVisible();
 
   // Aucune requête ne doit porter `account_id=null` (ou "null").
   expect(requests.some((u) => /account_id=(null|%22null%22)/.test(u))).toBe(false);
