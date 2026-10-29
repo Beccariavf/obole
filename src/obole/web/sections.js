@@ -47,6 +47,13 @@ export const SECTIONS = [
     label: "Valorisation",
     svg: icon('<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>'),
   },
+  {
+    id: "momentum",
+    label: "Momentum",
+    // Jauge : le régime de foule, entre le monde de Markovitz et celui de
+    // Mandelbrot (Clara Vallis, #30).
+    svg: icon('<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4.5-4.5"/><circle cx="12" cy="17" r="1.4"/>'),
+  },
 ];
 
 export const DEFAULT_SECTION = "resume";

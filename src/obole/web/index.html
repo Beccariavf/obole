@@ -709,6 +709,54 @@
         </div>
       </template>
 
+      <!-- Section Momentum (Clara Vallis, #30) : le régime de foule.
+           La table est recalculée côté client sur la fenêtre choisie ; les
+           séries de satisfaction viennent du payload (walk-forward serveur). -->
+      <div class="section" x-show="activeSection === 'momentum' && momAvailable()">
+        <div class="mom-head">
+          <h2>Le monde de Markovitz</h2>
+          <span class="mom-eyebrow">La Clara Vallis</span>
+        </div>
+        <div class="card mom-card">
+          <div class="mom-toolbar">
+            <div class="period-presets">
+              <button type="button" class="period-chip" :class="{ active: momWindow === null }"
+                      @click="momWindow = null"
+                      title="Fenêtre de référence de la valorisation (20 ans, 30 pour les financières)">Réf.</button>
+              <template x-for="w in momWindows()" :key="w">
+                <button type="button" class="period-chip" :class="{ active: momWindow === w }"
+                        @click="momWindow = w" x-text="w ? w + 'A' : 'MAX'"></button>
+              </template>
+            </div>
+            <div class="mom-series">
+              <label><input type="radio" value="raw" x-model="momSeries" /> brut</label>
+              <label :class="{ disabled: !momHasAdj() }">
+                <input type="radio" value="adj" x-model="momSeries" :disabled="!momHasAdj()" /> ajusté
+              </label>
+            </div>
+          </div>
+          <div class="mom-table-wrap" x-show="momRows().length">
+          <table class="mom-table">
+            <thead>
+              <tr>
+                <template x-for="r in momRows()" :key="r.key">
+                  <th x-text="r.label"></th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <template x-for="r in momRows()" :key="r.key">
+                  <td x-text="r.value"></td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <p class="na" x-show="!momRows().length">Pas assez de données pour calculer la table.</p>
+        </div>
+      </div>
+
       <div class="section" x-show="data.fundamentals && activeSection === 'finance'">
         <h2>Données complémentaires</h2>
         <div class="card mini" style="padding:16px 20px">

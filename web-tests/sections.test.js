@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe("registre des sections", () => {
-  it("expose les 6 sections dans l'ordre validé", () => {
+  it("expose les 7 sections dans l'ordre validé", () => {
     expect(SECTIONS.map((s) => s.id)).toEqual([
       "resume",
       "quantitatif",
@@ -42,6 +42,7 @@ describe("registre des sections", () => {
       "finance",
       "these",
       "valorisation",
+      "momentum",
     ]);
   });
 

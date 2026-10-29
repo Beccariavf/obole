@@ -22,6 +22,7 @@ import { thesisMixin } from "../src/obole/web/thesis.js";
 import { checkpointsMixin } from "../src/obole/web/suivi.js";
 import { watchlistMixin } from "../src/obole/web/watchlist.js";
 import { convictionMixin } from "../src/obole/web/conviction-mixin.js";
+import { momentumMixin } from "../src/obole/web/momentum.js";
 import { obole } from "../src/obole/web/app.js";
 
 // #04 : découpage du front en modules ES natifs. Ce test verrouille la
@@ -50,6 +51,7 @@ const MIXINS = {
   "suivi.js": checkpointsMixin,
   "watchlist.js": watchlistMixin,
   "conviction-mixin.js": convictionMixin,
+  "momentum.js": momentumMixin,
 };
 
 describe("découpage du front (modules ES)", () => {
