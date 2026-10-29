@@ -70,24 +70,30 @@ export const momentumMixin = {
     return (this.momSeries === "adj" && m.adj ? m.adj : m.raw) || [];
   },
 
+  // Indice de départ de la fenêtre de RÉFÉRENCE (celle de la valorisation) :
+  // la date persistée si elle existe, sinon 20 ans (30 pour les financières).
+  // SOURCE UNIQUE : `momRange()` et le chip « Réf. » de l'historique passent
+  // par elle, sinon les deux repères pourraient diverger. Autonome (pas de
+  // dépendance à `idxStartBeforeWindow`) pour rester testable.
+  _momReferenceStart(end) {
+    const dates = this.data?.chart?.dates || [];
+    const refStart = this.data?.watch?.ref?.start;
+    if (refStart) {
+      const i = dates.findIndex((d) => d >= refStart);
+      if (i >= 0) return i;
+    }
+    const years =
+      this.data?.identity?.kind === "financial" ? REG_YEARS_FINANCIAL : REG_YEARS_DEFAULT;
+    return this._momStartBefore(end, years);
+  },
+
   // Indices [début, fin] de la fenêtre de la table sur `chart.dates`.
-  // `null` = la fenêtre de RÉFÉRENCE (celle de la valorisation) : la date
-  // persistée si elle existe, sinon 20 ans (30 pour les financières). Autonome
-  // (pas de dépendance à `idxStartBeforeWindow`) pour rester testable.
+  // `null` = la fenêtre de RÉFÉRENCE, `0` = le maximum.
   momRange() {
     const dates = this.data?.chart?.dates || [];
     if (!dates.length) return [0, 0];
     const end = dates.length - 1;
-    if (this.momWindow == null) {
-      const refStart = this.data?.watch?.ref?.start;
-      if (refStart) {
-        const i = dates.findIndex((d) => d >= refStart);
-        if (i >= 0) return [i, end];
-      }
-      const years =
-        this.data?.identity?.kind === "financial" ? REG_YEARS_FINANCIAL : REG_YEARS_DEFAULT;
-      return [this._momStartBefore(end, years), end];
-    }
+    if (this.momWindow == null) return [this._momReferenceStart(end), end];
     if (!this.momWindow) return [0, end];
     return [this._momStartBefore(end, Number(this.momWindow)), end];
   },
@@ -245,12 +251,17 @@ export const momentumMixin = {
     this.momEnd = Math.max(this.momStart + 1, Math.min(e, end));
   },
 
-  momPreset(years) {
+  // Presets de l'historique : `"ref"` (fenêtre de référence), `"max"` ou un
+  // nombre d'années. Le défaut de l'historique reste 10 ans (`drawMomentum`) :
+  // « Réf. » est un repère, pas la fenêtre d'ouverture.
+  momPreset(preset) {
     const n = (this.data?.chart?.dates || []).length;
     if (!n) return;
     const end = n - 1;
     this.momEnd = end;
-    this.momStart = years === "max" ? 0 : this._momStartBefore(end, Number(years));
+    if (preset === "ref") this.momStart = this._momReferenceStart(end);
+    else if (preset === "max") this.momStart = 0;
+    else this.momStart = this._momStartBefore(end, Number(preset));
     this.drawMomentumHistory();
   },
 

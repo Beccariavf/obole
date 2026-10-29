@@ -100,6 +100,53 @@ describe("table monde de Markovitz", () => {
     expect(end).toBe(1099);
   });
 
+  it("le preset Réf. place la plage sur la date persistée", () => {
+    const prices = Array.from({ length: 1100 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: null });
+    comp.data.watch = { ref: { start: comp.data.chart.dates[500] } };
+    comp.drawMomentumHistory = () => {}; // tracé isolé : on ne teste que la plage
+    comp.momPreset("ref");
+    expect(comp.momStart).toBe(500);
+    expect(comp.momEnd).toBe(1099);
+    // Même référence que la table : les deux repères ne peuvent pas diverger.
+    expect(comp.momStart).toBe(comp.momRange()[0]);
+  });
+
+  it("sans référence persistée, le preset Réf. applique 20 ans", () => {
+    const prices = Array.from({ length: 12000 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: 1 });
+    comp.drawMomentumHistory = () => {};
+    const end = prices.length - 1;
+    comp.momPreset("ref");
+    const cutoff = new Date(comp.data.chart.dates[end]);
+    cutoff.setFullYear(cutoff.getFullYear() - 20);
+    expect(new Date(comp.data.chart.dates[comp.momStart]) >= cutoff).toBe(true);
+    expect(new Date(comp.data.chart.dates[comp.momStart - 1]) < cutoff).toBe(true);
+  });
+
+  it("sans référence persistée, une financière applique 30 ans", () => {
+    const prices = Array.from({ length: 15000 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: 1 });
+    comp.data.identity = { kind: "financial" };
+    comp.drawMomentumHistory = () => {};
+    const end = prices.length - 1;
+    comp.momPreset("ref");
+    const cutoff = new Date(comp.data.chart.dates[end]);
+    cutoff.setFullYear(cutoff.getFullYear() - 30);
+    expect(new Date(comp.data.chart.dates[comp.momStart]) >= cutoff).toBe(true);
+    expect(new Date(comp.data.chart.dates[comp.momStart - 1]) < cutoff).toBe(true);
+  });
+
+  it("l'historique s'ouvre toujours sur 10 ans", () => {
+    const prices = Array.from({ length: 8000 }, (_, i) => 100 + i);
+    const comp = component(prices);
+    comp.drawMomentumYear = () => {};
+    comp.drawMomentumHistory = () => {};
+    comp.drawMomentum();
+    const end = prices.length - 1;
+    expect(comp.momStart).toBe(comp._momStartBefore(end, 10));
+  });
+
   it("la fenêtre MAX couvre toute la grille", () => {
     const prices = Array.from({ length: 300 }, (_, i) => 100 + i);
     const [start, end] = component(prices, { window: 0 }).momRange();

@@ -778,7 +778,7 @@
                 <span class="mom-zone mom-zone-bad" :style="'width:' + momZones().bad + '%'"></span>
                 <span class="gauge-needle" :style="'left:' + momGaugePos() + '%'"></span>
               </div>
-              <div class="gauge-scale"><span>gaz · satisfaite</span><span>liquide · frustrée</span></div>
+              <div class="gauge-scale"><span>satisfaite</span><span>frustrée</span></div>
             </div>
           </div>
 
@@ -792,6 +792,8 @@
             <h3>Historique du régime</h3>
             <div class="mom-toolbar">
               <div class="period-presets">
+                <button type="button" class="period-chip" @click="momPreset('ref')"
+                        title="Fenêtre de référence : date persistée, sinon 20 ans (30 pour les financières)">Réf.</button>
                 <button type="button" class="period-chip" @click="momPreset(1)">1A</button>
                 <button type="button" class="period-chip" @click="momPreset(5)">5A</button>
                 <button type="button" class="period-chip" @click="momPreset(10)">10A</button>
