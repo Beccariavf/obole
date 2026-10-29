@@ -50,11 +50,12 @@ navigateur concerné) et passent la porte backend + front.
 
 | Commit (sujet) | `ruff` | `pytest` | `npm test` | `npm run test:e2e` |
 | --- | --- | --- | --- | --- |
+| `docs(momentum): spécifier la lecture in/out et la planifier` (fiche + plan) | ✅ | docs seules, suite identique au point de départ | docs seules | docs seules |
 | `feat(momentum): mesurer le marché pendant les séances in et out` | ✅ | `1333 passed, 1 skipped, 5 deselected` | `716 passed` | `180 passed` |
 | `docs(momentum): documenter la lecture in/out et la convention de out` | ✅ | `1333 passed, 1 skipped, 5 deselected` | `716 passed` | inchangé (docs seules) |
 | `chore(momentum): clore le plan #32 et enregistrer le run` | ✅ | `1333 passed, 1 skipped, 5 deselected` | `716 passed` | inchangé (docs seules) |
 
-Aucun commit de la branche n'a de suite rouge. La suite e2e complète a en outre été
+Aucun commit de la branche n'a de suite rouge : le commit de spécification ne touche que la fiche et le plan, les trois suivants passent la porte complète. La suite e2e complète a en outre été
 **rejouée sur la tête finale**, après la clôture du plan : `180 passed (3.3m)`.
 
 ## Points corrigés en revue (round 1)
