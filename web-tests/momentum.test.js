@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { api } from "../src/obole/web/api.js";
 import { applyMeta } from "../src/obole/web/thresholds.js";
 import { momentumMixin } from "../src/obole/web/momentum.js";
 
@@ -11,7 +12,13 @@ beforeAll(() => {
   applyMeta({
     reg_years_default: 20,
     reg_years_financial: 30,
-    momentum: { window: 250, low: 0.35, high: 0.6, table_windows: [1, 5, 10, 20, 0] },
+    momentum: {
+      window: 250,
+      low: 0.35,
+      high: 0.6,
+      table_windows: [1, 5, 10, 20, 0],
+      fee_pct: 0.1,
+    },
   });
 });
 
@@ -100,6 +107,53 @@ describe("table monde de Markovitz", () => {
     expect(end).toBe(1099);
   });
 
+  it("le preset Réf. place la plage sur la date persistée", () => {
+    const prices = Array.from({ length: 1100 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: null });
+    comp.data.watch = { ref: { start: comp.data.chart.dates[500] } };
+    comp.drawMomentumHistory = () => {}; // tracé isolé : on ne teste que la plage
+    comp.momPreset("ref");
+    expect(comp.momStart).toBe(500);
+    expect(comp.momEnd).toBe(1099);
+    // Même référence que la table : les deux repères ne peuvent pas diverger.
+    expect(comp.momStart).toBe(comp.momRange()[0]);
+  });
+
+  it("sans référence persistée, le preset Réf. applique 20 ans", () => {
+    const prices = Array.from({ length: 12000 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: 1 });
+    comp.drawMomentumHistory = () => {};
+    const end = prices.length - 1;
+    comp.momPreset("ref");
+    const cutoff = new Date(comp.data.chart.dates[end]);
+    cutoff.setFullYear(cutoff.getFullYear() - 20);
+    expect(new Date(comp.data.chart.dates[comp.momStart]) >= cutoff).toBe(true);
+    expect(new Date(comp.data.chart.dates[comp.momStart - 1]) < cutoff).toBe(true);
+  });
+
+  it("sans référence persistée, une financière applique 30 ans", () => {
+    const prices = Array.from({ length: 15000 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: 1 });
+    comp.data.identity = { kind: "financial" };
+    comp.drawMomentumHistory = () => {};
+    const end = prices.length - 1;
+    comp.momPreset("ref");
+    const cutoff = new Date(comp.data.chart.dates[end]);
+    cutoff.setFullYear(cutoff.getFullYear() - 30);
+    expect(new Date(comp.data.chart.dates[comp.momStart]) >= cutoff).toBe(true);
+    expect(new Date(comp.data.chart.dates[comp.momStart - 1]) < cutoff).toBe(true);
+  });
+
+  it("l'historique s'ouvre toujours sur 10 ans", () => {
+    const prices = Array.from({ length: 8000 }, (_, i) => 100 + i);
+    const comp = component(prices);
+    comp.drawMomentumYear = () => {};
+    comp.drawMomentumHistory = () => {};
+    comp.drawMomentum();
+    const end = prices.length - 1;
+    expect(comp.momStart).toBe(comp._momStartBefore(end, 10));
+  });
+
   it("la fenêtre MAX couvre toute la grille", () => {
     const prices = Array.from({ length: 300 }, (_, i) => 100 + i);
     const [start, end] = component(prices, { window: 0 }).momRange();
@@ -156,5 +210,215 @@ describe("table monde de Markovitz", () => {
     const raw = component(prices, { series: "raw" }).momStats();
     const adj = component(prices, { series: "adj", adjPrices }).momStats();
     expect(adj.slope).toBeGreaterThan(raw.slope * 2);
+  });
+});
+
+describe("api.momentumBacktest", () => {
+  it("construit l'URL avec les quatre paramètres encodés", async () => {
+    const calls = [];
+    const realFetch = global.fetch;
+    global.fetch = async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => ({}) };
+    };
+    try {
+      await api.momentumBacktest("stock", "RI.PA", "2020-01-01", "2021-01-01", "adj");
+      await api.momentumBacktest("basket", 7, "2020-01-01", "2021-01-01", "raw");
+    } finally {
+      global.fetch = realFetch;
+    }
+    expect(calls[0]).toBe(
+      "/api/stock/RI.PA/momentum-backtest?start=2020-01-01&end=2021-01-01&series=adj",
+    );
+    expect(calls[1]).toBe(
+      "/api/index/7/momentum-backtest?start=2020-01-01&end=2021-01-01&series=raw",
+    );
+  });
+});
+
+// #31 : la carte « Fiabilité de l'indicateur » compare buy & hold et la
+// stratégie sur la fenêtre visible. Le backtest est calculé côté serveur (la
+// grille du graphe est décimée) ; le front ne fait que charger et formater.
+function backtestPayload({ cagr = 6.8, strategyCagr = 9.1 } = {}) {
+  const block = (value) => ({
+    cagr_pct: value,
+    volatility_pct: 18.2,
+    sharpe: 0.37,
+    sortino: null,
+    max_drawdown_pct: -38.4,
+    calmar: 0.18,
+    invested_pct: 100,
+    trades: 1,
+  });
+  return {
+    buy_hold: block(cagr),
+    strategy: { ...block(strategyCagr), invested_pct: 64, trades: 7 },
+    window: { start: "2015-01-02", end: "2024-12-31", sessions: 2561 },
+  };
+}
+
+function loadedComponent(prices) {
+  const comp = component(prices);
+  comp.data.kind_payload = "stock";
+  comp.data.identity = { ticker: "RI.PA" };
+  return comp;
+}
+
+describe("fiabilité de l'indicateur", () => {
+  it("huit mesures, deux colonnes, formatées", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    const rows = comp.momBacktestRows();
+    expect(rows).toHaveLength(8);
+    expect(rows.map((r) => r.key)).toEqual([
+      "cagr",
+      "volatility",
+      "sharpe",
+      "sortino",
+      "max_drawdown",
+      "calmar",
+      "invested",
+      "trades",
+    ]);
+    for (const row of rows) {
+      expect(typeof row.buy_hold).toBe("string");
+      expect(typeof row.strategy).toBe("string");
+    }
+    expect(rows[0].buy_hold).toBe("6,80 %");
+    expect(rows[0].strategy).toBe("9,10 %");
+    expect(rows[2].buy_hold).toBe("0,37");
+    expect(rows[7].strategy).toBe("7");
+  });
+
+  it("une mesure absente affiche un tiret, jamais NaN", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    const sortino = comp.momBacktestRows().find((r) => r.key === "sortino");
+    expect(sortino.buy_hold).toBe("—");
+    expect(sortino.hint).toContain("Aucune baisse");
+    comp.momBacktest.buy_hold.sharpe = Infinity;
+    expect(comp.momBacktestRows()[2].buy_hold).toBe("—");
+  });
+
+  it("un échec réseau est traduit en message lisible", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    await comp.loadMomentumBacktest();
+    expect(comp.momBacktestError).toContain("le serveur ne répond pas");
+    spy.mockRestore();
+  });
+
+  it("la légende annonce la série et la durée", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    expect(comp.momBacktestSpan()).toBe("10 ans");
+    expect(comp.momBacktestLegend()).toContain("brute, dividendes non comptés");
+    expect(comp.momBacktestLegend()).toContain("10 ans");
+    expect(comp.momBacktestLegend()).toContain("0,10 % par ordre");
+    comp.momSeries = "adj";
+    expect(comp.momBacktestLegend()).toContain("ajustée, dividendes réinvestis");
+  });
+
+  it("la légende d'un indice dit total-return, jamais « brut »", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.data.kind_payload = "basket";
+    comp.data.identity = { index_id: 7 };
+    comp.momBacktest = backtestPayload();
+    expect(comp.momSeries).toBe("raw"); // le radio ajusté est désactivé
+    const legend = comp.momBacktestLegend();
+    expect(legend).toContain("indice total-return, dividendes réinvestis");
+    expect(legend).not.toContain("non comptés");
+  });
+
+  it("le chargement est visible tant que la requête court", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolve;
+    const pending = new Promise((r) => {
+      resolve = r;
+    });
+    const spy = vi.spyOn(api, "momentumBacktest").mockReturnValueOnce(pending);
+    const p = comp.loadMomentumBacktest();
+    expect(comp.momBacktestLoading).toBe(true);
+    expect(comp.momBacktestRows()).toEqual([]);
+    resolve(backtestPayload());
+    await p;
+    expect(comp.momBacktestLoading).toBe(false);
+    expect(comp.momBacktestRows()).toHaveLength(8);
+    spy.mockRestore();
+  });
+
+  it("changer de fiche vide les chiffres du ticker précédent", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolve;
+    const pending = new Promise((r) => {
+      resolve = r;
+    });
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockResolvedValueOnce(backtestPayload())
+      .mockReturnValueOnce(pending);
+    await comp.loadMomentumBacktest(); // RI.PA
+    expect(comp.momBacktest).not.toBeNull();
+    comp.data.identity = { ticker: "AI.PA" }; // autre référence
+    const p = comp.loadMomentumBacktest();
+    expect(comp.momBacktest).toBeNull(); // pas de chiffres d'un autre ticker
+    expect(comp.momBacktestLoading).toBe(true);
+    resolve(backtestPayload());
+    await p;
+    expect(comp.momBacktest).not.toBeNull();
+    spy.mockRestore();
+  });
+
+  it("une erreur est visible et laisse le tableau vide", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const spy = vi.spyOn(api, "momentumBacktest").mockRejectedValue(new Error("panne réseau"));
+    await comp.loadMomentumBacktest();
+    expect(comp.momBacktestError).toBe("panne réseau");
+    expect(comp.momBacktest).toBeNull();
+    expect(comp.momBacktestLoading).toBe(false);
+    expect(comp.momBacktestRows()).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("une réponse tardive ne remplace pas une réponse plus récente", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolveOld;
+    let resolveRecent;
+    const old = new Promise((r) => {
+      resolveOld = r;
+    });
+    const recent = new Promise((r) => {
+      resolveRecent = r;
+    });
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockReturnValueOnce(old)
+      .mockReturnValueOnce(recent);
+    const p1 = comp.loadMomentumBacktest();
+    comp.momSeries = "adj"; // nouvelle fenêtre logique : la clé change
+    const p2 = comp.loadMomentumBacktest();
+    const recentPayload = backtestPayload({ cagr: 2 });
+    resolveRecent(recentPayload);
+    await p2;
+    resolveOld(backtestPayload({ cagr: 99 }));
+    await p1;
+    expect(comp.momBacktest).toBe(recentPayload);
+    expect(comp.momBacktestLoading).toBe(false);
+    spy.mockRestore();
+  });
+
+  it("le premier dessin déclenche le calcul, le preset et la poignée aussi", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const load = vi.spyOn(comp, "loadMomentumBacktest").mockImplementation(() => {});
+    comp.drawMomentumYear = () => {};
+    comp.drawMomentumHistory = () => {};
+    comp.drawMomentum();
+    expect(load).toHaveBeenCalledTimes(1);
+    comp.momPreset(1);
+    expect(load).toHaveBeenCalledTimes(2);
+    comp.momRangeChanged();
+    expect(load).toHaveBeenCalledTimes(3);
   });
 });

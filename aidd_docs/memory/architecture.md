@@ -61,6 +61,12 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
   série PLEINE puis réindexé sur la grille décimée — sur la série déjà décimée, 250 points
   ne couvriraient pas 250 séances. Le moteur (`engine/clara_vallis.py`) est vectorisé par
   `sliding_window_view` et découpé en blocs de 2 000 dates pour borner la mémoire.
+- Le **backtest de fiabilité Clara Vallis** vit dans `engine/momentum_backtest.py` (pur) : il
+  reçoit les cours et la série de satisfaction, applique l'hystérésis (`LOW`/`HIGH`) avec un
+  signal décalé d'un jour et des frais PAR ORDRE, et réutilise Sharpe, Sortino et drawdown de
+  `engine/portfolio.py`. `services/momentum.momentum_backtest` calcule la satisfaction sur la
+  série PLEINE puis tranche la fenêtre visible — jamais sur la grille décimée. Aucun cache :
+  le coût à froid mesuré (~35 ms sur 30 ans) reste sous le seuil de 100 ms du plan.
 - Le screener écrit en base depuis plusieurs threads : SQLite en WAL avec `busy_timeout`.
 - `spikes/` contient des scripts de calibration jetables, exclus du lint et du format.
 - Les assets statiques sont servis avec un hash de contenu (`/static/x.js?v=<hash>`),

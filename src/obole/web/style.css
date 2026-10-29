@@ -983,7 +983,7 @@ select.pf-ctl {
 .mom-table tbody td { font-variant-numeric: tabular-nums; }
 .mom-group-head { margin-top: 22px; }
 .mom-blocks { display: flex; flex-direction: column; gap: 14px; }
-.mom-gauge-card, .mom-year-card, .mom-history-card { padding: 14px 16px; }
+.mom-gauge-card, .mom-year-card, .mom-history-card, .mom-backtest-card { padding: 14px 16px; }
 .mom-gauge-head {
   display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
 }
@@ -996,6 +996,30 @@ select.pf-ctl {
 .mom-zone-bad { background: #FECACA; }
 .mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
 .mom-short { font-size: 10px; margin-left: 4px; }
+/* Backtest de fiabilité (#31) : la carte annonce la série et la durée, le
+   tableau aligne les nombres à droite (mesures lisibles, comparaison directe). */
+.mom-backtest-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.mom-backtest-head h3 { margin: 0; }
+.mom-backtest-legend { font-size: 12px; color: var(--text-soft); }
+.mom-backtest-table th[scope="row"] { text-align: left; font-weight: 500; }
+.mom-backtest-table thead th:not(:first-child), .mom-backtest-table td { text-align: right; }
+.mom-backtest-error { color: var(--bad); }
+/* Sous 640 px, la légende passe sur deux lignes et le tableau défile DANS la
+   carte : le conteneur `.mom-table-wrap` porte l'overflow, la carte garde sa
+   largeur. Un min-width rend le défilement effectif au lieu d'écraser les
+   colonnes. */
+@media (max-width: 640px) {
+  /* La fiche est en flex-colonne `align-items:start` : une carte large impose sa
+     largeur max-content à toute la page. On plafonne donc CETTE carte à la
+     fenêtre pour que le tableau défile DANS elle au lieu d'élargir la page. */
+  .mom-backtest-card { width: calc(100vw - 32px); max-width: 100%; }
+  .mom-backtest-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .mom-backtest-legend { line-height: 1.4; }
+  .mom-backtest-table { min-width: 680px; }
+}
 /* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :
    sans hauteur fixe, Plotly pilote le div et la règle « conteneur = layout » de
    design.md n'était pas tenue. */

@@ -1,6 +1,6 @@
 # #31 — Fiabilité de la Clara Vallis
 
-> **Statut :** à faire · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
+> **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/clara-vallis-fiabilite` (depuis `feat/clara-vallis`, tant que #30 n'est pas fusionné) · **Taille :** 2-3 sessions
 
 > **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
@@ -138,4 +138,21 @@ temps investi, nombre de trades.
 
 ## 8. Note de reprise
 
-_(vide — chantier non commencé)_
+**Terminé.** Implémentation livrée sur `feat/clara-vallis-fiabilite`.
+
+- **Plan :** `aidd_docs/tasks/2026_10/2026_10_29_clara-vallis-fiabilite/` (5 phases).
+- **Jauge :** « satisfaite » / « frustrée » ; le chip « Réf. » de l'historique lit la même
+  référence que la table (`_momReferenceStart`), le défaut reste 10 ans.
+- **Moteur :** `engine/momentum_backtest.py` (pur) — hystérésis 0,35/0,60, signal de `t`
+  décalé sur `t+1`, frais 0,1 % **par ordre**, Sharpe/Sortino/drawdown réutilisés de
+  `engine/portfolio.py`.
+- **Service et routes :** `services/momentum.momentum_backtest` calcule la satisfaction sur
+  la série PLEINE puis tranche la fenêtre ; deux routes validées (dates ISO, `raw|adj`,
+  404 pour une référence inconnue). L'index yfinance tz-aware est normalisé.
+- **Interface :** carte « Fiabilité de l'indicateur » à trois colonnes et huit lignes,
+  jeton de requête contre les réponses tardives, états vide/chargement/erreur, `caption`
+  et `scope="col"`, défilement horizontal sous 640 px.
+- **Preuve :** tests unitaires du moteur, tests API, vitest (formatage, lignes, jeton,
+  états) et smoke Playwright Chromium + WebKit.
+- **Reste hors périmètre :** pas de comparaison de plusieurs stratégies, pas de portage au
+  screener, à la watchlist ni au MCP, pas de frais réglables dans Paramètres.

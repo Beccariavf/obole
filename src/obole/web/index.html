@@ -778,7 +778,7 @@
                 <span class="mom-zone mom-zone-bad" :style="'width:' + momZones().bad + '%'"></span>
                 <span class="gauge-needle" :style="'left:' + momGaugePos() + '%'"></span>
               </div>
-              <div class="gauge-scale"><span>gaz · satisfaite</span><span>liquide · frustrée</span></div>
+              <div class="gauge-scale"><span>satisfaite</span><span>frustrée</span></div>
             </div>
           </div>
 
@@ -792,6 +792,8 @@
             <h3>Historique du régime</h3>
             <div class="mom-toolbar">
               <div class="period-presets">
+                <button type="button" class="period-chip" @click="momPreset('ref')"
+                        title="Fenêtre de référence : date persistée, sinon 20 ans (30 pour les financières)">Réf.</button>
                 <button type="button" class="period-chip" @click="momPreset(1)">1A</button>
                 <button type="button" class="period-chip" @click="momPreset(5)">5A</button>
                 <button type="button" class="period-chip" @click="momPreset(10)">10A</button>
@@ -808,11 +810,49 @@
                 <div class="ds-track"></div>
                 <div class="ds-fill" :style="`left:${momPctStart()}%; right:${100 - momPctEnd()}%`"></div>
                 <input type="range" class="ds-input ds-min" min="0" :max="momMaxIdx()" x-model.number="momStart"
-                       @input="momClamp()" @change="drawMomentumHistory()" />
+                       @input="momClamp()" @change="momRangeChanged()" />
                 <input type="range" class="ds-input ds-max" min="0" :max="momMaxIdx()" x-model.number="momEnd"
-                       @input="momClamp()" @change="drawMomentumHistory()" />
+                       @input="momClamp()" @change="momRangeChanged()" />
               </div>
             </div>
+          </div>
+
+          <div class="card mom-backtest-card">
+            <div class="mom-backtest-head">
+              <h3>Fiabilité de l'indicateur</h3>
+              <span class="mom-backtest-legend"
+                    x-show="momBacktestRows().length && !momBacktestLoading"
+                    x-text="momBacktestLegend()"></span>
+            </div>
+            <p class="na" x-show="momBacktestLoading" aria-live="polite">Calcul du backtest…</p>
+            <p class="na mom-backtest-error" x-show="!momBacktestLoading && momBacktestError"
+               x-text="momBacktestError"></p>
+            <div class="mom-table-wrap" x-show="momBacktestRows().length && !momBacktestLoading">
+              <table class="mom-table mom-backtest-table">
+                <caption class="sr-only">
+                  Comparaison de buy &amp; hold et de la stratégie Clara Vallis sur la fenêtre affichée.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Mesure</th>
+                    <th scope="col">Buy &amp; hold</th>
+                    <th scope="col">Clara Vallis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="r in momBacktestRows()" :key="r.key">
+                    <tr>
+                      <th scope="row" :title="r.hint || null" x-text="r.label"></th>
+                      <td x-text="r.buy_hold"></td>
+                      <td x-text="r.strategy"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="na" x-show="!momBacktestLoading && !momBacktestError && !momBacktestRows().length">
+              Fenêtre trop courte pour mesurer.
+            </p>
           </div>
         </div>
       </div>

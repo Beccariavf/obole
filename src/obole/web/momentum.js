@@ -8,6 +8,7 @@
 // `MOMENTUM` et `CHART_HEIGHTS` sont des liaisons VIVANTES de `thresholds.js` :
 // on les lit dans les méthodes, jamais dans un objet figé au chargement (elles
 // sont réassignées par `applyMeta`).
+import { api } from "./api.js";
 import { C } from "./theme.js";
 import {
   CHART_HEIGHTS,
@@ -25,6 +26,13 @@ export const momentumMixin = {
   momLog: false,
   momShowReg: false,
   _momRef: null, // référence de la fiche dont la plage est valide
+  // Backtest de fiabilité (#31) : une requête par fenêtre, jamais par pixel.
+  momBacktest: null,
+  momBacktestLoading: false,
+  momBacktestError: "",
+  _momBacktestToken: 0, // jeton : une réponse tardive ne remplace pas la récente
+  _momBacktestKeyLoaded: "",
+  _momBacktestRefKey: "", // référence dont les chiffres sont affichés
 
   momData() {
     return this.data?.chart?.momentum || null;
@@ -70,24 +78,30 @@ export const momentumMixin = {
     return (this.momSeries === "adj" && m.adj ? m.adj : m.raw) || [];
   },
 
+  // Indice de départ de la fenêtre de RÉFÉRENCE (celle de la valorisation) :
+  // la date persistée si elle existe, sinon 20 ans (30 pour les financières).
+  // SOURCE UNIQUE : `momRange()` et le chip « Réf. » de l'historique passent
+  // par elle, sinon les deux repères pourraient diverger. Autonome (pas de
+  // dépendance à `idxStartBeforeWindow`) pour rester testable.
+  _momReferenceStart(end) {
+    const dates = this.data?.chart?.dates || [];
+    const refStart = this.data?.watch?.ref?.start;
+    if (refStart) {
+      const i = dates.findIndex((d) => d >= refStart);
+      if (i >= 0) return i;
+    }
+    const years =
+      this.data?.identity?.kind === "financial" ? REG_YEARS_FINANCIAL : REG_YEARS_DEFAULT;
+    return this._momStartBefore(end, years);
+  },
+
   // Indices [début, fin] de la fenêtre de la table sur `chart.dates`.
-  // `null` = la fenêtre de RÉFÉRENCE (celle de la valorisation) : la date
-  // persistée si elle existe, sinon 20 ans (30 pour les financières). Autonome
-  // (pas de dépendance à `idxStartBeforeWindow`) pour rester testable.
+  // `null` = la fenêtre de RÉFÉRENCE, `0` = le maximum.
   momRange() {
     const dates = this.data?.chart?.dates || [];
     if (!dates.length) return [0, 0];
     const end = dates.length - 1;
-    if (this.momWindow == null) {
-      const refStart = this.data?.watch?.ref?.start;
-      if (refStart) {
-        const i = dates.findIndex((d) => d >= refStart);
-        if (i >= 0) return [i, end];
-      }
-      const years =
-        this.data?.identity?.kind === "financial" ? REG_YEARS_FINANCIAL : REG_YEARS_DEFAULT;
-      return [this._momStartBefore(end, years), end];
-    }
+    if (this.momWindow == null) return [this._momReferenceStart(end), end];
     if (!this.momWindow) return [0, end];
     return [this._momStartBefore(end, Number(this.momWindow)), end];
   },
@@ -155,6 +169,176 @@ export const momentumMixin = {
       { key: "ma_long", label: "MM long", value: s.maLong == null ? "—" : this.fmt(s.maLong) },
       { key: "confidence", label: "Confiance (1−R²)", value: this.fmt(s.confidence) },
     ];
+  },
+
+  // --- Fiabilité de l'indicateur (backtest, #31) ----------------------------
+
+  // Nature de la référence pour le backtest : une action ou un indice.
+  // Un ratio n'en a pas (l'onglet est désactivé).
+  _momBacktestRef() {
+    const d = this.data;
+    if (!d) return null;
+    if (d.kind_payload === "stock" && d.identity?.ticker) {
+      return { kind: "stock", ref: d.identity.ticker };
+    }
+    if (d.kind_payload === "basket" && d.identity?.index_id != null) {
+      return { kind: "basket", ref: d.identity.index_id };
+    }
+    return null;
+  },
+
+  // Clé d'une requête : référence + bornes visibles + série affichée. Un
+  // redraw de section ne doit pas relancer le calcul ; changer la fenêtre ou
+  // la série le doit.
+  _momBacktestKey() {
+    const r = this._momBacktestRef();
+    const dates = this.data?.chart?.dates || [];
+    if (!r || !dates.length) return "";
+    const [i0, i1] = this.momVisible();
+    return `${r.kind}:${r.ref}:${dates[i0]}:${dates[i1]}:${this.momSeries}`;
+  },
+
+  async loadMomentumBacktest() {
+    const ref = this._momBacktestRef();
+    const key = this._momBacktestKey();
+    if (!ref || !key) return;
+    // Changer de fiche ne doit pas laisser les chiffres du ticker précédent
+    // sous les yeux pendant la requête : on vide l'état AVANT de demander.
+    const refKey = `${ref.kind}:${ref.ref}`;
+    if (refKey !== this._momBacktestRefKey) {
+      this._momBacktestRefKey = refKey;
+      this.momBacktest = null;
+      this.momBacktestError = "";
+      this._momBacktestKeyLoaded = "";
+    }
+    if (key === this._momBacktestKeyLoaded && (this.momBacktest || this.momBacktestLoading)) {
+      return; // même fenêtre, même série : rien de neuf à demander
+    }
+    const dates = this.data?.chart?.dates || [];
+    const [i0, i1] = this.momVisible();
+    if (i1 - i0 < 1) {
+      this.momBacktest = null;
+      this.momBacktestError = "";
+      return;
+    }
+    this._momBacktestKeyLoaded = key;
+    const token = ++this._momBacktestToken;
+    this.momBacktestLoading = true;
+    this.momBacktestError = "";
+    try {
+      const payload = await api.momentumBacktest(
+        ref.kind,
+        ref.ref,
+        dates[i0],
+        dates[i1],
+        this.momSeries,
+      );
+      if (token !== this._momBacktestToken) return; // réponse ancienne : ignorée
+      this.momBacktest = payload;
+    } catch (e) {
+      if (token !== this._momBacktestToken) return;
+      this.momBacktest = null;
+      // Un échec réseau parle anglais (« Failed to fetch ») : on le traduit en
+      // une phrase lisible ; les messages métier du serveur sont déjà français.
+      const message = e?.message || "";
+      this.momBacktestError = /failed to fetch|networkerror|load failed/i.test(message)
+        ? "Calcul impossible : le serveur ne répond pas. Réessayez."
+        : message || "Calcul du backtest impossible.";
+    } finally {
+      if (token === this._momBacktestToken) this.momBacktestLoading = false;
+    }
+  },
+
+  // Format commun des mesures : deux décimales, « — » si non calculable.
+  _momNum(v) {
+    const n = Number(v);
+    if (v == null || !Number.isFinite(n)) return "—";
+    return n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  momBacktestRows() {
+    const b = this.momBacktest;
+    if (!b?.buy_hold || !b?.strategy) return [];
+    const pct = (v) => (v == null ? "—" : this._momNum(v) + " %");
+    const num = (v) => (v == null ? "—" : this._momNum(v));
+    const int = (v) => (v == null ? "—" : String(Math.round(Number(v))));
+    const bh = b.buy_hold;
+    const st = b.strategy;
+    const rows = [
+      { key: "cagr", label: "CAGR", buy_hold: pct(bh.cagr_pct), strategy: pct(st.cagr_pct) },
+      {
+        key: "volatility",
+        label: "Volatilité",
+        buy_hold: pct(bh.volatility_pct),
+        strategy: pct(st.volatility_pct),
+      },
+      { key: "sharpe", label: "Sharpe", buy_hold: num(bh.sharpe), strategy: num(st.sharpe) },
+      { key: "sortino", label: "Sortino", buy_hold: num(bh.sortino), strategy: num(st.sortino) },
+      {
+        key: "max_drawdown",
+        label: "Max drawdown",
+        buy_hold: pct(bh.max_drawdown_pct),
+        strategy: pct(st.max_drawdown_pct),
+      },
+      { key: "calmar", label: "Calmar", buy_hold: num(bh.calmar), strategy: num(st.calmar) },
+      {
+        key: "invested",
+        label: "Temps investi",
+        buy_hold: pct(bh.invested_pct),
+        strategy: pct(st.invested_pct),
+      },
+      {
+        key: "trades",
+        label: "Trades",
+        buy_hold: int(bh.trades),
+        strategy: int(st.trades),
+      },
+    ];
+    // Infobulles des mesures non calculables : le tiret reste, l'explication
+    // évite de le lire comme une panne (série plate, aucune baisse, fenêtre
+    // trop courte).
+    const hints = {
+      sharpe: "Volatilité nulle ou fenêtre trop courte : le Sharpe n'est pas calculable.",
+      sortino: "Aucune baisse sur la fenêtre : le Sortino n'est pas calculable.",
+      calmar: "Pas de baisse mesurable : le Calmar n'est pas calculable.",
+    };
+    const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
+    for (const [key, hint] of Object.entries(hints)) {
+      if (bh[key] == null || st[key] == null) byKey[key].hint = hint;
+    }
+    return rows;
+  },
+
+  // Durée de la fenêtre tranchée par le serveur, en années ou en mois.
+  momBacktestSpan() {
+    const w = this.momBacktest?.window;
+    if (!w?.start || !w?.end) return "";
+    const days = (new Date(w.end) - new Date(w.start)) / 864e5;
+    if (!Number.isFinite(days) || days <= 0) return "";
+    if (days >= 365.25) {
+      const years = days / 365.25;
+      return years.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " ans";
+    }
+    return Math.max(1, Math.round(days / 30.44)) + " mois";
+  },
+
+  // La légende dit la série ET son sens. Un indice est chaîné en total-return
+  // (services/serialize.py) : sa série « brute » inclut déjà les dividendes.
+  // Pour une action, le brut ne les compte pas ; l'ajusté reste à un clic.
+  momBacktestLegend() {
+    if (!this.momBacktest) return "";
+    let series;
+    if (this.data?.kind_payload === "basket") {
+      series = "indice total-return, dividendes réinvestis";
+    } else if (this.momSeries === "adj") {
+      series = "ajustée, dividendes réinvestis";
+    } else {
+      series = "brute, dividendes non comptés";
+    }
+    const span = this.momBacktestSpan();
+    const fee = MOMENTUM.fee_pct;
+    const fees = fee == null ? "" : ` · frais ${this._momNum(fee)} % par ordre`;
+    return `Sur la série affichée (${series})${span ? " — " + span : ""}${fees}`;
   },
 
   // --- Les trois blocs ------------------------------------------------------
@@ -245,13 +429,25 @@ export const momentumMixin = {
     this.momEnd = Math.max(this.momStart + 1, Math.min(e, end));
   },
 
-  momPreset(years) {
+  // Presets de l'historique : `"ref"` (fenêtre de référence), `"max"` ou un
+  // nombre d'années. Le défaut de l'historique reste 10 ans (`drawMomentum`) :
+  // « Réf. » est un repère, pas la fenêtre d'ouverture.
+  momPreset(preset) {
     const n = (this.data?.chart?.dates || []).length;
     if (!n) return;
     const end = n - 1;
     this.momEnd = end;
-    this.momStart = years === "max" ? 0 : this._momStartBefore(end, Number(years));
+    if (preset === "ref") this.momStart = this._momReferenceStart(end);
+    else if (preset === "max") this.momStart = 0;
+    else this.momStart = this._momStartBefore(end, Number(preset));
     this.drawMomentumHistory();
+    this.loadMomentumBacktest();
+  },
+
+  // Relâchement d'une poignée (ou clic sur un chip) : un seul calcul par geste.
+  momRangeChanged() {
+    this.drawMomentumHistory();
+    this.loadMomentumBacktest();
   },
 
   // --- Tracés ---------------------------------------------------------------
@@ -266,6 +462,7 @@ export const momentumMixin = {
     }
     this.drawMomentumYear();
     this.drawMomentumHistory();
+    this.loadMomentumBacktest();
   },
 
   _momPurge(id) {

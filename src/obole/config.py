@@ -158,6 +158,12 @@ MOMENTUM_SATISFACTION_HIGH = 0.60
 # Fenêtres du sélecteur de la table « monde de Markovitz » (années ; 0 = maximum).
 MOMENTUM_TABLE_WINDOWS = (1, 5, 10, 20, 0)
 
+# Backtest de fiabilité (#31) : frais de courtage PAR ORDRE (entrée ET sortie),
+# soit 0,2 % l'aller-retour, et taux sans risque en %/an. SOURCE UNIQUE : le
+# service les passe au moteur, `/api/meta` les expose au front (légende).
+MOMENTUM_FEE_PCT = 0.1
+MOMENTUM_RISK_FREE_PCT = 0.0
+
 # --- Watchlist (#25) ---------------------------------------------------------
 # Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
 # aides vivent ici (source unique) et sont servis par `/api/meta` — le front et
