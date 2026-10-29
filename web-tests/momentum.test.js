@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { api } from "../src/obole/web/api.js";
 import { applyMeta } from "../src/obole/web/thresholds.js";
 import { momentumMixin } from "../src/obole/web/momentum.js";
@@ -12,7 +12,14 @@ beforeAll(() => {
   applyMeta({
     reg_years_default: 20,
     reg_years_financial: 30,
-    momentum: { window: 250, low: 0.35, high: 0.6, table_windows: [1, 5, 10, 20, 0] },
+    momentum: {
+      window: 250,
+      low: 0.35,
+      high: 0.6,
+      table_windows: [1, 5, 10, 20, 0],
+      fee_pct: 0.1,
+      risk_free_pct: 0,
+    },
   });
 });
 
@@ -227,5 +234,148 @@ describe("api.momentumBacktest", () => {
     expect(calls[1]).toBe(
       "/api/index/7/momentum-backtest?start=2020-01-01&end=2021-01-01&series=raw",
     );
+  });
+});
+
+// #31 : la carte « Fiabilité de l'indicateur » compare buy & hold et la
+// stratégie sur la fenêtre visible. Le backtest est calculé côté serveur (la
+// grille du graphe est décimée) ; le front ne fait que charger et formater.
+function backtestPayload({ cagr = 6.8, strategyCagr = 9.1 } = {}) {
+  const block = (value) => ({
+    cagr_pct: value,
+    volatility_pct: 18.2,
+    sharpe: 0.37,
+    sortino: null,
+    max_drawdown_pct: -38.4,
+    calmar: 0.18,
+    invested_pct: 100,
+    trades: 1,
+  });
+  return {
+    buy_hold: block(cagr),
+    strategy: { ...block(strategyCagr), invested_pct: 64, trades: 7 },
+    window: { start: "2015-01-02", end: "2024-12-31", sessions: 2561 },
+  };
+}
+
+function loadedComponent(prices) {
+  const comp = component(prices);
+  comp.data.kind_payload = "stock";
+  comp.data.identity = { ticker: "RI.PA" };
+  return comp;
+}
+
+describe("fiabilité de l'indicateur", () => {
+  it("huit mesures, deux colonnes, formatées", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    const rows = comp.momBacktestRows();
+    expect(rows).toHaveLength(8);
+    expect(rows.map((r) => r.key)).toEqual([
+      "cagr",
+      "volatility",
+      "sharpe",
+      "sortino",
+      "max_drawdown",
+      "calmar",
+      "invested",
+      "trades",
+    ]);
+    for (const row of rows) {
+      expect(typeof row.buy_hold).toBe("string");
+      expect(typeof row.strategy).toBe("string");
+    }
+    expect(rows[0].buy_hold).toBe("6,80 %");
+    expect(rows[0].strategy).toBe("9,10 %");
+    expect(rows[2].buy_hold).toBe("0,37");
+    expect(rows[7].strategy).toBe("7");
+  });
+
+  it("une mesure absente affiche un tiret, jamais NaN", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    const sortino = comp.momBacktestRows().find((r) => r.key === "sortino");
+    expect(sortino.buy_hold).toBe("—");
+    comp.momBacktest.buy_hold.sharpe = Infinity;
+    expect(comp.momBacktestRows()[2].buy_hold).toBe("—");
+  });
+
+  it("la légende annonce la série et la durée", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.momBacktest = backtestPayload();
+    expect(comp.momBacktestSpan()).toBe("10 ans");
+    expect(comp.momBacktestLegend()).toContain("brute, dividendes non comptés");
+    expect(comp.momBacktestLegend()).toContain("10 ans");
+    expect(comp.momBacktestLegend()).toContain("0,10 % par ordre");
+    comp.momSeries = "adj";
+    expect(comp.momBacktestLegend()).toContain("ajustée, dividendes réinvestis");
+  });
+
+  it("le chargement est visible tant que la requête court", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolve;
+    const pending = new Promise((r) => {
+      resolve = r;
+    });
+    const spy = vi.spyOn(api, "momentumBacktest").mockReturnValueOnce(pending);
+    const p = comp.loadMomentumBacktest();
+    expect(comp.momBacktestLoading).toBe(true);
+    expect(comp.momBacktestRows()).toEqual([]);
+    resolve(backtestPayload());
+    await p;
+    expect(comp.momBacktestLoading).toBe(false);
+    expect(comp.momBacktestRows()).toHaveLength(8);
+    spy.mockRestore();
+  });
+
+  it("une erreur est visible et laisse le tableau vide", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const spy = vi.spyOn(api, "momentumBacktest").mockRejectedValue(new Error("panne réseau"));
+    await comp.loadMomentumBacktest();
+    expect(comp.momBacktestError).toBe("panne réseau");
+    expect(comp.momBacktest).toBeNull();
+    expect(comp.momBacktestLoading).toBe(false);
+    expect(comp.momBacktestRows()).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("une réponse tardive ne remplace pas une réponse plus récente", async () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    let resolveOld;
+    let resolveRecent;
+    const old = new Promise((r) => {
+      resolveOld = r;
+    });
+    const recent = new Promise((r) => {
+      resolveRecent = r;
+    });
+    const spy = vi
+      .spyOn(api, "momentumBacktest")
+      .mockReturnValueOnce(old)
+      .mockReturnValueOnce(recent);
+    const p1 = comp.loadMomentumBacktest();
+    comp.momSeries = "adj"; // nouvelle fenêtre logique : la clé change
+    const p2 = comp.loadMomentumBacktest();
+    const recentPayload = backtestPayload({ cagr: 2 });
+    resolveRecent(recentPayload);
+    await p2;
+    resolveOld(backtestPayload({ cagr: 99 }));
+    await p1;
+    expect(comp.momBacktest).toBe(recentPayload);
+    expect(comp.momBacktestLoading).toBe(false);
+    spy.mockRestore();
+  });
+
+  it("le premier dessin déclenche le calcul, le preset et la poignée aussi", () => {
+    const comp = loadedComponent(Array.from({ length: 300 }, (_, i) => 100 + i));
+    const load = vi.spyOn(comp, "loadMomentumBacktest").mockImplementation(() => {});
+    comp.drawMomentumYear = () => {};
+    comp.drawMomentumHistory = () => {};
+    comp.drawMomentum();
+    expect(load).toHaveBeenCalledTimes(1);
+    comp.momPreset(1);
+    expect(load).toHaveBeenCalledTimes(2);
+    comp.momRangeChanged();
+    expect(load).toHaveBeenCalledTimes(3);
   });
 });
