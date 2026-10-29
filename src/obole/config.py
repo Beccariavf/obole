@@ -148,6 +148,16 @@ REGRESSION_MIN_POINTS = 30
 # du moteur (`engine/clara_vallis`) et du service — le front ne le redéfinit pas.
 MOMENTUM_WINDOW = 250
 
+# Bornes de satisfaction, CALIBRÉES sur le CAC 40 figé (2000-2023, fixture
+# `tests/fixtures/cac40_daily.csv`). Mesures : crises 0,174 (2008) · 0,239
+# (2011) · 0,255 (2020) · 0,174 (2002) ; calmes 0,762 (2017) · 0,859 (2021) ·
+# 0,704 (2023) ; 2015 (0,515) dans la bande neutre. Marge minimale : 0,095.
+MOMENTUM_SATISFACTION_LOW = 0.35
+MOMENTUM_SATISFACTION_HIGH = 0.60
+
+# Fenêtres du sélecteur de la table « monde de Markovitz » (années ; 0 = maximum).
+MOMENTUM_TABLE_WINDOWS = (1, 5, 10, 20, 0)
+
 # --- Watchlist (#25) ---------------------------------------------------------
 # Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
 # aides vivent ici (source unique) et sont servis par `/api/meta` — le front et
@@ -1201,6 +1211,8 @@ CHART_HEIGHT_HERO = 440
 CHART_HEIGHT_MINI = 200
 CHART_HEIGHT_DIVIDEND_HERO = 300  # carte Dividend Yield (héro de la section Dividende)
 CHART_HEIGHT_VALUATION_HERO = 560  # graphe de la calculatrice de prix juste (héro de section)
+CHART_HEIGHT_MOMENTUM_YEAR = 240  # courbe du score sur un an (section Momentum)
+CHART_HEIGHT_MOMENTUM_HISTORY = 380  # historique coloré (section Momentum)
 CHART_HEIGHT_PORTFOLIO_RESUME = 360  # courbe TWR du portefeuille (carte Résumé)
 CHART_HEIGHT_PORTFOLIO_DONUT = 320  # donut de répartition des comptes (carte Résumé)
 CHART_HEIGHT_PORTFOLIO_DRAWDOWN = 300  # courbe de drawdown (section Risque)

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: seuils et calibration hors ligne
@@ -80,7 +80,7 @@ journey
 > Une série figée une fois pour toutes, puis les bornes mesurées hors ligne.
 
 1. Créer `tests/fixtures/generate_cac40_fixture.py` : télécharge `^FCHI` du 2000-01-01 au 2023-12-31, écrit `cac40_daily.csv` (`date,close`, en-tête avec la source et la date de génération).
-2. Générer la fixture une fois et la commiter : environ 6 200 lignes, 150 Ko — la fin au 2023-12-31 la rend reproductible.
+2. Générer la fixture une fois et la commiter : 6 134 lignes, 114 Ko — la fin au 2023-12-31 la rend reproductible.
 3. Créer `spikes/spike_clara_vallis.py` : lit le CSV (aucun réseau), calcule `satisfaction_series`, imprime la moyenne par fenêtre.
 4. Consigner les mesures du 2026-10-29 : crises 0,174 (2008-09 → 2009-03) · 0,239 (2011-07 → 2011-10) · 0,255 (2020-02 → 2020-04) · 0,174 (2002-06 → 2002-10) ; calmes 0,762 (2017) · 0,859 (2021) · 0,704 (2023) ; 0,515 (2015-06 → 2015-09) dans la bande neutre.
 5. Retenir `LOW = 0.35` et `HIGH = 0.60` : marge minimale de 0,095 côté crise, 0,104 côté calme.
@@ -98,6 +98,6 @@ journey
 | ---- | ------------------------------------------------------------------------------------ |
 | 1    | `config.MOMENTUM_SATISFACTION_LOW` est strictement inférieur à `HIGH`.                |
 | 2    | `/api/meta` expose les quatre champs et le front les lit après `applyMeta`.           |
-| 3    | La fixture fait au moins 6 000 lignes et se termine au 2023-12-31.                    |
+| 3    | La fixture fait au moins 6 000 lignes et se termine sur la dernière séance de 2023.                    |
 | 4    | Le test de calibration passe dans `pytest -m "not network"`, sans réseau.             |
 | 4    | Quatre crises sous la borne basse, trois calmes au-dessus de la haute, 2015 entre.    |

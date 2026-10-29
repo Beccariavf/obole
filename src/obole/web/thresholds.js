@@ -95,6 +95,10 @@ export let CHECKPOINT_LABEL_MAX = null;
 export let WATCH_TIERS = [];
 export let WATCH_MIN_REF_POINTS = 0;
 export let WATCH_MAX_ITEMS = 0;
+// Clara Vallis (#30) : fenêtre de la foule, bornes de satisfaction et fenêtres
+// du sélecteur. Source unique `config.py` via `/api/meta` — aucun seuil en dur
+// dans le mixin momentum. Valeurs neutres tant que le payload n'est pas chargé.
+export let MOMENTUM = { window: 0, low: 0, high: 0, table_windows: [] };
 
 // Applique les seuils reçus de /api/meta (source unique config.py). Idempotent.
 export function applyMeta(m) {
@@ -107,6 +111,7 @@ export function applyMeta(m) {
   BETA_MIN_POINTS = m.beta_min_points || 0;
   CORR_MIN_POINTS = m.corr_min_points || 0;
   POTENTIAL_HORIZONS = m.potential_horizons || [];
+  MOMENTUM = m.momentum || MOMENTUM;
   QUANT_GROUPS = m.quant_groups || [];
   DIVIDEND_GROUPS = m.dividend_groups || [];
   DIVIDEND_COLORS = m.dividend_colors || {};

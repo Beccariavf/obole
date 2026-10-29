@@ -66,7 +66,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
       "beta_min_points", "chart_heights", "checkpoint_label_max", "corr_min_points",
       "dividend_cagr_horizons", "dividend_colors", "dividend_default_window_years",
       "dividend_groups", "dividend_min_window_years", "fundamental_metrics",
-      "label_polarity", "labels", "metric_units", "portfolio_corr_annotate_max",
+      "label_polarity", "labels", "metric_units", "momentum", "portfolio_corr_annotate_max",
       "portfolio_corr_min_obs", "portfolio_tag_max", "potential_horizons", "quant_groups",
       "ratio_thresholds", "reg_years_default", "reg_years_financial",
       "valuation_color_ratios", "valuation_groups", "valuation_horizon_years",
