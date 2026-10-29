@@ -93,17 +93,86 @@ export const navMixin = {
   // échouer (réseau, liaison KO). L'erreur est portée par l'état de CHAQUE
   // espace (`screenerError`, `portfolioError`…) ; on ne l'avale pas ici, on
   // empêche seulement une promesse rejetée de fuir sans handler.
+  //
+  // TROIS GESTES, dans cet ordre, et chacun corrige un défaut du passage de la
+  // modale à la page :
+  //  1. EXCLUSIVITÉ — les espaces sont des vues SŒURS, donc les drapeaux
+  //     pourraient être vrais en même temps (deux vues empilées, deux entrées
+  //     actives). On referme tout autre espace AVANT d'ouvrir celui demandé.
+  //     En modale le problème ne se voyait pas : la couche du dessus masquait
+  //     celle du dessous ; une vue, elle, s'empile visiblement.
+  //  2. DÉFILEMENT — c'est le DOCUMENT qui défile. Sans remise à zéro, on
+  //     arrivait au MILIEU de la page suivante (mesuré : titre à y = −568), donc
+  //     sans titre, sans onglets et sans bandeau de contexte — exactement ce
+  //     qu'on attend d'une page. `x-show` ne peut pas le faire : il ne touche
+  //     pas au défilement du document.
+  //  3. TRACÉS — une vue masquée donne une largeur nulle à Plotly, et un
+  //     redimensionnement de fenêtre pendant ce temps ne la corrige pas (le
+  //     redessin n'écoute que `window.resize`, qui ne se produit pas ici). On
+  //     redessine la vue à son entrée.
+  //
+  // RELANCE INTERDITE sur l'espace DÉJÀ affiché : `open<s>()` réinitialise et
+  // refait les appels réseau (mesuré : 5 lignes de screener → 0, onglet
+  // « Risque » → « Résumé »). En modale un re-clic était sans conséquence ; le
+  // rail étant devenu la navigation permanente, c'est un clic réflexe qui coûte
+  // l'état de travail.
   openSpaceEntry(id) {
+    if (this.activeSpace() === id && id !== "analyse") {
+      this.scrollToTop();
+      return;
+    }
     if (id === "analyse") {
       const open = this.openSpace();
       if (open) this[SPACE_OPENERS[open].close]();
+      this.scrollToTop();
+      // La fiche redevient visible : ses tracés ont pu être dimensionnés pendant
+      // qu'elle était masquée. On les retrace, sinon le graphe héro revient à la
+      // largeur qu'il avait avant l'ouverture de l'espace.
+      if (typeof this.scheduleRedraw === "function") this.scheduleRedraw();
       return;
     }
     const entry = SPACE_OPENERS[id];
     if (!entry || typeof this[entry.open] !== "function") return;
-    Promise.resolve(this[entry.open]()).catch(() => {
-      /* l'erreur est déjà exposée par l'état de l'espace */
-    });
+    for (const [other, spec] of Object.entries(SPACE_OPENERS)) {
+      if (other !== id && this[spec.flag]) this[spec.close]();
+    }
+    this.scrollToTop();
+    Promise.resolve(this[entry.open]())
+      .then(() => this.resizeViewPlots())
+      .catch(() => {
+        /* l'erreur est déjà exposée par l'état de l'espace */
+      });
+  },
+
+  // Remet le document en haut : une page qu'on ouvre se lit depuis son titre.
+  scrollToTop() {
+    if (typeof window === "undefined" || typeof window.scrollTo !== "function") return;
+    window.scrollTo(0, 0);
+  },
+
+  // Redimensionne les tracés Plotly de la vue VISIBLE. `responsive: true` ne
+  // réagit qu'à `window.resize` : une vue montée (ou revenue après un
+  // redimensionnement passé pendant qu'elle était masquée) garde sinon la
+  // largeur de sa dernière mesure (mesuré : hôte 378 px, SVG 710 px, carte qui
+  // déborde). Le donut du portefeuille a son propre ResizeObserver, les autres
+  // graphes n'en ont pas.
+  resizeViewPlots() {
+    if (typeof document === "undefined") return;
+    const run = () => {
+      const trace = (typeof window !== "undefined" && window.Plotly) || null;
+      if (!trace || typeof trace.Plots?.resize !== "function") return;
+      const plots = document.querySelectorAll(".app-view .js-plotly-plot");
+      for (const plot of plots) {
+        if (!plot.getBoundingClientRect().width) continue;
+        try {
+          trace.Plots.resize(plot);
+        } catch {
+          /* un graphe non initialisé n'a rien à redimensionner */
+        }
+      }
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+    else run();
   },
 
   // Referme l'espace ouvert, quel qu'il soit. Appelé par Échap : les modales

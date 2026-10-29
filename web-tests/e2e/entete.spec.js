@@ -200,7 +200,7 @@ test("en-tête : « Retour à … » grandit vers la gauche, sans reflow des voi
 
   // Ouvrir la watchlist puis une valeur : le bouton de retour apparaît.
   await page.locator(".app-rail-btn[data-space='watchlist']").click();
-  await expect(page.locator(".modal.modal-watchlist")).toBeVisible();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
   // La modale s'ouvre sur la vue cadrans : la ligne cliquable vit dans le
   // tableau, d'où la bascule explicite.
   await page.locator(".wl-view-toggle .btn", { hasText: "Tableau" }).click();

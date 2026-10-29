@@ -59,6 +59,11 @@
 
   <main class="app-main">
 
+  <!-- Vue Analyse : la fiche. Les autres espaces sont des vues SŒURS
+       dans la même colonne, jamais des couches posées par-dessus : le rail
+       reste donc visible ET cliquable d'un espace à l'autre. -->
+  <div class="app-view view-analyse" x-show="activeSpace() === 'analyse'">
+
   <!-- En-tête de l'espace Analyse — deux rangs, collés ensemble.
        Rang 1 : la recherche et SES actions. Le champ garde 420 px (au-delà, le
        regard perd le curseur) ; les actions occupent la droite du rang, là où
@@ -1161,21 +1166,16 @@
     </div>
   </template>
 
-  </main><!-- /app-main -->
-  </div><!-- /app-shell -->
+  </div><!-- /app-view view-analyse -->
 
-  <!-- Modale indices personnalisés -->
-  <div class="modal-overlay" x-show="indicesOpen" @click.self="closeIndices()">
-    <div class="modal modal-indices">
-      <div class="idx-head">
+  <section class="app-view view-indices" x-show="indicesOpen">
+      <div class="view-head">
         <h3>Mes indices personnalisés</h3>
         <div class="idx-head-actions">
           <button class="btn small ghost" @click="refreshIndicesSummary(null)" :disabled="summariesLoading"
                   title="Recalculer les stats de tous les indices">Tout rafraîchir</button>
-          <button class="btn small ghost" @click="closeIndices()">✕</button>
         </div>
       </div>
-      <div class="idx-body">
       <p class="idx-hint">Crée tes propres indices (paniers d'actions equal-weight, dividendes réinvestis) et analyse-les comme un ETF : droite de régression, rendement, écart-type, position σ.</p>
       <p class="idx-hint" x-show="summariesLoading" style="color:var(--accent)">Calcul des indicateurs en cours…</p>
       <p class="idx-hint" x-show="summaryError" style="color:var(--bad)" x-text="summaryError"></p>
@@ -1294,69 +1294,10 @@
                   x-text="edt.id ? 'Enregistrer' : 'Créer l’indice'"></button>
         </div>
       </div>
-      </div>
-    </div>
-  </div>
+  </section>
 
-  <!-- Zoom plein écran d'un mini-chart (modale, zéro requête réseau : tout est
-       déjà dans le payload). La plage est PARTAGÉE avec le graphe héro
-       (`rangeStart`/`rangeEnd`) : le sélecteur de période écrit la même source. -->
-  <div class="modal-overlay" x-show="detailCard" @click.self="closeChartDetail()"
-       @keydown.escape.window="closeChartDetail()">
-    <div class="modal modal-detail" id="chart-detail-modal" role="dialog" aria-modal="true"
-         tabindex="-1" x-show="detailCard" x-transition.opacity
-         @keydown="detailKeydown($event)">
-      <div class="idx-head">
-        <h3 x-text="detailCard ? detailCard.title : ''"></h3>
-        <div class="idx-head-actions">
-          <button class="btn small ghost" @click="closeChartDetail()" aria-label="Fermer">✕</button>
-        </div>
-      </div>
-      <div class="detail-toolbar">
-        <div class="period-presets">
-          <button type="button" class="period-chip" @click="detailPreset('ytd')">YTD</button>
-          <button type="button" class="period-chip" @click="detailPreset(1)">1A</button>
-          <button type="button" class="period-chip" @click="detailPreset(5)">5A</button>
-          <button type="button" class="period-chip" @click="detailPreset(10)">10A</button>
-          <button type="button" class="period-chip" @click="detailPreset('max')">MAX</button>
-        </div>
-        <div class="detail-toolbar-right">
-          <span class="detail-range" x-text="detailRangeLabel()"></span>
-          <!-- CAGR de la fenêtre visible — uniquement pour les courbes « par
-               action » (groupe Croissance). Alimente la valorisation : on peut
-               étendre la vue au maximum et lire la croissance annualisée. -->
-          <span class="detail-cagr" x-show="detailCagr() != null">
-            Croissance <b :class="'detail-cagr-val ' + polarity(detailCagr() >= 0)"
-               x-text="fmt(detailCagr()) + ' %/an'"></b>
-          </span>
-        </div>
-      </div>
-      <div class="mini-chart detail-chart" id="chart-detail-plot"></div>
-      <p class="na" x-show="detailCard && isDividendCard(detailCard) && dividendCardEmpty(detailCard)">
-        Pas assez de données pour tracer ce graphique (2 ans minimum).
-      </p>
-      <!-- Curseur à deux poignées, IDENTIQUE au graphe héro et sur la MÊME plage
-           (rangeStart/rangeEnd partagés) : les presets ci-dessus positionnent le
-           curseur, et bouger une poignée redessine la modale ET le héro. Placé
-           SOUS le graphe (l'œil lit d'abord la courbe, puis ajuste la période). -->
-      <div class="period period-detail">
-        <div class="dual-slider">
-          <div class="ds-track"></div>
-          <div class="ds-fill" :style="`left:${pctStart()}%; right:${100 - pctEnd()}%`"></div>
-          <input type="range" class="ds-input ds-min" min="0" :max="maxIdx()" x-model.number="rangeStart"
-                 @input="clampHandles('start'); onDetailSliderInput()" />
-          <input type="range" class="ds-input ds-max" min="0" :max="maxIdx()" x-model.number="rangeEnd"
-                 @input="clampHandles('end'); onDetailSliderInput()" />
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modale screener (J4 : filtres + tableau triable ; UX #13 : plein écran,
-       filtres repliables, colonne Entreprise gelée, accueil à presets). -->
-  <div class="modal-overlay" x-show="screenerOpen" @click.self="closeScreener()">
-    <div class="modal modal-screen">
-      <div class="idx-head">
+  <section class="app-view view-screener" x-show="screenerOpen">
+      <div class="view-head">
         <h3>Screener</h3>
         <div class="idx-head-actions">
           <button class="btn small ghost" @click="screenerBackHome()" x-show="screenerSearched"
@@ -1367,7 +1308,6 @@
           </button>
           <button class="btn small" @click="searchScreener()" :disabled="screenerLoading"
                   title="Lancer le scan avec les filtres">Rechercher</button>
-          <button class="btn small ghost" @click="closeScreener()">✕</button>
         </div>
       </div>
 
@@ -1444,6 +1384,12 @@
           </div>
           <button class="btn small ghost" @click="resetScreenerRanges()" x-show="screenerRows.length"
                   title="Vider tous les pré-filtres">↺ filtres</button>
+          <!-- Second point d'entrée au scan, au PIED du panneau : dans une vue,
+               l'en-tête défile (c'est une page), donc sur un écran court avec
+               tous les groupes dépliés « Rechercher » sort de l'écran. Le
+               panneau reste ainsi utilisable jusqu'au bout sans remonter. -->
+          <button class="btn small screen-scan-inline" @click="searchScreener()"
+                  :disabled="screenerLoading" title="Lancer le scan avec les filtres">Rechercher</button>
         </div>
         <p class="idx-hint screen-filters-msg" x-show="screenerRangesError"
            style="color:var(--bad)" x-text="screenerRangesError"></p>
@@ -1548,18 +1494,11 @@
       <div class="idx-hint" x-show="!screenerRows.length && !screenerLoading && screenerSearched">
         Aucun résultat pour ces critères.
       </div>
-    </div>
-  </div>
+  </section>
 
-  <!-- Modale Paramètres : mesure technique (moyennes mobiles) + seuils de
-       conviction (#27), avec une seule paire d'actions pour les deux. -->
-  <div class="modal-overlay" x-show="settingsOpen" @click.self="closeSettings()">
-    <div class="modal modal-settings">
-      <div class="idx-head">
+  <section class="app-view view-settings" x-show="settingsOpen">
+      <div class="view-head">
         <h3>Paramètres</h3>
-        <div class="idx-head-actions">
-          <button class="btn small ghost" @click="closeSettings()">✕</button>
-        </div>
       </div>
 
       <section class="idx-cat" x-show="hasGroup('technique')">
@@ -1641,136 +1580,10 @@
         <p class="idx-hint" x-show="backupError" style="color: var(--bad)" x-text="backupError"></p>
         <p class="idx-hint" x-show="backupMessage" style="color: var(--good)" x-text="backupMessage"></p>
       </section>
-    </div>
-  </div>
+  </section>
 
-  <!-- Modale Export CSV : droite de régression ou simulation fenêtre glissante -->
-  <div class="modal-overlay" x-show="exportOpen" @click.self="closeExport()">
-    <div class="modal">
-      <div class="idx-head">
-        <h3>Export CSV</h3>
-        <div class="idx-head-actions">
-          <button class="btn small ghost" @click="closeExport()">✕</button>
-        </div>
-      </div>
-
-      <!-- Choix du mode -->
-      <div class="export-modes">
-        <label class="export-mode" :class="{ active: exportForm.mode === 'regression' }">
-          <input type="radio" value="regression" x-model="exportForm.mode" @change="onExportModeChange()" />
-          <span>Droite de régression</span>
-          <small>Une ligne par point : cours, droite, bandes ±1σ ±2σ, distance σ.</small>
-        </label>
-        <label class="export-mode" :class="{ active: exportForm.mode === 'simulation' }">
-          <input type="radio" value="simulation" x-model="exportForm.mode" @change="onExportModeChange()" />
-          <span>Simulation fenêtre glissante</span>
-          <small>Pour chaque position : a, b, σ, perf, z, potentiels 5a/10a.</small>
-        </label>
-      </div>
-
-      <!-- Champs communs -->
-      <div class="export-fields">
-        <div class="settings-field">
-          <label>Date début</label>
-          <input type="date" x-model="exportForm.startDate" @change="onExportDateChange()" />
-        </div>
-        <div class="settings-field">
-          <label>Date fin</label>
-          <input type="date" x-model="exportForm.endDate" @change="onExportDateChange()" />
-        </div>
-        <div class="settings-field" x-show="!isRatio() && !isBasket()">
-          <label>Dividendes réinvestis</label>
-          <input type="checkbox" x-model="exportForm.dividends" />
-        </div>
-        <!-- Mode 2 : taille de fenêtre -->
-        <div class="settings-field" x-show="exportForm.mode === 'simulation'">
-          <label>Taille de fenêtre</label>
-          <select x-model.number="exportForm.windowYears">
-            <option :value="2">2 ans</option>
-            <option :value="5">5 ans</option>
-            <option :value="10">10 ans</option>
-            <option :value="15">15 ans</option>
-            <option :value="20">20 ans</option>
-          </select>
-        </div>
-        <p class="idx-hint" x-show="exportForm.mode === 'simulation'">
-          Pas natif (chaque point de la série disponible) — ≈ hebdo sur 5-10 ans.
-        </p>
-      </div>
-
-      <p class="idx-hint" x-show="exportError" style="color:var(--bad)" x-text="exportError"></p>
-
-      <div class="modal-actions">
-        <button class="btn small ghost" @click="closeExport()">Annuler</button>
-        <button class="btn small" @click="doExport()" :disabled="!exportReady()">Exporter</button>
-      </div>
-    </div>
-  </div>
-  <!-- Modale Événements : annotations datées du graphe (ajout / édition / suppression) -->
-  <div class="modal-overlay" x-show="eventsOpen" @click.self="closeEvents()">
-    <div class="modal">
-      <div class="idx-head">
-        <h3>Événements</h3>
-        <div class="idx-head-actions">
-          <button class="btn small ghost" @click="closeEvents()">✕</button>
-        </div>
-      </div>
-      <p class="idx-hint">Annote des dates importantes : elles apparaissent comme des repères verticaux sur le graphe (dans la période affichée uniquement).</p>
-
-      <!-- Formulaire : ajout (id null) ou édition (id renseigné) -->
-      <div class="idx-form">
-        <div class="event-form-row">
-          <div class="event-form-field">
-            <label>Date</label>
-            <input type="date" x-model="eventForm.date" />
-          </div>
-          <div class="event-form-field event-form-grow">
-            <label>Libellé (2 mots max conseillé)</label>
-            <input type="text" x-model="eventForm.label" maxlength="60"
-                   placeholder="Ex. OPA Nestlé, Crise COVID…" @keydown.enter="saveEvent()" />
-          </div>
-        </div>
-        <div class="event-form-field">
-          <label>Description (optionnelle, visible au survol)</label>
-          <textarea x-model="eventForm.description" maxlength="300" rows="2"
-                    placeholder="Contexte, chiffres, ce qui s'est passé…"></textarea>
-        </div>
-        <p class="idx-hint" x-show="eventError" style="color:var(--bad)" x-text="eventError"></p>
-        <div class="modal-actions">
-          <button class="btn small ghost" x-show="eventForm.id != null" @click="resetEventForm()">Annuler l'édition</button>
-          <button class="btn small" @click="saveEvent()" :disabled="eventSaving"
-                  x-text="eventForm.id != null ? 'Enregistrer' : '＋ Ajouter l’événement'"></button>
-        </div>
-      </div>
-
-      <!-- Liste des événements existants -->
-      <div class="event-list" x-show="events().length">
-        <template x-for="ev in events()" :key="ev.id">
-          <div class="event-item" :class="{ editing: eventForm.id === ev.id }">
-            <div class="event-item-main">
-              <span class="event-date" x-text="new Date(ev.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })"></span>
-              <b class="event-label" x-text="ev.label"></b>
-              <span class="event-desc" x-show="ev.description" x-text="ev.description" :title="ev.description"></span>
-            </div>
-            <div class="idx-actions">
-              <button class="btn small ghost" @click="startEditEvent(ev)" title="Modifier">✎</button>
-              <button class="btn small ghost" @click="deleteEvent(ev)" title="Supprimer">🗑</button>
-            </div>
-          </div>
-        </template>
-      </div>
-      <div class="idx-hint" x-show="!events().length" style="color:var(--text-soft)">
-        Aucun événement pour l'instant. Ajoute ta première date importante ci-dessus.
-      </div>
-    </div>
-  </div>
-
-  <!-- Modale Watchlist (#25) : classe les valeurs suivies par marge de sécurité.
-       Plein écran (même gabarit que Screener/Portefeuille) ; le tableau est trié
-       par le serveur (marge décroissante) et re-triable au clic. -->
-  <div class="modal-overlay" x-show="watchlistOpen" @click.self="closeWatchlist()">
-    <div class="modal modal-watchlist">
-      <div class="idx-head">
+  <section class="app-view view-watchlist" x-show="watchlistOpen">
+      <div class="view-head">
         <h3>Watchlist</h3>
         <div class="idx-head-actions">
           <div class="wl-view-toggle" role="group" aria-label="Vue de la watchlist">
@@ -1783,7 +1596,6 @@
                   title="Comparer deux valeurs pour affiner tes tiers">Tester mes convictions</button>
           <button class="btn small ghost" @click="refreshWatchlist()" :disabled="watchLoading"
                   title="Relancer le classement">↻</button>
-          <button class="btn small ghost" @click="closeWatchlist()">✕</button>
         </div>
       </div>
 
@@ -1994,167 +1806,14 @@
         <b>Pot. 5A</b> : estimation de la valorisation enregistrée si elle a un prix juste
         (badge <b>valo</b>), sinon potentiel total-return de la droite (badge <b>droite</b>).
       </p>
-    </div>
-  </div>
+  </section>
 
-  <!-- Jeu de convictions (#26) : deux valeurs, un choix, un classement. Aucune
-       écriture avant « Appliquer les tiers » (route tier existante). -->
-  <div class="modal-overlay" x-show="convictionOpen" @click.self="closeConviction()">
-    <div class="modal modal-conviction"
-         @keydown.escape.window="convictionOpen && closeConviction()"
-         @keydown.left.prevent="convictionPair && chooseConviction(convictionPair[0])"
-         @keydown.right.prevent="convictionPair && chooseConviction(convictionPair[1])">
-      <div class="cv-screen" x-show="!convictionResult">
-        <div class="idx-head">
-          <h3>Tester mes convictions</h3>
-          <div class="idx-head-actions">
-            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
-          </div>
-        </div>
-        <div class="cv-progress-row">
-          <div class="cv-progress"><div class="cv-progress-bar" :style="'width:' + convictionProgress() + '%'"></div></div>
-          <span x-text="convictionCount + ' / ' + convictionMin() + ' minimum'"></span>
-        </div>
-        <p class="cv-prompt">Choisis celle en laquelle tu as le plus de conviction.</p>
-        <!-- Les seuils sont lus à l'ouverture : pendant l'appel, aucune paire
-             n'existe encore (pas de duel vide trompeur). -->
-        <p class="idx-hint" x-show="!convictionPair && !convictionError">Chargement des seuils…</p>
-
-        <div class="cv-duel" x-show="convictionPair">
-          <template x-for="ticker in (convictionPair || [])" :key="ticker">
-            <div class="cv-side">
-              <button type="button" class="cv-card" :class="{ picked: convictionLastChoice === ticker }"
-                      @click="chooseConviction(ticker)">
-                <span class="cv-card-head">
-                  <span class="screen-ticker" x-text="ticker"></span>
-                  <span class="screen-name" x-text="convictionRow(ticker)?.name || '—'"></span>
-                  <span class="chip" x-text="'Tier ' + (convictionRow(ticker)?.tier ?? '—')"></span>
-                </span>
-                <span class="cv-card-dial">
-                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
-                       :aria-label="'Marge de sécurité : ' + watchPct(convictionRow(ticker)?.safety_margin_pct)">
-                    <path class="wl-dial-track" :d="watchDialTrack()"></path>
-                    <path class="wl-dial-value" :class="watchDialTone(convictionRow(ticker)?.safety_margin_pct)"
-                          :d="watchDialPath(convictionRow(ticker)?.safety_margin_pct)"></path>
-                    <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
-                          x-text="watchPct(convictionRow(ticker)?.safety_margin_pct)"></text>
-                  </svg>
-                </span>
-                <span class="cv-card-metrics">
-                  <span class="cv-metric"><span class="wl-card-k">Position σ</span>
-                    <span x-text="convictionRow(ticker)?.z == null ? '—' : fmt(convictionRow(ticker).z) + ' σ'"></span></span>
-                  <span class="cv-metric"><span class="wl-card-k">Pot. 5A</span>
-                    <span x-text="watchPct(convictionRow(ticker)?.pot_5y_pct)"></span>
-                    <span class="wl-src" :class="'wl-src-' + (convictionRow(ticker)?.pot_5y_source || 'none')"
-                          x-text="watchPotSourceLabel(convictionRow(ticker))"></span></span>
-                  <span class="cv-metric"><span class="wl-card-k">Prix juste</span>
-                    <span x-text="convictionRow(ticker)?.fair_price == null ? '—' : fmt(convictionRow(ticker).fair_price)"></span></span>
-                </span>
-                <span class="cv-choice">Je choisis</span>
-              </button>
-            </div>
-          </template>
-          <div class="cv-vs">VS</div>
-        </div>
-
-        <div class="cv-foot">
-          <button class="btn small ghost" :disabled="!convictionCount" @click="undoConviction()">Annuler la dernière</button>
-          <button class="btn small" :disabled="!convictionCanFinish()" @click="finishConviction()">Voir le résultat</button>
-        </div>
-        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
-      </div>
-
-      <div class="cv-screen" x-show="convictionResult">
-        <div class="idx-head">
-          <h3>Ton classement de conviction</h3>
-          <div class="idx-head-actions">
-            <span class="cv-count"><span x-text="convictionResult?.comparisons || 0"></span> comparaisons</span>
-            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
-          </div>
-        </div>
-        <!-- Seuils ET échelle : l'indice affiché doit être lisible sans ouvrir
-             Paramètres (source unique = /api/settings). -->
-        <p class="cv-thresholds" x-text="convictionThresholdLine()"></p>
-        <div class="cv-result-actions">
-          <button class="btn small" :disabled="!convictionChanges().length || convictionApplied || convictionBusy"
-                  @click="applyConvictionTiers()">Appliquer les tiers</button>
-          <button class="btn small ghost" @click="replayConviction()">Rejouer</button>
-          <button class="btn small ghost" @click="closeConviction()">Fermer</button>
-        </div>
-        <!-- Message seulement quand AUCUN tier ne change ; Appliquer reste
-             désactivé (la règle n'invite pas à écraser un ordre identique). -->
-        <p class="idx-hint" x-show="convictionNoChange() && !convictionApplied">
-          Aucun changement : tes convictions confirment tes tiers.
-        </p>
-        <p class="idx-hint" x-show="convictionApplied">Tiers appliqués.</p>
-        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
-        <div class="cv-result">
-          <table class="cell-table screen-table cv-result-table">
-            <thead>
-              <tr><th>Rang</th><th>Entreprise</th><th>Tier actuel → suggéré</th><th>Conviction</th><th>Δ</th></tr>
-            </thead>
-            <tbody>
-              <template x-for="(r, index) in (convictionResult?.rows || [])" :key="r.ticker">
-                <tr>
-                  <td x-text="index + 1"></td>
-                  <td>
-                    <span class="screen-ticker" x-text="r.ticker"></span>
-                    <span class="screen-name" x-text="r.name || '—'"></span>
-                  </td>
-                  <td class="cv-tiers">
-                    <span x-text="'Tier ' + r.current_tier"></span>
-                    <span class="cv-arrow">→</span>
-                    <b x-text="'Tier ' + r.suggested_tier"></b>
-                  </td>
-                  <td class="cv-score">
-                    <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
-                         :aria-label="'Conviction ' + r.score + ' sur 100'">
-                      <path class="wl-dial-track" :d="watchDialTrack()"></path>
-                      <path class="cv-dial-value" :d="watchDialPath(r.score, 0, 100)"></path>
-                      <text class="wl-dial-text" x="50" y="50" text-anchor="middle" x-text="r.score"></text>
-                    </svg>
-                    <!-- Couverture : nombre de duels réellement joués. -->
-                    <span class="cv-duels" x-text="r.comparisons + (r.comparisons > 1 ? ' duels' : ' duel')"></span>
-                  </td>
-                  <td class="cv-delta">
-                    <span x-text="r.current_tier === r.suggested_tier ? '=' : (r.suggested_tier < r.current_tier ? '↑' : '↓')"></span>
-                    <span class="cv-badge" x-show="!r.tested"
-                          :title="'Moins de 2 duels : le tier actuel est conservé (couverture insuffisante).'">conservé</span>
-                    <span class="cv-badge cv-badge-limit" x-show="r.tested && r.limit"
-                          :title="'Indice à ' + r.distance + ' point(s) du seuil ' + r.threshold + ' : bruit de mesure, la règle ne change pas.'">limite</span>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-        <!-- Compteurs par tier : un tier vide reste affiché avec zéro. -->
-        <p class="wl-legend cv-tier-summary">
-          <span>Tier 1 : <b x-text="convictionTierSummary()[1]"></b></span>
-          <span class="cv-sep">·</span>
-          <span>Tier 2 : <b x-text="convictionTierSummary()[2]"></b></span>
-          <span class="cv-sep">·</span>
-          <span>Tier 3 : <b x-text="convictionTierSummary()[3]"></b></span>
-          <span class="cv-sep">·</span>
-          <span><b x-text="convictionResult?.comparisons || 0"></b> comparaisons</span>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modale Portefeuille (#17.0) : espace distinct à onglets horizontaux.
-       Sections livrées par jalon : Positions (J0). Résumé/Risque/Performance/
-       Dividende arrivent avec les jalons 01 à 05 (onglets « à venir », grisés).
-       Classe `modal-portfolio` (et non `modal-screen`) pour rester distinct du
-       sélecteur du Screener. -->
-  <div class="modal-overlay" x-show="portfolioOpen" @click.self="closePortfolio()">
-    <div class="modal modal-portfolio">
-      <div class="idx-head">
+  <section class="app-view view-portfolio" x-show="portfolioOpen">
+      <div class="view-head">
         <h3>Portefeuille</h3>
         <div class="idx-head-actions">
           <button class="btn small ghost" @click="loadPortfolio()" :disabled="portfolioLoading"
                   title="Recharger">↻</button>
-          <button class="btn small ghost" @click="closePortfolio()">✕</button>
         </div>
       </div>
 
@@ -3189,6 +2848,328 @@
             <p class="idx-hint">Cette section arrive avec un jalon suivant du chantier Portefeuille.</p>
           </div>
         </div>
+      </div>
+  </section>
+
+  </main><!-- /app-main -->
+  </div><!-- /app-shell -->
+
+  <!-- Zoom plein écran d'un mini-chart (modale, zéro requête réseau : tout est
+       déjà dans le payload). La plage est PARTAGÉE avec le graphe héro
+       (`rangeStart`/`rangeEnd`) : le sélecteur de période écrit la même source. -->
+  <div class="modal-overlay" x-show="detailCard" @click.self="closeChartDetail()"
+       @keydown.escape.window="closeChartDetail()">
+    <div class="modal modal-detail" id="chart-detail-modal" role="dialog" aria-modal="true"
+         tabindex="-1" x-show="detailCard" x-transition.opacity
+         @keydown="detailKeydown($event)">
+      <div class="idx-head">
+        <h3 x-text="detailCard ? detailCard.title : ''"></h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeChartDetail()" aria-label="Fermer">✕</button>
+        </div>
+      </div>
+      <div class="detail-toolbar">
+        <div class="period-presets">
+          <button type="button" class="period-chip" @click="detailPreset('ytd')">YTD</button>
+          <button type="button" class="period-chip" @click="detailPreset(1)">1A</button>
+          <button type="button" class="period-chip" @click="detailPreset(5)">5A</button>
+          <button type="button" class="period-chip" @click="detailPreset(10)">10A</button>
+          <button type="button" class="period-chip" @click="detailPreset('max')">MAX</button>
+        </div>
+        <div class="detail-toolbar-right">
+          <span class="detail-range" x-text="detailRangeLabel()"></span>
+          <!-- CAGR de la fenêtre visible — uniquement pour les courbes « par
+               action » (groupe Croissance). Alimente la valorisation : on peut
+               étendre la vue au maximum et lire la croissance annualisée. -->
+          <span class="detail-cagr" x-show="detailCagr() != null">
+            Croissance <b :class="'detail-cagr-val ' + polarity(detailCagr() >= 0)"
+               x-text="fmt(detailCagr()) + ' %/an'"></b>
+          </span>
+        </div>
+      </div>
+      <div class="mini-chart detail-chart" id="chart-detail-plot"></div>
+      <p class="na" x-show="detailCard && isDividendCard(detailCard) && dividendCardEmpty(detailCard)">
+        Pas assez de données pour tracer ce graphique (2 ans minimum).
+      </p>
+      <!-- Curseur à deux poignées, IDENTIQUE au graphe héro et sur la MÊME plage
+           (rangeStart/rangeEnd partagés) : les presets ci-dessus positionnent le
+           curseur, et bouger une poignée redessine la modale ET le héro. Placé
+           SOUS le graphe (l'œil lit d'abord la courbe, puis ajuste la période). -->
+      <div class="period period-detail">
+        <div class="dual-slider">
+          <div class="ds-track"></div>
+          <div class="ds-fill" :style="`left:${pctStart()}%; right:${100 - pctEnd()}%`"></div>
+          <input type="range" class="ds-input ds-min" min="0" :max="maxIdx()" x-model.number="rangeStart"
+                 @input="clampHandles('start'); onDetailSliderInput()" />
+          <input type="range" class="ds-input ds-max" min="0" :max="maxIdx()" x-model.number="rangeEnd"
+                 @input="clampHandles('end'); onDetailSliderInput()" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Export CSV : droite de régression ou simulation fenêtre glissante -->
+  <div class="modal-overlay" x-show="exportOpen" @click.self="closeExport()">
+    <div class="modal">
+      <div class="idx-head">
+        <h3>Export CSV</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeExport()">✕</button>
+        </div>
+      </div>
+
+      <!-- Choix du mode -->
+      <div class="export-modes">
+        <label class="export-mode" :class="{ active: exportForm.mode === 'regression' }">
+          <input type="radio" value="regression" x-model="exportForm.mode" @change="onExportModeChange()" />
+          <span>Droite de régression</span>
+          <small>Une ligne par point : cours, droite, bandes ±1σ ±2σ, distance σ.</small>
+        </label>
+        <label class="export-mode" :class="{ active: exportForm.mode === 'simulation' }">
+          <input type="radio" value="simulation" x-model="exportForm.mode" @change="onExportModeChange()" />
+          <span>Simulation fenêtre glissante</span>
+          <small>Pour chaque position : a, b, σ, perf, z, potentiels 5a/10a.</small>
+        </label>
+      </div>
+
+      <!-- Champs communs -->
+      <div class="export-fields">
+        <div class="settings-field">
+          <label>Date début</label>
+          <input type="date" x-model="exportForm.startDate" @change="onExportDateChange()" />
+        </div>
+        <div class="settings-field">
+          <label>Date fin</label>
+          <input type="date" x-model="exportForm.endDate" @change="onExportDateChange()" />
+        </div>
+        <div class="settings-field" x-show="!isRatio() && !isBasket()">
+          <label>Dividendes réinvestis</label>
+          <input type="checkbox" x-model="exportForm.dividends" />
+        </div>
+        <!-- Mode 2 : taille de fenêtre -->
+        <div class="settings-field" x-show="exportForm.mode === 'simulation'">
+          <label>Taille de fenêtre</label>
+          <select x-model.number="exportForm.windowYears">
+            <option :value="2">2 ans</option>
+            <option :value="5">5 ans</option>
+            <option :value="10">10 ans</option>
+            <option :value="15">15 ans</option>
+            <option :value="20">20 ans</option>
+          </select>
+        </div>
+        <p class="idx-hint" x-show="exportForm.mode === 'simulation'">
+          Pas natif (chaque point de la série disponible) — ≈ hebdo sur 5-10 ans.
+        </p>
+      </div>
+
+      <p class="idx-hint" x-show="exportError" style="color:var(--bad)" x-text="exportError"></p>
+
+      <div class="modal-actions">
+        <button class="btn small ghost" @click="closeExport()">Annuler</button>
+        <button class="btn small" @click="doExport()" :disabled="!exportReady()">Exporter</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modale Événements : annotations datées du graphe (ajout / édition / suppression) -->
+  <div class="modal-overlay" x-show="eventsOpen" @click.self="closeEvents()">
+    <div class="modal">
+      <div class="idx-head">
+        <h3>Événements</h3>
+        <div class="idx-head-actions">
+          <button class="btn small ghost" @click="closeEvents()">✕</button>
+        </div>
+      </div>
+      <p class="idx-hint">Annote des dates importantes : elles apparaissent comme des repères verticaux sur le graphe (dans la période affichée uniquement).</p>
+
+      <!-- Formulaire : ajout (id null) ou édition (id renseigné) -->
+      <div class="idx-form">
+        <div class="event-form-row">
+          <div class="event-form-field">
+            <label>Date</label>
+            <input type="date" x-model="eventForm.date" />
+          </div>
+          <div class="event-form-field event-form-grow">
+            <label>Libellé (2 mots max conseillé)</label>
+            <input type="text" x-model="eventForm.label" maxlength="60"
+                   placeholder="Ex. OPA Nestlé, Crise COVID…" @keydown.enter="saveEvent()" />
+          </div>
+        </div>
+        <div class="event-form-field">
+          <label>Description (optionnelle, visible au survol)</label>
+          <textarea x-model="eventForm.description" maxlength="300" rows="2"
+                    placeholder="Contexte, chiffres, ce qui s'est passé…"></textarea>
+        </div>
+        <p class="idx-hint" x-show="eventError" style="color:var(--bad)" x-text="eventError"></p>
+        <div class="modal-actions">
+          <button class="btn small ghost" x-show="eventForm.id != null" @click="resetEventForm()">Annuler l'édition</button>
+          <button class="btn small" @click="saveEvent()" :disabled="eventSaving"
+                  x-text="eventForm.id != null ? 'Enregistrer' : '＋ Ajouter l’événement'"></button>
+        </div>
+      </div>
+
+      <!-- Liste des événements existants -->
+      <div class="event-list" x-show="events().length">
+        <template x-for="ev in events()" :key="ev.id">
+          <div class="event-item" :class="{ editing: eventForm.id === ev.id }">
+            <div class="event-item-main">
+              <span class="event-date" x-text="new Date(ev.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })"></span>
+              <b class="event-label" x-text="ev.label"></b>
+              <span class="event-desc" x-show="ev.description" x-text="ev.description" :title="ev.description"></span>
+            </div>
+            <div class="idx-actions">
+              <button class="btn small ghost" @click="startEditEvent(ev)" title="Modifier">✎</button>
+              <button class="btn small ghost" @click="deleteEvent(ev)" title="Supprimer">🗑</button>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="idx-hint" x-show="!events().length" style="color:var(--text-soft)">
+        Aucun événement pour l'instant. Ajoute ta première date importante ci-dessus.
+      </div>
+    </div>
+  </div>
+
+  <!-- Jeu de convictions (#26) : deux valeurs, un choix, un classement. Aucune
+       écriture avant « Appliquer les tiers » (route tier existante). -->
+  <div class="modal-overlay" x-show="convictionOpen" @click.self="closeConviction()">
+    <div class="modal modal-conviction"
+         @keydown.escape.window="convictionOpen && closeConviction()"
+         @keydown.left.prevent="convictionPair && chooseConviction(convictionPair[0])"
+         @keydown.right.prevent="convictionPair && chooseConviction(convictionPair[1])">
+      <div class="cv-screen" x-show="!convictionResult">
+        <div class="idx-head">
+          <h3>Tester mes convictions</h3>
+          <div class="idx-head-actions">
+            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
+          </div>
+        </div>
+        <div class="cv-progress-row">
+          <div class="cv-progress"><div class="cv-progress-bar" :style="'width:' + convictionProgress() + '%'"></div></div>
+          <span x-text="convictionCount + ' / ' + convictionMin() + ' minimum'"></span>
+        </div>
+        <p class="cv-prompt">Choisis celle en laquelle tu as le plus de conviction.</p>
+        <!-- Les seuils sont lus à l'ouverture : pendant l'appel, aucune paire
+             n'existe encore (pas de duel vide trompeur). -->
+        <p class="idx-hint" x-show="!convictionPair && !convictionError">Chargement des seuils…</p>
+
+        <div class="cv-duel" x-show="convictionPair">
+          <template x-for="ticker in (convictionPair || [])" :key="ticker">
+            <div class="cv-side">
+              <button type="button" class="cv-card" :class="{ picked: convictionLastChoice === ticker }"
+                      @click="chooseConviction(ticker)">
+                <span class="cv-card-head">
+                  <span class="screen-ticker" x-text="ticker"></span>
+                  <span class="screen-name" x-text="convictionRow(ticker)?.name || '—'"></span>
+                  <span class="chip" x-text="'Tier ' + (convictionRow(ticker)?.tier ?? '—')"></span>
+                </span>
+                <span class="cv-card-dial">
+                  <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
+                       :aria-label="'Marge de sécurité : ' + watchPct(convictionRow(ticker)?.safety_margin_pct)">
+                    <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                    <path class="wl-dial-value" :class="watchDialTone(convictionRow(ticker)?.safety_margin_pct)"
+                          :d="watchDialPath(convictionRow(ticker)?.safety_margin_pct)"></path>
+                    <text class="wl-dial-text" x="50" y="50" text-anchor="middle"
+                          x-text="watchPct(convictionRow(ticker)?.safety_margin_pct)"></text>
+                  </svg>
+                </span>
+                <span class="cv-card-metrics">
+                  <span class="cv-metric"><span class="wl-card-k">Position σ</span>
+                    <span x-text="convictionRow(ticker)?.z == null ? '—' : fmt(convictionRow(ticker).z) + ' σ'"></span></span>
+                  <span class="cv-metric"><span class="wl-card-k">Pot. 5A</span>
+                    <span x-text="watchPct(convictionRow(ticker)?.pot_5y_pct)"></span>
+                    <span class="wl-src" :class="'wl-src-' + (convictionRow(ticker)?.pot_5y_source || 'none')"
+                          x-text="watchPotSourceLabel(convictionRow(ticker))"></span></span>
+                  <span class="cv-metric"><span class="wl-card-k">Prix juste</span>
+                    <span x-text="convictionRow(ticker)?.fair_price == null ? '—' : fmt(convictionRow(ticker).fair_price)"></span></span>
+                </span>
+                <span class="cv-choice">Je choisis</span>
+              </button>
+            </div>
+          </template>
+          <div class="cv-vs">VS</div>
+        </div>
+
+        <div class="cv-foot">
+          <button class="btn small ghost" :disabled="!convictionCount" @click="undoConviction()">Annuler la dernière</button>
+          <button class="btn small" :disabled="!convictionCanFinish()" @click="finishConviction()">Voir le résultat</button>
+        </div>
+        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
+      </div>
+
+      <div class="cv-screen" x-show="convictionResult">
+        <div class="idx-head">
+          <h3>Ton classement de conviction</h3>
+          <div class="idx-head-actions">
+            <span class="cv-count"><span x-text="convictionResult?.comparisons || 0"></span> comparaisons</span>
+            <button class="btn small ghost" @click="closeConviction()">← Watchlist</button>
+          </div>
+        </div>
+        <!-- Seuils ET échelle : l'indice affiché doit être lisible sans ouvrir
+             Paramètres (source unique = /api/settings). -->
+        <p class="cv-thresholds" x-text="convictionThresholdLine()"></p>
+        <div class="cv-result-actions">
+          <button class="btn small" :disabled="!convictionChanges().length || convictionApplied || convictionBusy"
+                  @click="applyConvictionTiers()">Appliquer les tiers</button>
+          <button class="btn small ghost" @click="replayConviction()">Rejouer</button>
+          <button class="btn small ghost" @click="closeConviction()">Fermer</button>
+        </div>
+        <!-- Message seulement quand AUCUN tier ne change ; Appliquer reste
+             désactivé (la règle n'invite pas à écraser un ordre identique). -->
+        <p class="idx-hint" x-show="convictionNoChange() && !convictionApplied">
+          Aucun changement : tes convictions confirment tes tiers.
+        </p>
+        <p class="idx-hint" x-show="convictionApplied">Tiers appliqués.</p>
+        <p class="idx-hint" x-show="convictionError" style="color:var(--bad)" x-text="convictionError"></p>
+        <div class="cv-result">
+          <table class="cell-table screen-table cv-result-table">
+            <thead>
+              <tr><th>Rang</th><th>Entreprise</th><th>Tier actuel → suggéré</th><th>Conviction</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+              <template x-for="(r, index) in (convictionResult?.rows || [])" :key="r.ticker">
+                <tr>
+                  <td x-text="index + 1"></td>
+                  <td>
+                    <span class="screen-ticker" x-text="r.ticker"></span>
+                    <span class="screen-name" x-text="r.name || '—'"></span>
+                  </td>
+                  <td class="cv-tiers">
+                    <span x-text="'Tier ' + r.current_tier"></span>
+                    <span class="cv-arrow">→</span>
+                    <b x-text="'Tier ' + r.suggested_tier"></b>
+                  </td>
+                  <td class="cv-score">
+                    <svg viewBox="0 0 100 58" class="wl-dial wl-dial-card" role="img"
+                         :aria-label="'Conviction ' + r.score + ' sur 100'">
+                      <path class="wl-dial-track" :d="watchDialTrack()"></path>
+                      <path class="cv-dial-value" :d="watchDialPath(r.score, 0, 100)"></path>
+                      <text class="wl-dial-text" x="50" y="50" text-anchor="middle" x-text="r.score"></text>
+                    </svg>
+                    <!-- Couverture : nombre de duels réellement joués. -->
+                    <span class="cv-duels" x-text="r.comparisons + (r.comparisons > 1 ? ' duels' : ' duel')"></span>
+                  </td>
+                  <td class="cv-delta">
+                    <span x-text="r.current_tier === r.suggested_tier ? '=' : (r.suggested_tier < r.current_tier ? '↑' : '↓')"></span>
+                    <span class="cv-badge" x-show="!r.tested"
+                          :title="'Moins de 2 duels : le tier actuel est conservé (couverture insuffisante).'">conservé</span>
+                    <span class="cv-badge cv-badge-limit" x-show="r.tested && r.limit"
+                          :title="'Indice à ' + r.distance + ' point(s) du seuil ' + r.threshold + ' : bruit de mesure, la règle ne change pas.'">limite</span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <!-- Compteurs par tier : un tier vide reste affiché avec zéro. -->
+        <p class="wl-legend cv-tier-summary">
+          <span>Tier 1 : <b x-text="convictionTierSummary()[1]"></b></span>
+          <span class="cv-sep">·</span>
+          <span>Tier 2 : <b x-text="convictionTierSummary()[2]"></b></span>
+          <span class="cv-sep">·</span>
+          <span>Tier 3 : <b x-text="convictionTierSummary()[3]"></b></span>
+          <span class="cv-sep">·</span>
+          <span><b x-text="convictionResult?.comparisons || 0"></b> comparaisons</span>
+        </p>
       </div>
     </div>
   </div>

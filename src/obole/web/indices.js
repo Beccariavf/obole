@@ -165,19 +165,16 @@ export const indicesMixin = {
   },
 
   // Ramène le champ de recherche des membres à l'écran quand il sort du cadre
-  // de la modale (ajout de membres, focus, ouverture en édition). On scrolle
-  // le conteneur de la modale manuellement : plus fiable que scrollIntoView,
-  // qui peut être interrompu par les re-rendus réactifs d'Alpine.
+  // de la VUE (ajout de membres, focus, ouverture en édition) sans dépendre
+  // d'un conteneur qui défile. Dans la coquille, c'est le DOCUMENT qui défile :
+  // `scrollIntoView` est donc le bon geste — il n'y a plus de `.modal` dont
+  // manipuler le `scrollTop`.
 
   scrollIdxInput() {
     requestAnimationFrame(() => {
       const input = document.querySelector(".idx-search-wrap input");
-      const modal = input && input.closest(".modal");
-      if (!input || !modal) return;
-      const mRect = modal.getBoundingClientRect();
-      const iRect = input.getBoundingClientRect();
-      if (iRect.bottom > mRect.bottom) modal.scrollTop += iRect.bottom - mRect.bottom + 8;
-      else if (iRect.top < mRect.top) modal.scrollTop -= mRect.top - iRect.top + 8;
+      if (!input || typeof input.scrollIntoView !== "function") return;
+      input.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
   },
 

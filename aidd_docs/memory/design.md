@@ -72,6 +72,38 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
   changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
   Thèse & Société, Valorisation.
+- **Un espace est une PAGE, pas une couche.** Les cinq espaces sont des vues **sœurs** de
+  l'analyse dans `.app-main` (`.app-view.view-<espace>`), sur lesquelles `x-show` bascule :
+  le rail reste donc visible ET cliquable en permanence, et passer d'un espace à l'autre
+  est un clic. Avant, chaque espace était une modale plein écran (98vw) posée sur la
+  fiche : elle recouvrait le rail, donc il fallait fermer pour changer d'espace. Les
+  **couches secondaires** restent des overlays (zoom de graphe, export, événements, import
+  CSV, jeu de conviction, détails du portefeuille) : ce sont des gestes ponctuels, ils
+  doivent recouvrir et rendre la main en se fermant.
+- **Pas de croix dans une vue** : on ne ferme pas une page. On en change (rail) ou on
+  revient à Analyse ; Échap referme l'espace ouvert (`closeAnySpace`), après la couche du
+  dessus s'il y en a une. **Pas de hash d'URL** pour un espace : `parseHash` départage la
+  fiche et la section, et le bouton retour du navigateur ne quitte pas une vue.
+- **Une vue n'impose ni hauteur ni défilement interne** (plus de `96vh`, plus de barre
+  dans la barre) : c'est le DOCUMENT qui défile, comme pour la fiche. Un seul élément
+  collant par vue s'accroche à `--head-top` — le bandeau du portefeuille, l'en-tête du
+  tableau du screener. Le titre de la vue (`.view-head`) est un titre de page ordinaire :
+  il défile. Corollaire mesuré : `.screen-table-wrap` ne doit créer AUCUN conteneur de
+  défilement (`auto` comme `clip` rattachent le `sticky` de l'en-tête à une boîte qui ne
+  défile jamais, l'en-tête partait alors à −763 px) ; la colonne « Entreprise » reste
+  gelée par son propre `sticky left`. **Trade-off assumé** : sans conteneur, un tableau
+  plus large que la fenêtre fait déborder le DOCUMENT en largeur, donc le défilement
+  horizontal emporte aussi le contenu du rail — d'où son `left: 0` (accroche dans les deux
+  axes), mesuré en e2e : `railX` ne bouge plus d'un pixel pendant un défilement X.
+- **Une vue neuve se lit depuis son titre** : `openSpaceEntry` remet le document en haut
+  (`scrollToTop`) à chaque changement d'espace — `x-show` ne touche pas au défilement, et
+  sans ça on arrivait au milieu de la page suivante (titre à y = −568).
+- **Re-cliquer l'entrée déjà active ne fait rien** (sinon : résultats du screener vidés,
+  onglet du portefeuille retombé sur Résumé, et des requêtes inutiles) ; une vue montée
+  **redimensionne ses tracés** (`resizeViewPlots`), car `responsive: true` n'écoute que
+  `window.resize` — mesuré : hôte 378 px, SVG resté à 710 px.
+- **Le retour dans une vue retrace la fiche** : masquée (`display: none`), elle donne une
+  largeur nulle à Plotly ; `openSpaceEntry("analyse")` appelle donc `scheduleRedraw()`.
 - Le rail est **étiqueté (176 px) à partir de 1280 px** de fenêtre ; en dessous il passe en
   **icônes seules (68 px)** jusqu'à 900 px, puis en **bandeau horizontal**. Le seuil est
   calculé : à 1280 px le contenu garde assez de largeur pour deux colonnes de graphes,
@@ -80,21 +112,19 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   gagnée fait tenir une colonne de plus, elle n'étire pas les tuiles (plancher 380 px).
 - **La recherche est le rang 1 d'un en-tête collant à deux rangs** (recherche, puis
   onglets de section collés dessous), dans la colonne Analyse — ni dans le rail (le rail
-  porte les *espaces*, pas l'entrée d'une espace), ni en bandeau global (les modales sont
-  plein écran : une barre globale serait masquée cinq fois sur six, tout en coûtant sa
-  hauteur au graphe héro). C'est ce rang qui **remplit** ce que la recherche laissait de
-  vide à droite : le champ garde 420 px (au-delà, le regard perd le curseur) et les
-  actions (Analyser, ↻, Retour) occupent la droite. Le bouton de retour est **en tête du
-  groupe calé à droite** : il grandit vers la gauche et ne décale jamais « Analyser ».
-  À l'accueil, le rang ne colle pas et devient un **héros centré** (un seul axe avec
-  l'invite). Sous 900 px, plus rien ne colle et le rang passe sur deux lignes.
-- L'entrée active du rail suit l'espace ouvert ; au repos c'est **Analyse**. La marque
+  porte les *espaces*, pas l'entrée d'une espace), ni en bandeau global (une vue occupant
+  la colonne, une barre globale n'aurait pas de place à elle). C'est ce rang qui
+  **remplit** ce que la recherche laissait de vide à droite : le champ garde 420 px
+  (au-delà, le regard perd le curseur) et les actions (Analyser, ↻, Retour) occupent la
+  droite. Le bouton de retour est **en tête du groupe calé à droite** : il grandit vers la
+  gauche et ne décale jamais « Analyser ». À l'accueil, le rang ne colle pas et devient un
+  **héros centré** (un seul axe avec l'invite). Sous 900 px, plus rien ne colle et le rang
+  passe sur deux lignes.
+- L'entrée active du rail suit l'espace affiché ; au repos c'est **Analyse**. La marque
   ramène à l'accueil (aucune fiche, aucun espace, champ de recherche vidé).
-- **Échap referme la couche du dessus** : une modale imbriquée (zoom de graphe, export,
-  événements…) d'abord, l'espace ensuite. Les modales plein écran recouvrant le rail, le
-  clavier est le seul chemin de portefeuille à watchlist sans viser la croix.
-- **Les modales ne bougent pas** : seul leur déclencheur a déménagé de la barre de
-  recherche vers le rail.
+- **Un seul espace affiché à la fois** : `openSpaceEntry` referme les autres avant
+  d'ouvrir. Une modale du dessus cachait celle du dessous ; une vue, elle, s'empilerait
+  visiblement (deux vues affichées, deux entrées actives).
 - **Grille de cartes en `flex-wrap`, sans colonnes.** `.charts-grid` répartit les cartes
   par rangées (`flex: 1 1 380px`, plancher 380 px, `min-width: 0` pour rétrécir sous
   390 px de fenêtre). Grid a été écarté pour deux raisons mesurées : un
@@ -119,6 +149,9 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   rail d'icônes, le `<button>` porte un `aria-label` (le nom de l'espace) en plus du
   `title` (son explication), donc il reste nommable une fois le libellé visuellement
   retiré — les infobulles n'existent pas au tactile.
+- **Le rail n'est jamais recouvert** : les espaces sont des vues, pas des couches. Le
+  passage d'un espace à l'autre se fait donc au clic comme au clavier (Tab dans le rail) ;
+  Échap reste le raccourci de retour à Analyse.
 - Fenêtre fixe du graphe héro : flèches ←/→ pour déplacer la fenêtre quand la zone est
   focus, `Shift` pour un pas fin.
 - Contraste assuré sur les fonds colorés (bandes σ, matrice de corrélation).

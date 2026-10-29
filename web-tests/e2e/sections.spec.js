@@ -591,3 +591,279 @@ test("coquille : repli responsive du rail et largeur du contenu", async ({ page 
   await attendreStable("rail", 176, "@1600px");
   expect((await mesure()).main).toBeGreaterThanOrEqual(1300);
 });
+
+// --- Espaces en pages (coquille) -------------------------------------------
+//
+// Les cinq espaces ne sont plus des modales plein écran posées SUR la fiche :
+// ce sont des vues sœurs dans `.app-main`, sur lesquelles `x-show` bascule. Le
+// rail reste donc visible ET cliquable — c'est tout l'objet du chantier, et ce
+// que ces mesures verrouillent : une modale 98vw recouvrirait le rail, une vue
+// non.
+
+const ESPACES = [
+  ["indices", ".app-view.view-indices"],
+  ["screener", ".app-view.view-screener"],
+  ["portfolio", ".app-view.view-portfolio"],
+  ["watchlist", ".app-view.view-watchlist"],
+  ["settings", ".app-view.view-settings"],
+];
+
+test("espaces : chaque espace est une vue, sans overlay, avec le rail cliquable", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".app-rail")).toBeVisible();
+
+  for (const [id, selecteur] of ESPACES) {
+    await page.locator(`.app-rail-btn[data-space='${id}']`).click();
+    const vue = page.locator(selecteur);
+    await expect(vue, `${id} : vue visible`).toBeVisible();
+
+    // 1. Aucune couche plein écran pour un espace : le fond n'est pas assombri
+    //    et la fiche a bien cédé la place. `x-show` laisse les autres blocs dans
+    //    le DOM en `display: none` : on ne compte que les VISIBLES.
+    const overlaysVisibles = await page.evaluate(
+      () =>
+        [...document.querySelectorAll(".modal-overlay")].filter(
+          (el) => el.getBoundingClientRect().height > 0,
+        ).length,
+    );
+    expect(overlaysVisibles, `${id} : aucune modale ouverte`).toBe(0);
+
+    // 2. Le rail reste à sa place et à portée de clic.
+    const rail = await page.locator(".app-rail").boundingBox();
+    expect(rail, `${id} : rail mesurable`).not.toBeNull();
+    await expect(page.locator(".app-rail-btn[data-space='analyse']")).toBeVisible();
+
+    // 3. La vue commence à DROITE du rail : elle ne le recouvre pas.
+    const box = await vue.boundingBox();
+    expect(box.x, `${id} : vue à droite du rail`).toBeGreaterThanOrEqual(
+      rail.x + rail.width - 1,
+    );
+
+    // 4. Aucune croix de fermeture dans l'en-tête de la vue.
+    await expect(
+      vue.locator(".view-head button", { hasText: "✕" }),
+      `${id} : pas de croix (on sort par le rail)`,
+    ).toHaveCount(0);
+  }
+
+  // « Analyse » ramène la fiche, et l'analyse redevient visible.
+  await page.locator(".app-rail-btn[data-space='analyse']").click();
+  await expect(page.locator(".app-view.view-analyse")).toBeVisible();
+  await expect(page.locator(".app-view.view-settings")).toBeHidden();
+});
+
+test("espaces : un clic de rail bascule directement d'une vue à l'autre", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".app-rail-btn[data-space='screener']").click();
+  await expect(page.locator(".app-view.view-screener")).toBeVisible();
+
+  // Changement direct : la vue précédente cède la place sans fermeture préalable.
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
+  await expect(page.locator(".app-view.view-screener")).toBeHidden();
+
+  // Et l'entrée active du rail suit l'espace affiché.
+  await expect(page.locator(".app-rail-btn[data-space='watchlist']")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.locator(".app-rail-btn[data-space='screener']")).toHaveAttribute(
+    "aria-current",
+    "false",
+  );
+});
+
+test("espaces : la vue défile avec le document, sans hauteur imposée", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".app-rail-btn[data-space='settings']").click();
+  const vue = page.locator(".app-view.view-settings");
+  await expect(vue).toBeVisible();
+
+  // Pas de `96vh` hérité de la modale : une page n'impose pas sa hauteur.
+  const style = await vue.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { height: cs.height, overflowY: cs.overflowY, maxHeight: cs.maxHeight };
+  });
+  expect(style.maxHeight, "aucune hauteur maximale imposée").toBe("none");
+  expect(style.overflowY, "la vue ne défile pas sur elle-même").not.toBe("auto");
+
+  // Le document défile bien à la place (le rail, lui, reste collé).
+  const defilable = await page.evaluate(
+    () => document.documentElement.scrollHeight > window.innerHeight + 20,
+  );
+  if (defilable) {
+    // On mesure APRÈS le premier défilement : avant, le rail est encore à sa
+    // position de flux (20 px de padding de page), pas encore collé à 16 px.
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    const colle = await page.locator(".app-rail").boundingBox();
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(200);
+    const encore = await page.locator(".app-rail").boundingBox();
+    expect(Math.round(encore.y), "rail collé pendant le défilement de la vue").toBe(
+      Math.round(colle.y),
+    );
+    expect(Math.abs(Math.round(colle.y) - 16), "rail à --head-top").toBeLessThanOrEqual(1);
+  }
+});
+
+test("espaces : Échap revient à Analyse, la marque quitte tout", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".app-rail-btn[data-space='screener']").click();
+  await expect(page.locator(".app-view.view-screener")).toBeVisible();
+
+  // Échap referme l'espace : c'est le clavier qui sort d'une vue, comme il
+  // sortait d'une modale avant ce chantier.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".app-view.view-screener")).toBeHidden();
+  await expect(page.locator(".app-view.view-analyse")).toBeVisible();
+
+  // La marque ramène à l'accueil (aucune fiche, aucun espace).
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
+  await page.locator(".app-brand").click();
+  await expect(page.locator(".app-view.view-watchlist")).toBeHidden();
+  await expect(page.locator(".app-view.view-analyse")).toBeVisible();
+});
+
+test("espaces : le graphe héro garde sa largeur au retour d'un espace", async ({ page }) => {
+  await page.goto("/#RI.PA/resume");
+  await expect(page.locator("#chart svg").first()).toBeVisible();
+
+  const largeur = () =>
+    page.evaluate(() => {
+      const svg = document.querySelector("#chart svg");
+      const hote = document.querySelector("#chart");
+      return {
+        svg: Math.round(svg.getBoundingClientRect().width),
+        hote: Math.round(hote.getBoundingClientRect().width),
+      };
+    });
+
+  const avant = await largeur();
+  expect(avant.svg, "graphe tracé à la largeur de son conteneur").toBeGreaterThan(
+    avant.hote - 8,
+  );
+
+  // Passer par une vue masque la fiche (`display: none`) : Plotly voit alors une
+  // largeur nulle. Sans redessin au retour, le graphe revient à cette mesure.
+  await page.locator(".app-rail-btn[data-space='settings']").click();
+  await expect(page.locator(".app-view.view-settings")).toBeVisible();
+  await page.locator(".app-rail-btn[data-space='analyse']").click();
+  await expect(page.locator(".app-view.view-analyse")).toBeVisible();
+  await expect(page.locator("#chart svg").first()).toBeVisible();
+
+  await expect
+    .poll(async () => (await largeur()).svg, { timeout: 10_000 })
+    .toBeGreaterThan(avant.hote - 8);
+});
+
+test("espaces : ouvrir une vue repart du haut, re-cliquer ne détruit rien", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+
+  // 1. On ouvre une vue, on descend, puis on change d'espace : la page suivante
+  //    se lit DEPUIS SON TITRE. `x-show` ne touche pas au défilement du
+  //    document, donc sans `scrollTo(0,0)` on arrivait au milieu (titre hors
+  //    écran, mesuré à y = −568).
+  await page.locator(".app-rail-btn[data-space='settings']").click();
+  await expect(page.locator(".app-view.view-settings")).toBeVisible();
+  await page.mouse.wheel(0, 500);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  await page.locator(".app-rail-btn[data-space='watchlist']").click();
+  await expect(page.locator(".app-view.view-watchlist")).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY), "vue ouverte en haut de page").toBe(0);
+  const titre = await page.locator(".app-view.view-watchlist .view-head h3").boundingBox();
+  expect(titre.y, "titre de la vue visible").toBeGreaterThan(0);
+
+  // 2. Re-cliquer l'entrée DÉJÀ active ne relance ni réinitialisation ni appel
+  //    réseau : sur le Screener, cela vidait les résultats et revenait à
+  //    l'accueil. Le geste est un réflexe (« où suis-je ? »).
+  await page.route("**/api/screener/run", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        source: "test",
+        count: 3,
+        tickers_count: 3,
+        rows: ["RI.PA", "AI.PA", "MC.PA"].map((ticker, i) => ({
+          ticker,
+          name: `Titre ${i}`,
+          market_cap: 2e9,
+          z: -1,
+          pente_pct: 6,
+          ecart_type_pct: 22,
+          pot_5y_pct: 30,
+          pot_10y_pct: 60,
+          trend_bullish: 1,
+          roe_pct: 12,
+          per: 14,
+          p_b: 1.4,
+          p_fcf: 12,
+          fcf_yield_pct: 5,
+          quality_score: 60,
+          colors: {},
+        })),
+      }),
+    }),
+  );
+  await page.locator(".app-rail-btn[data-space='screener']").click();
+  const vue = page.locator(".app-view.view-screener");
+  await expect(vue).toBeVisible();
+  await vue.locator(".screen-home").waitFor();
+  await vue.locator(".screen-preset").first().click();
+  await expect(vue.locator(".screen-table")).toBeVisible({ timeout: 15_000 });
+  const lignes = await vue.locator(".screen-table tbody tr").count();
+  expect(lignes).toBe(3);
+
+  await page.locator(".app-rail-btn[data-space='screener']").click();
+  await page.waitForTimeout(300);
+  expect(
+    await vue.locator(".screen-table tbody tr").count(),
+    "re-clic : les résultats sont conservés",
+  ).toBe(lignes);
+  await expect(vue.locator(".screen-home"), "re-clic : pas de retour à l'accueil").toBeHidden();
+});
+
+test("espaces : les graphes d'une vue se remettent à l'échelle à l'entrée", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
+  const trace = page.locator("#pf-summary-plot");
+  await expect(trace.locator("svg").first()).toBeVisible({ timeout: 30_000 });
+
+  const mesure = () =>
+    page.evaluate(() => {
+      const hote = document.querySelector("#pf-summary-plot");
+      const svg = hote?.querySelector("svg");
+      return {
+        hote: Math.round(hote?.getBoundingClientRect().width || 0),
+        svg: Math.round(svg?.getBoundingClientRect().width || 0),
+      };
+    });
+  const large = await mesure();
+  expect(large.svg, "tracé à la largeur de l'hôte").toBeGreaterThan(large.hote - 8);
+
+  // La fenêtre rétrécit PENDANT que la vue est masquée : `responsive: true`
+  // n'écoute que `window.resize`, donc rien ne corrige la largeur du SVG. Sans
+  // redimensionnement à l'entrée, le tracé reste à 710 px dans un hôte de
+  // 378 px et la carte déborde.
+  await page.locator(".app-rail-btn[data-space='analyse']").click();
+  await expect(page.locator(".app-view.view-analyse")).toBeVisible();
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.locator(".app-rail-btn[data-space='portfolio']").click();
+  await expect(page.locator(".app-view.view-portfolio")).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const m = await mesure();
+      return m.svg > 0 && Math.abs(m.svg - m.hote) < 8;
+    }, { timeout: 10_000 })
+    .toBe(true);
+});

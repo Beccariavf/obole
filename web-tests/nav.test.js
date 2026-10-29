@@ -42,6 +42,10 @@ function comp(overrides = {}) {
     loading: false,
     backTo: null,
     suggestions: [{ symbol: "RI.PA" }],
+    // jsdom n'implémente pas `window.scrollTo` : on l'isole. Le geste réel
+    // (ouvrir une vue repart du haut) est mesuré en e2e.
+    scrollToTop: vi.fn(),
+    resizeViewPlots: vi.fn(),
     openIndices: vi.fn(),
     closeIndices: vi.fn(function () { this.indicesOpen = false; }),
     openScreener: vi.fn(),
@@ -134,7 +138,7 @@ describe("entrée active du rail", () => {
   });
 });
 
-describe("openSpaceEntry — le déclencheur a déménagé, pas la modale", () => {
+describe("openSpaceEntry — le déclencheur a déménagé, pas la vue", () => {
   it("un espace appelle son ouverture existante", () => {
     const c = comp();
     c.openSpaceEntry("indices");
@@ -143,14 +147,14 @@ describe("openSpaceEntry — le déclencheur a déménagé, pas la modale", () =
     expect(c.openWatchlist).toHaveBeenCalledOnce();
   });
 
-  it("« Analyse » referme la modale ouverte sans rien charger", () => {
+  it("« Analyse » referme l'espace ouvert sans rien charger", () => {
     const c = comp({ portfolioOpen: true });
     c.openSpaceEntry("analyse");
     expect(c.closePortfolio).toHaveBeenCalledOnce();
     expect(c.openPortfolio).not.toHaveBeenCalled();
   });
 
-  it("« Analyse » sans modale ouverte ne fait rien", () => {
+  it("« Analyse » sans espace ouvert ne fait rien", () => {
     const c = comp();
     c.openSpaceEntry("analyse");
     for (const fn of [c.closeIndices, c.closeScreener, c.closePortfolio, c.closeWatchlist, c.closeSettings]) {

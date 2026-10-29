@@ -79,7 +79,8 @@ une colonne de plus, elle n'étire pas les tuiles existantes.
   deep-link lisent le même registre.
 - Le deep-link `#<ticker>/<section>` et le bouton « retour » du navigateur.
 - Les modales plein écran et leurs sélecteurs (`.modal-portfolio`, `.modal-watchlist`,
-  `.modal-screen`, `.modal-indices`, `.modal-settings`).
+  `.modal-screen`, `.modal-indices`, `.modal-settings`) — **préservés par ce chantier,
+  supprimés par la suite** (§« Les espaces deviennent des pages »).
 - Le gel du rail au défilement, l'état actif (`aria-current`), le focus clavier.
 - La pastille « une thèse existe » — déplacée du rail vers l'onglet Thèse & Société.
 
@@ -121,3 +122,34 @@ une colonne de plus, elle n'étire pas les tuiles existantes.
 Rien en attente. Si la largeur du rail doit changer, les valeurs à ajuster sont dans trois
 media queries de `style.css` (`.app-shell`, `.app-rail-label`, `.app-rail`) et le seuil est
 commenté sur place. Le registre des espaces vit dans `nav.js::SPACES`.
+
+## Suite — les espaces deviennent des pages
+
+**Ce chantier a livré le rail ; la suite a livré le reste.** À l'origine les cinq espaces
+restaient des **modales plein écran (98vw)** : elles recouvraient le rail, donc « voir le
+rail à gauche » n'était vrai qu'au repos, jamais pendant qu'on consultait un espace, et le
+clavier (Échap) était le seul chemin direct de portefeuille à watchlist.
+
+Les cinq espaces sont désormais des **vues sœurs** de l'analyse dans `.app-main`
+(`.app-view.view-<espace>`), sur lesquelles `x-show` bascule :
+
+| Avant | Après |
+| --- | --- |
+| `.modal-overlay > .modal.modal-<espace>` (98vw × 96vh, fond assombri) | `.app-view.view-<espace>` dans la colonne de contenu |
+| rail recouvert pendant toute la consultation | rail visible **et cliquable**, changement d'espace en un clic |
+| croix ✕ pour sortir | rail, Échap (retour à Analyse) ou la marque |
+| deux espaces pouvaient être ouverts en même temps (la couche du dessus cachait l'autre) | `openSpaceEntry` referme les autres : **un seul espace affiché** |
+| défilement interne au conteneur | c'est le **document** qui défile ; un seul élément collant par vue, à `--head-top` |
+| graphe héro gardé à la largeur mesurée avant le masquage | `scheduleRedraw()` au retour sur Analyse |
+| on arrivait au milieu de la page suivante | `scrollToTop()` à chaque changement d'espace |
+| re-cliquer l'entrée active réinitialisait tout | aucun effet si l'espace est déjà affiché |
+| graphes d'une vue masquée figés à leur ancienne largeur | `resizeViewPlots()` à l'entrée dans la vue |
+
+Ce qui **n'a pas** bougé : `nav.js::SPACE_OPENERS` (mêmes drapeaux, mêmes méthodes
+d'ouverture/fermeture, vérifiés par `nav.test.js`), les couches secondaires (zoom de
+graphe, export, événements, import CSV, conviction, détails portefeuille), la surface REST,
+le schéma et le MCP.
+
+Détail de mise en page dans `design.md` §Navigation. Tests : `web-tests/espaces.test.js`
+(structure, CSS, exclusivité) et `e2e/sections.spec.js` §« espaces » (rail visible et
+cliquable, bascule directe, défilement du document, Échap, redraw du héro).

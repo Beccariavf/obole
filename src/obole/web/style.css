@@ -83,7 +83,12 @@ body {
 .app-main { min-width: 0; }
 
 .app-rail {
-  position: sticky; top: var(--head-top);
+  /* `left: 0` en plus de `top` : un tableau large fait déborder la page en
+     LARGEUR (le wrapper ne défile pas, sinon l'en-tête de tableau ne collerait
+     plus), et un défilement horizontal emportait le rail hors de l'écran
+     (mesuré : x 24 → −41 px à 1024 px de fenêtre). L'accroche horizontale le
+     garde à portée de clic dans les deux axes. */
+  position: sticky; top: var(--head-top); left: 0;
   display: flex; flex-direction: column; align-items: stretch;
   gap: 4px; padding: 10px 8px;
   background: var(--card); border: 1px solid var(--border);
@@ -207,8 +212,10 @@ body {
 .fiche-main { flex: 1; min-width: 0; }
 
 /* --- Espace Portefeuille (#17.0) ------------------------------------------- */
-/* Espace distinct (modale plein écran) avec onglets horizontaux internes. */
-.pf-main { flex: 1; min-width: 0; overflow-y: auto; }
+/* Vue de la coquille (plus une modale) avec onglets horizontaux internes. Le
+   document défile : `.pf-main` n'impose plus de scrollbar, sinon deux barres se
+   disputeraient la même hauteur. */
+.pf-main { flex: 1; min-width: 0; }
 
 /* Onglets horizontaux : remplacent le rail vertical (libellés lisibles). */
 .pf-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; flex-shrink: 0; }
@@ -338,13 +345,13 @@ body {
 .pf-risk-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* --- Bandeau de CONTEXTE unique du portefeuille -----------------------------
    Périmètre · Période · Benchmark : SEUL endroit où vivent ces contrôles.
-   Collant en haut de `.pf-main` pour rester lisible pendant le défilement
-   d'un long tableau. Les groupes apparaissent selon les capacités de la
-   section (`SECTIONS_CONTROLS`) : un contrôle sans objet n'est pas rendu.
-   Trois hauteurs n'existaient avant (chips 26 px, selects 44 px, boutons 34 px) :
-   une seule désormais, 34 px, pour tous les contrôles du bandeau. */
+   Collant à la même hauteur que le rail (`--head-top`) pour rester lisible
+   pendant le défilement d'un long tableau. Les groupes apparaissent selon les
+   capacités de la section (`SECTIONS_CONTROLS`) : un contrôle sans objet n'est
+   pas rendu. Trois hauteurs n'existaient avant (chips 26 px, selects 44 px,
+   boutons 34 px) : une seule désormais, 34 px, pour tous les contrôles. */
 .pf-context {
-  position: sticky; top: 0; z-index: 6;
+  position: sticky; top: var(--head-top); z-index: 6;
   display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap;
   padding: 10px 16px; margin-bottom: 14px;
   background: var(--card); border: 1px solid var(--border);
@@ -990,7 +997,32 @@ select.pf-ctl {
 /* Overlay empilé : s'ouvre PAR-DESSUS une autre modale (ex. la mini-fenêtre
    « ticker libre » ouverte depuis la modale Portefeuille). */
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
-.modal .chip.warn { font-size: 11px; margin-left: 8px; }
+/* `code` et le badge ⚠ vivaient sous `.modal` : les VUES ont quitté ce
+   conteneur, donc les mêmes règles sont portées aussi par `.app-view`, sinon
+   `<code>` retombait en monospace nu (sans fond, sans padding) et le badge
+   d'erreur perdait sa taille et sa marge — une régression invisible pour des
+   tests qui ne regardent que la structure. */
+.modal code,
+.app-view code { font-size: 11px; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+.modal .chip.warn,
+.app-view .chip.warn { font-size: 11px; margin-left: 8px; }
+/* Couches SECONDAIRES plein écran : le zoom de graphe, le jeu de conviction et
+   les détails du portefeuille recouvrent la vue et doivent occuper l'écran. Ce
+   sont les SEULES modales dans ce cas — les espaces, eux, sont des vues
+   (`.app-view`), donc le gabarit 98vw/96vh ne sert plus qu'ici. */
+.modal.modal-conviction,
+.modal.modal-detail,
+.modal.modal-pf-detail {
+  max-width: 98vw; width: 98vw; height: 96vh; max-height: 96vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal.modal-detail,
+.modal.modal-pf-detail {
+  max-width: 92vw; width: 92vw; height: auto; max-height: 92vh; overflow: auto;
+}
+.modal-conviction .idx-head,
+.modal-detail .idx-head,
+.modal-pf-detail .idx-head { flex-shrink: 0; }
 
 /* Tableau d'aperçu de l'import */
 .import-table-wrap { max-height: 300px; overflow-y: auto; margin: 12px 0; }
@@ -1010,42 +1042,29 @@ select.pf-ctl {
 .import-draft-actions { margin-left: auto; display: flex; gap: 8px; }
 .import-draft-error { font-size: 12px; color: #991b1b; margin: 8px 0 0; }
 
+/* --- Vues d'espace (pages de la coquille) ---------------------------------
+   Un espace n'est PLUS une couche posée sur la fiche : c'est une vue SŒUR, dans
+   `.app-main`, sur laquelle `x-show` bascule. Le rail reste donc visible ET
+   cliquable en permanence — c'est ce que la coquille gagne.
+   Conséquence de mise en page : une vue n'impose aucune hauteur (ni 96vh ni
+   scrollbar interne). C'est le DOCUMENT qui défile, comme pour la fiche. Le
+   titre d'une vue est donc un titre de page ordinaire : il défile. Ce qui doit
+   rester lisible pendant le défilement (bandeau du portefeuille, en-tête de
+   tableau) s'accroche à `--head-top`, la même valeur que le rail — une seule
+   vérité plutôt qu'une cascade `top: 0` puis `--view-head-h`. */
+.app-view { min-width: 0; }
+.view-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 0 0 8px; margin: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.view-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.view-head .idx-head-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.view-head .idx-head-actions .btn { white-space: nowrap; }
+/* Les graphes d'une vue se tracent dans un conteneur VISIBLE : ici tout est
+   visible, donc aucune règle de hauteur n'est nécessaire. */
+
 /* --- Indices personnalisés ------------------------------------------------- */
-/* Espaces PLEIN ÉCRAN (screener UX #13, portefeuille #17.0, indices) : même
-   gabarit de mise en page. La classe HTML (`modal-screen` / `modal-portfolio` /
-   `modal-indices`) distingue les espaces (et leurs sélecteurs e2e) ; la règle de
-   layout est commune, donc factorisée pour qu'une correction profite à tous. */
-.modal.modal-screen,
-.modal.modal-watchlist,
-.modal.modal-conviction,
-.modal.modal-portfolio,
-.modal.modal-indices,
-.modal.modal-detail,
-.modal.modal-pf-detail {
-  max-width: 98vw; width: 98vw; height: 96vh; max-height: 96vh; overflow: hidden;
-  display: flex; flex-direction: column;
-}
-.modal.modal-detail,
-.modal.modal-pf-detail {
-  max-width: 92vw; width: 92vw; height: auto; max-height: 92vh; overflow: auto;
-}
-.modal-screen .idx-head,
-.modal-watchlist .idx-head,
-.modal-conviction .idx-head,
-.modal-portfolio .idx-head,
-.modal-indices .idx-head,
-.modal-detail .idx-head,
-.modal-pf-detail .idx-head,
-.modal-screen .idx-hint,
-.modal-portfolio .idx-hint { flex-shrink: 0; }
-/* Corps scrollable des indices : l'en-tête et son état restent fixes, seul le
-   contenu (catégories + formulaire) défile. */
-.modal-indices .idx-body { flex: 1; min-height: 0; overflow-y: auto; }
-/* Les filtres et le header restent fixes ; seul le tableau scrolle en Y/X. */
-.modal-screen .idx-list,
-.modal-watchlist .idx-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.modal-screen .screen-table-wrap,
-.modal-watchlist .screen-table-wrap { flex: 1; min-height: 0; overflow: auto; }
 .idx-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .idx-head h3 { margin: 0; }
 .idx-hint { font-size: 12px; color: var(--text-soft); margin: 6px 0 12px; line-height: 1.5; }
@@ -1139,10 +1158,22 @@ select.pf-ctl {
 .member-row:hover { background: var(--bg); }
 
 /* Screener : tableau triable + filtres */
-.screen-table-wrap { width: 100%; max-width: 100%; overflow: auto; margin: 12px 0; border-radius: 8px; min-width: 0; }
+.screen-table-wrap {
+  width: 100%; max-width: 100%; margin: 12px 0; border-radius: 8px; min-width: 0;
+  /* AUCUN défilement propre : dans une vue, c'est le document qui défile, et
+     `overflow-y: auto` (ou même `clip`, qui crée un conteneur pour l'axe
+     vertical) rattachait le `sticky` de l'en-tête à une boîte qui ne défile
+     jamais — l'en-tête ne collait donc à rien. Sans défilement propre, le
+     tableau peut dépasser en largeur : la vue entière défile horizontalement,
+     et la colonne « Entreprise » reste gelée par son propre `sticky left`. */
+  overflow: visible;
+}
 .screen-table-wrap .screen-table { width: max-content; min-width: 100%; }
 /* En-tête épinglée pendant le défilement vertical (libellés toujours visibles). */
-.screen-table thead th { position: sticky; top: 0; z-index: 2; background: var(--card); box-shadow: 0 1px 0 var(--border); }
+.screen-table thead th {
+  position: sticky; top: var(--head-top); z-index: 2;
+  background: var(--card); box-shadow: 0 1px 0 var(--border);
+}
 /* UX #13 : la 1re colonne « Entreprise » est GELÉE au scroll horizontal.
    Sans elle, en regardant PER/P/B/FCF/Qualité à droite, on ne sait plus quelle
    ligne on lit. z-index > thead pour rester lisible aussi en coin (haut-gauche). */
@@ -1166,14 +1197,15 @@ select.pf-ctl {
   background: var(--good-bg); color: var(--accent); border: 1px solid #BFDBFE;
 }
 .screen-chip-clear { padding: 2px 9px !important; font-size: 11px !important; }
-/* Panneau de filtres repliable. Scrollable si la grille dépasse la hauteur
-   (viewport court) : la modale est figée en 96vh et ne défile pas. */
+/* Panneau de filtres repliable. Il ne défile plus sur lui-même : dans une VUE,
+   c'est le document qui défile — une barre interne dans une barre externe est un
+   piège au trackpad, et le `45vh` venait de la modale figée. */
 .screen-filters-panel {
   flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px;
-  margin-bottom: 4px; max-height: 45vh; overflow-y: auto;
+  margin-bottom: 4px;
 }
 /* Accueil du screener : méthode + presets. */
-.screen-home { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 20px; }
+.screen-home { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 40px 20px; }
 .screen-home h4 { margin: 0; font-size: 18px; font-weight: 600; }
 .screen-home-lead { max-width: 560px; margin: 0; font-size: 13px; color: var(--text-soft); line-height: 1.6; }
 .screen-home-lead code { font-size: 12px; }
@@ -1189,6 +1221,10 @@ select.pf-ctl {
 .screen-preset small { font-size: 11px; color: var(--text-soft); line-height: 1.4; }
 .screen-home-cta { padding: 11px 22px; font-size: 14px; }
 .screen-filters { display: flex; align-items: flex-start; gap: 12px; margin: 4px 0 8px; flex-wrap: wrap; }
+/* Second accès au scan, au PIED du panneau de filtres : l'en-tête de la vue
+   défile (c'est une page), donc sur un écran court avec tous les groupes
+   dépliés le « Rechercher » de l'en-tête sort de l'écran. */
+.screen-scan-inline { flex: 0 0 auto; }
 /* Design A : groupes thématiques repliables. */
 .screen-groups { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .screen-group { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -1986,12 +2022,12 @@ select.pf-ctl {
 /* Vue cadrans (#26) : trois colonnes de tier, un demi-cercle de marge par tier
    et par carte. La grille se replie en 2 puis 1 colonne ; la carte reste
    lisible sans dépendre d'un graphique externe. */
-.modal-watchlist .wl-board {
-  flex: 1; min-height: 0; overflow: auto; margin: 12px 0;
+.wl-board {
+  margin: 12px 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px; align-content: start;
 }
-.modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+.wl-board.wl-board-single { grid-template-columns: 1fr; }
 .wl-tier-col {
   border: 1px solid var(--border); border-radius: 12px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px; min-width: 0;
@@ -2070,11 +2106,7 @@ select.pf-ctl {
   color: var(--text-soft); font-size: 11.5px; text-align: center; padding: 14px 0;
   border: 1px dashed var(--border); border-radius: 8px;
 }
-@media (max-width: 700px) {
-  .modal-watchlist .idx-head { flex-wrap: wrap; gap: 6px; }
-  .modal-watchlist .idx-head-actions { flex-wrap: wrap; gap: 6px; }
-  .modal-watchlist .idx-head-actions .btn { white-space: nowrap; }
-}
+
 @media (max-width: 520px) {
   .wl-card-metrics { grid-template-columns: 1fr; }
   .wl-card-metric:nth-child(3) { grid-column: auto; }
@@ -2084,11 +2116,11 @@ select.pf-ctl {
   border: 1px dashed var(--border); border-radius: 8px;
 }
 @media (max-width: 1100px) {
-  .modal-watchlist .wl-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .modal-watchlist .wl-board.wl-board-single { grid-template-columns: 1fr; }
+  .wl-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wl-board.wl-board-single { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
-  .modal-watchlist .wl-board { grid-template-columns: 1fr; }
+  .wl-board { grid-template-columns: 1fr; }
 }
 .wl-tier-select {
   font-size: 12px; color: var(--text); background: var(--card);
