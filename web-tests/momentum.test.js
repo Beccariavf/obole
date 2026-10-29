@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { api } from "../src/obole/web/api.js";
 import { applyMeta } from "../src/obole/web/thresholds.js";
 import { momentumMixin } from "../src/obole/web/momentum.js";
 
@@ -203,5 +204,28 @@ describe("table monde de Markovitz", () => {
     const raw = component(prices, { series: "raw" }).momStats();
     const adj = component(prices, { series: "adj", adjPrices }).momStats();
     expect(adj.slope).toBeGreaterThan(raw.slope * 2);
+  });
+});
+
+describe("api.momentumBacktest", () => {
+  it("construit l'URL avec les quatre paramètres encodés", async () => {
+    const calls = [];
+    const realFetch = global.fetch;
+    global.fetch = async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => ({}) };
+    };
+    try {
+      await api.momentumBacktest("stock", "RI.PA", "2020-01-01", "2021-01-01", "adj");
+      await api.momentumBacktest("basket", 7, "2020-01-01", "2021-01-01", "raw");
+    } finally {
+      global.fetch = realFetch;
+    }
+    expect(calls[0]).toBe(
+      "/api/stock/RI.PA/momentum-backtest?start=2020-01-01&end=2021-01-01&series=adj",
+    );
+    expect(calls[1]).toBe(
+      "/api/index/7/momentum-backtest?start=2020-01-01&end=2021-01-01&series=raw",
+    );
   });
 });

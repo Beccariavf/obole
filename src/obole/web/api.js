@@ -70,6 +70,13 @@ export const api = {
     return r.ok ? r.json() : null;
   },
   index(id) { return _loadOrThrow(`/api/index/${encodeURIComponent(id)}`); },
+  // Backtest de fiabilité (#31) : fenêtre visible + série affichée. Une seule
+  // route par nature de référence ; le service tranche la fenêtre côté serveur.
+  momentumBacktest(kind, ref, start, end, series) {
+    const base = kind === "basket" ? "/api/index" : "/api/stock";
+    const q = new URLSearchParams({ start, end, series }).toString();
+    return _loadOrThrow(`${base}/${encodeURIComponent(ref)}/momentum-backtest?${q}`);
+  },
   async indicesSummary() {
     const r = await fetch("/api/indices/summary");
     return r.ok ? r.json() : null;
