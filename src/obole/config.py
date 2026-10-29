@@ -143,6 +143,11 @@ REGRESSION_YEARS_FINANCIAL = 30
 # via `/api/meta` (`watch.min_ref_points`) pour désactiver une action en amont.
 REGRESSION_MIN_POINTS = 30
 
+# --- Clara Vallis (momentum, #30) --------------------------------------------
+# Fenêtre de la foule : 250 séances ≈ un an de bourse. SOURCE UNIQUE du défaut
+# du moteur (`engine/clara_vallis`) et du service — le front ne le redéfinit pas.
+MOMENTUM_WINDOW = 250
+
 # --- Watchlist (#25) ---------------------------------------------------------
 # Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
 # aides vivent ici (source unique) et sont servis par `/api/meta` — le front et

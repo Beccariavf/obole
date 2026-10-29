@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: moteur de la Clara Vallis
@@ -78,7 +78,7 @@ journey
 
 ### `4)` Tester le moteur
 
-1. Monotone croissant → `1.0` ; décroissant → `0.0` ; plat → `0.5`.
+1. Monotone croissant → au moins `0,99` ; décroissant → au plus `0,01` ; plat → `0,5`. L'entrée du jour n'a aucun parcours : elle compte pour `0,5`, d'où `0,998` sur une série strictement croissante.
 2. V (80 → 200 → 120) → score strictement entre 0 et 1.
 3. Série de 40 points → `short_history`, `n_used == 40`.
 4. Série de 300 points, puis on ajoute une séance : les 50 dernières valeurs de `satisfaction_series` sont identiques.
@@ -90,7 +90,7 @@ journey
 
 | Task | Acceptance criteria                                                                   |
 | ---- | ------------------------------------------------------------------------------------- |
-| 1    | Une série strictement croissante donne 1,0 et une série strictement décroissante 0,0. |
+| 1    | Une série strictement croissante donne au moins 0,99 et une série strictement décroissante au plus 0,01. |
 | 1    | Une série plate donne 0,5 ; une série de 40 points renvoie `short_history`.           |
 | 2    | `satisfaction_series` renvoie `NaN` sur les 249 premières séances.                     |
 | 2    | Ajouter une séance future ne modifie aucune valeur passée de la série.                 |

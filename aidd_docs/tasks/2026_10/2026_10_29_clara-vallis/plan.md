@@ -1,6 +1,6 @@
 ---
 objective: "La fiche expose un onglet Momentum qui note la satisfaction de la foule (250 entrées glissantes) et colore l'historique du cours par régime, sans jamais lire une séance future."
-status: pending
+status: in-progress
 ---
 
 # Plan: La Clara Vallis — onglet Momentum
