@@ -333,9 +333,14 @@ export const momentumMixin = {
       label: spec.label,
       cells: columns.map((column) => {
         const raw = b[column]?.[spec.field];
+        if (!spec.signed) return { value: spec.fmt(raw), good: null };
+        // Une seule valeur arrondie : elle est à la fois ce que l'écran affiche
+        // et ce que la couleur lit. Formater la valeur brute puis la colorer
+        // après un second arrondi faisait vivre deux règles pour un chiffre.
+        const shown = this._momShown(raw);
         return {
-          value: spec.fmt(raw),
-          good: spec.signed ? this._momBacktestGood(this._momShown(raw), column) : null,
+          value: shown == null ? "—" : spec.fmt(shown),
+          good: this._momBacktestGood(shown, column),
         };
       }),
     }));
