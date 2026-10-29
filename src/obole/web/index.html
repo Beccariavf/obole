@@ -729,10 +729,10 @@
               </template>
             </div>
             <div class="mom-series">
-              <label><input type="radio" value="raw" x-model="momSeries" @change="$nextTick(() => drawMomentum())" /> brut</label>
+              <label><input type="radio" name="mom-series" value="raw" x-model="momSeries" @change="$nextTick(() => drawMomentum())" /> brut</label>
               <label :class="{ disabled: !momHasAdj() }"
                      :title="momHasAdj() ? '' : 'Série ajustée indisponible pour cet indice'">
-                <input type="radio" value="adj" x-model="momSeries" :disabled="!momHasAdj()" @change="$nextTick(() => drawMomentum())" /> ajusté
+                <input type="radio" name="mom-series" value="adj" x-model="momSeries" :disabled="!momHasAdj()" @change="$nextTick(() => drawMomentum())" /> ajusté
               </label>
             </div>
           </div>
@@ -769,7 +769,7 @@
               <span class="mom-gauge-value" x-text="momScore() == null ? '—' : fmt(momScore())"></span>
             </div>
             <div class="gauge mom-gauge" role="meter"
-                 :aria-valuenow="momScore() == null ? 0 : momScore()"
+                 :aria-valuenow="momScore() == null ? 0 : Math.round(momScore() * 100) / 100"
                  aria-valuemin="0" aria-valuemax="1"
                  :aria-label="'Satisfaction de la foule : ' + (momScore() == null ? 'inconnue' : fmt(momScore()))">
               <div class="gauge-track">

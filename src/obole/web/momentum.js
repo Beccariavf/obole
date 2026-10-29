@@ -24,9 +24,22 @@ export const momentumMixin = {
   momEnd: null,
   momLog: false,
   momShowReg: false,
+  _momRef: null, // référence de la fiche dont la plage est valide
 
   momData() {
     return this.data?.chart?.momentum || null;
+  },
+
+  // La plage est un INDEX sur `chart.dates` : elle ne survit pas à une autre
+  // série. Sans ce garde, changer de fiche puis ouvrir l'onglet clampe
+  // l'ancienne plage à `[end-1, end]` et l'historique n'affiche que deux points.
+  momSyncRef() {
+    const ref = typeof this._hashRef === "function" ? this._hashRef() : null;
+    if (this._momRef !== ref) {
+      this._momRef = ref;
+      this.momStart = null;
+      this.momEnd = null;
+    }
   },
 
   momAvailable() {
@@ -245,6 +258,7 @@ export const momentumMixin = {
 
   drawMomentum() {
     if (!this.momAvailable()) return;
+    this.momSyncRef();
     if (this.momStart == null || this.momEnd == null) {
       const n = (this.data?.chart?.dates || []).length;
       this.momEnd = n - 1;

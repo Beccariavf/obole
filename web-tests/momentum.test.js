@@ -76,6 +76,21 @@ describe("table monde de Markovitz", () => {
     expect(stats.maLong).toBe(105);
   });
 
+  it("changer de fiche remet la plage à zéro", () => {
+    const prices = Array.from({ length: 300 }, (_, i) => 100 + i);
+    const comp = component(prices, { window: 10 });
+    comp._hashRef = () => "RI.PA";
+    comp.momSyncRef(); // première synchronisation : rien à conserver
+    comp.momStart = 100;
+    comp.momEnd = 299;
+    comp.momSyncRef(); // même fiche : la plage reste
+    expect(comp.momStart).toBe(100);
+    comp._hashRef = () => "AI.PA";
+    comp.momSyncRef(); // autre fiche : la plage est un index, elle ne vaut plus rien
+    expect(comp.momStart).toBeNull();
+    expect(comp.momEnd).toBeNull();
+  });
+
   it("la fenêtre par défaut est la référence persistée", () => {
     const prices = Array.from({ length: 1100 }, (_, i) => 100 + i);
     const comp = component(prices, { window: null });

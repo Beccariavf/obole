@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
 from obole import config
@@ -28,6 +27,7 @@ from obole.models import (
     SummaryCard,
 )
 from obole.services.momentum import momentum_payload
+from obole.services.values import to_values as _vals
 
 if TYPE_CHECKING:
     from obole.models import WatchlistRun
@@ -143,13 +143,6 @@ def _downsample(series: pd.Series, max_points: int = 1200) -> pd.Series:
     if len(out) and out.index[-1] != series.index[-1]:
         out = pd.concat([out, series.iloc[[-1]]])
     return out
-
-
-def _vals(s: pd.Series) -> list:
-    return [
-        None if (v is None or (isinstance(v, float) and np.isnan(v))) else round(float(v), 4)
-        for v in s.to_numpy()
-    ]
 
 
 def chart_payload(prices: PriceSeries, fundamentals=None) -> dict:

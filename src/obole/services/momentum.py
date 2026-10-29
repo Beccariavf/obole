@@ -16,13 +16,14 @@ import pandas as pd
 from obole import config
 from obole.data import cache
 from obole.engine import clara_vallis as cv
+from obole.services.values import to_values
 
-_KIND = "momentum"
+_KIND_PREFIX = "momentum"
 
 
-def _values(series: pd.Series) -> list:
-    """Liste JSON-compatible, arrondie à 4 décimales, `None` pour les trous."""
-    return [None if pd.isna(v) else round(float(v), 4) for v in series.to_numpy()]
+def _cache_kind() -> str:
+    """La fenêtre fait partie de la clé : la changer invalide le payload."""
+    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}"
 
 
 def momentum_payload(
@@ -37,7 +38,7 @@ def momentum_payload(
     une fois par jour et par référence ; `cache.invalidate(ref)` le purge avec
     les prix.
     """
-    cached = cache.get(ref, _KIND, config.TTL_PRICES)
+    cached = cache.get(ref, _cache_kind(), config.TTL_PRICES)
     if cached is not None:
         return cached
 
@@ -54,13 +55,13 @@ def momentum_payload(
         ),
         "n_used": score_raw.n_used,
         "short_history": score_raw.short_history,
-        "raw": _values(raw_series.reindex(grid)),
-        "adj": _values(adj_series.reindex(grid)) if adj_series is not None else None,
+        "raw": to_values(raw_series.reindex(grid)),
+        "adj": to_values(adj_series.reindex(grid)) if adj_series is not None else None,
         "year": {
             "dates": [d.strftime("%Y-%m-%d") for d in tail],
-            "raw": _values(raw_series.reindex(tail)),
-            "adj": _values(adj_series.reindex(tail)) if adj_series is not None else None,
+            "raw": to_values(raw_series.reindex(tail)),
+            "adj": to_values(adj_series.reindex(tail)) if adj_series is not None else None,
         },
     }
-    cache.put(ref, _KIND, payload)
+    cache.put(ref, _cache_kind(), payload)
     return payload

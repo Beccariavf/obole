@@ -841,6 +841,8 @@ select.pf-ctl {
   --chart-h-mini: 200px;
   --chart-h-dividend-hero: 300px;
   --chart-h-val-hero: 560px;
+  --chart-h-mom-year: 240px;
+  --chart-h-mom-history: 380px;
   --chart-h-pf-resume: 360px;
   --chart-h-pf-donut: 320px;
   --chart-h-pf-drawdown: 300px;
@@ -994,6 +996,11 @@ select.pf-ctl {
 .mom-zone-bad { background: #FECACA; }
 .mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
 .mom-short { font-size: 10px; margin-left: 4px; }
+/* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :
+   sans hauteur fixe, Plotly pilote le div et la règle « conteneur = layout » de
+   design.md n'était pas tenue. */
+.mom-year-card .mini-chart { height: var(--chart-h-mom-year); }
+.mom-history-card .mini-chart { height: var(--chart-h-mom-history); }
 @media (prefers-reduced-motion: reduce) {
   .mom-zone, .mom-gauge .gauge-needle { transition: none; }
 }

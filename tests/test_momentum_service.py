@@ -74,7 +74,7 @@ def test_invalidate_forces_recompute(temp_cache, monkeypatch):
     momentum.momentum_payload("INV.PA", prices.raw, prices.adjusted, _grid(prices))
     first = calls["n"]
     cache.invalidate("INV.PA")
-    assert cache.get("INV.PA", "momentum", config.TTL_PRICES) is None
+    assert cache.get("INV.PA", momentum._cache_kind(), config.TTL_PRICES) is None
     momentum.momentum_payload("INV.PA", prices.raw, prices.adjusted, _grid(prices))
     assert calls["n"] > first  # l'invalidation a bien forcé le recalcul
 
@@ -99,6 +99,14 @@ def test_no_chart_means_no_momentum(temp_cache):
     prices = _make_prices(400)
     payload = analysis_to_dict(_fake_analysis("FAKE", prices), prices, include_chart=False)
     assert "chart" not in payload
+
+
+def test_cache_key_carries_the_window(temp_cache, monkeypatch):
+    # Changer la fenêtre doit invalider le payload, pas le laisser périmé 24 h.
+    before = momentum._cache_kind()
+    monkeypatch.setattr(config, "MOMENTUM_WINDOW", 120)
+    assert momentum._cache_kind() != before
+    assert "120" in momentum._cache_kind()
 
 
 def test_cold_payload_stays_fast(temp_cache):
