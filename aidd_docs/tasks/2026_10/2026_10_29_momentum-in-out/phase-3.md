@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: table à trois colonnes
@@ -89,7 +89,8 @@ journey
 
 1. Sept lignes, trois cellules par ligne.
 2. Un `out` positif est `good: false` ; un `in` positif est `good: true`.
-3. Un panier vide donne `—` dans ses trois cellules.
+3. Un panier vide donne `—` sur ses six mesures et `0,00 %` de part des séances
+   (la part n'est pas une mesure absente : elle vaut zéro).
 4. Le pied affiche le nombre de trades et le CAGR de la stratégie.
 
 ## Test acceptance criteria

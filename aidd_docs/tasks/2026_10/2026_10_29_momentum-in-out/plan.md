@@ -1,6 +1,6 @@
 ---
 objective: "La table de fiabilité compare le marché pendant les séances in et out, avec buy & hold comme repère, et la polarité de la colonne out est inversée."
-status: pending
+status: in-progress
 ---
 
 # Plan: Fiabilité, seconde lecture — in contre out

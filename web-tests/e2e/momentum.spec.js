@@ -41,19 +41,37 @@ test("section Momentum : changer de fenêtre change la table", async ({ page }) 
   await expect.poll(sigma).not.toBe(before);
 });
 
-test("section Momentum : fiabilité, huit mesures et deux colonnes", async ({ page }) => {
+test("section Momentum : fiabilité, trois colonnes in/out et pied des trades", async ({
+  page,
+}) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/#RI.PA/momentum");
 
   const table = page.locator(".mom-backtest-table");
   await expect(table).toBeVisible({ timeout: 30_000 });
-  await expect(table.locator("tbody tr")).toHaveCount(8);
-  await expect(table.locator("thead th")).toHaveCount(3);
-  await expect(table.locator("caption")).toContainText("Comparaison");
+  // Sept lignes de mesures et TROIS colonnes de valeurs sous l'en-tête « Mesure ».
+  await expect(table.locator("tbody tr")).toHaveCount(7);
+  await expect(table.locator("thead th")).toHaveCount(4);
+  await expect(table.locator("thead th").nth(1)).toHaveText("Buy & hold");
+  await expect(table.locator("thead th").nth(2)).toHaveText(/^in$/i);
+  await expect(table.locator("thead th").nth(3)).toHaveText(/^out$/i);
+  for (const tr of await table.locator("tbody tr").all()) {
+    await expect(tr.locator("td")).toHaveCount(3);
+  }
+  // Le caption et les en-têtes de colonne sont annoncés au lecteur d'écran.
+  await expect(table.locator("caption")).toContainText("séances in et out");
   for (const th of await table.locator("thead th").all()) {
     await expect(th).toHaveAttribute("scope", "col");
   }
+
+  // Pied : les trades et le rendement réel de la stratégie, hors des colonnes.
+  const foot = page.locator(".mom-backtest-trades");
+  await expect(foot).toBeVisible();
+  await expect(foot).toContainText(/\d+ trades? · stratégie -?[\d,]+ %\/an/);
+  // L'information ne dépend pas de la couleur : la légende dit le drawdown
+  // conditionnel en toutes lettres.
+  await expect(page.locator(".mom-backtest-note")).toContainText("conditionnel");
 
   // Changer la fenêtre relance le calcul : au moins un chiffre bouge.
   const cagr = () => table.locator("tbody tr").first().locator("td").first().textContent();
@@ -63,6 +81,48 @@ test("section Momentum : fiabilité, huit mesures et deux colonnes", async ({ pa
 
   // Aucune erreur console sur la fiche.
   expect(errors).toEqual([]);
+});
+
+test("fiabilité : la polarité de out est inversée, celle de in ne l'est pas", async ({
+  page,
+}) => {
+  await page.goto("/#RI.PA/momentum");
+  const table = page.locator(".mom-backtest-table");
+  await expect(table).toBeVisible({ timeout: 30_000 });
+
+  // Payload déterministe : le MÊME CAGR positif dans les deux paniers. Le rendu
+  // réel doit colorer in en bleu et out en rouge — la convention locale de #32.
+  await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    const block = (cagr) => ({
+      cagr_pct: cagr,
+      volatility_pct: 18.2,
+      sharpe: 0.4,
+      sortino: 0.5,
+      max_drawdown_pct: -20,
+      calmar: 0.2,
+      sessions_pct: 64,
+    });
+    comp.momBacktest = {
+      buy_hold: block(6.8),
+      in: block(2.4),
+      out: block(2.4),
+      window: { start: "2015-01-02", end: "2024-12-31", sessions: 2561 },
+      trades: 27,
+      strategy_cagr_pct: 4.2,
+    };
+  });
+
+  const cagrRow = table.locator("tbody tr").first();
+  await expect(cagrRow.locator("td").nth(0)).toHaveText("6,80 %");
+  await expect(cagrRow.locator("td").nth(1)).toHaveText("2,40 %");
+  await expect(cagrRow.locator("td").nth(2)).toHaveText("2,40 %");
+  await expect(cagrRow.locator("td").nth(1)).toHaveClass(/good/);
+  await expect(cagrRow.locator("td").nth(2)).toHaveClass(/bad/);
+  // Les mesures non signées restent neutres : aucune classe de couleur.
+  const volatilityRow = table.locator("tbody tr").nth(1);
+  await expect(volatilityRow.locator("td").nth(1)).not.toHaveClass(/good|bad/);
+  await expect(volatilityRow.locator("td").nth(2)).not.toHaveClass(/good|bad/);
 });
 
 test("fiabilité : le tableau défile dans sa carte sous 640 px", async ({ page }) => {

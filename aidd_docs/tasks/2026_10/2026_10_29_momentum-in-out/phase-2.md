@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: service et route in/out
@@ -34,7 +34,7 @@ journey
     mock prices and the momentum payload => ready: 5: api
   section Happy path
     call the stock route => buy_hold, in, out, window and trades: 5: api
-    check the keys => exactly the five top-level keys: 5: api
+    check the keys => exactly the six top-level keys: 5: api
   section Edge case - no out session
     a window fully invested => out has null metrics and zero share: 1: api
 ```
