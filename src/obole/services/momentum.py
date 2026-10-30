@@ -13,6 +13,11 @@ sur la série PLEINE, puis la fenêtre demandée est tranchée et passée au mot
 Un backtest sur la grille décimée raterait des croisements et fausserait les
 trades et le drawdown. Depuis #32, il expose le marché pendant les séances in et
 out (plus le rendement réel de la stratégie, en pied).
+
+La lecture du score obéit à la même règle : le percentile et les rendements
+conditionnels portent sur l'HISTORIQUE COMPLET du titre, pas sur la plage
+affichée par le graphe. Ils sont donc calculés ici, une fois par jour et par
+référence, dans le payload déjà mis en cache — le front ne recalcule rien.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from obole import config
 from obole.data import cache, yahoo
 from obole.engine import clara_vallis as cv
 from obole.engine import momentum_backtest as backtest_engine
+from obole.engine import momentum_stats as stats
 from obole.services import indices as indices_service
 from obole.services.values import to_values
 
@@ -32,8 +38,53 @@ _KIND_PREFIX = "momentum"
 
 
 def _cache_kind() -> str:
-    """La fenêtre fait partie de la clé : la changer invalide le payload."""
-    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}"
+    """La fenêtre et la forme du payload font partie de la clé.
+
+    Le suffixe date la forme du bloc de lecture, pas son calcul. `lecture` a
+    livré le percentile ET le rendement conditionnel d'un seul tenant ; `lecture2`
+    y ajoute `history_start_adj` (la date de départ de la série ajustée, sans
+    laquelle le rang ajusté s'afficherait sans année). Un payload calculé avant
+    un changement de forme ne porte pas les nouveaux champs : le servir
+    laisserait la fiche muette jusqu'à l'expiration du TTL (24 h). Le suffixe
+    change donc quand un champ est ajouté ou retiré, jamais à chaque retouche
+    de son calcul.
+    """
+    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}:lecture2"
+
+
+def _history_start(scores: pd.Series) -> str | None:
+    """Première date où le score est calculable, en ISO ; `None` si aucune."""
+    known = scores.dropna()
+    if known.empty:
+        return None
+    return known.index[0].strftime("%Y-%m-%d")
+
+
+def _conditional_block(
+    prices: pd.Series,
+    scores: pd.Series,
+    low: float,
+    high: float,
+    horizon: int,
+) -> dict:
+    """Rendement conditionnel d'une série, prêt pour le front.
+
+    L'horizon voyage AVEC les chiffres : le front écrit « 252 séances » sans
+    recopier la constante, et la note reste vraie si le réglage change. La
+    prudence est tranchée ICI : `thin` dit qu'une zone compte trop peu
+    d'épisodes indépendants pour être lue, exactement comme `short_history` le
+    fait pour le score — le front ne décide d'aucun seuil.
+    """
+    block = stats.conditional_forward_returns(prices, scores, low, high, horizon)
+    block["horizon"] = horizon
+    min_episodes = config.MOMENTUM_CONDITIONAL_MIN_EPISODES
+    for zone in (block["zones"]["bas"], block["zones"]["neutre"], block["zones"]["haut"]):
+        if zone is not None:
+            zone["thin"] = zone["episodes"] < min_episodes
+    baseline = block["baseline"]
+    if baseline is not None:
+        baseline["thin"] = baseline["episodes"] < min_episodes
+    return block
 
 
 def momentum_payload(
@@ -57,11 +108,40 @@ def momentum_payload(
     adj_series = cv.satisfaction_series(adjusted, window) if adjusted is not None else None
 
     score_raw = cv.satisfaction_score(raw, window)
+    score_adj = cv.satisfaction_score(adjusted, window) if adjusted is not None else None
+    min_points = config.MOMENTUM_PERCENTILE_MIN_POINTS
+    low = config.MOMENTUM_SATISFACTION_LOW
+    high = config.MOMENTUM_SATISFACTION_HIGH
+    horizon = config.MOMENTUM_FORWARD_SESSIONS
+    history_start = _history_start(raw_series)
+    # L'ajusté peut commencer ailleurs (ou manquer) : la ligne de rang affiche
+    # la date de la série qu'elle lit, jamais celle de l'autre.
+    history_start_adj = _history_start(adj_series) if adj_series is not None else None
     tail = raw_series.index[-window:]
     payload = {
         "score_raw": score_raw.value,
-        "score_adj": (
-            cv.satisfaction_score(adjusted, window).value if adjusted is not None else None
+        "score_adj": score_adj.value if score_adj is not None else None,
+        # Rang du score dans TOUT l'historique du titre, pas dans la plage
+        # affichée par le graphe. Un indice n'a pas de série ajustée : son rang
+        # ajusté n'existe pas (le front n'affiche qu'une série à la fois).
+        "percentile_raw": stats.score_percentile(raw_series, score_raw.value, min_points),
+        "percentile_adj": (
+            stats.score_percentile(adj_series, score_adj.value, min_points)
+            if adj_series is not None and score_adj is not None
+            else None
+        ),
+        # Première date où le score est calculable : la ligne de rang dit
+        # depuis quand le titre a un historique comparable, série par série.
+        "history_start": history_start,
+        "history_start_adj": history_start_adj,
+        # Ce qui a suivi chaque zone de score, sur tout l'historique du titre.
+        # Même règle que le rang : un indice n'a pas de série ajustée, donc pas
+        # de rendement conditionnel ajusté.
+        "conditional_raw": _conditional_block(raw, raw_series, low, high, horizon),
+        "conditional_adj": (
+            _conditional_block(adjusted, adj_series, low, high, horizon)
+            if adjusted is not None and adj_series is not None
+            else None
         ),
         "n_used": score_raw.n_used,
         "short_history": score_raw.short_history,

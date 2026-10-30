@@ -155,6 +155,21 @@ MOMENTUM_WINDOW = 250
 MOMENTUM_SATISFACTION_LOW = 0.35
 MOMENTUM_SATISFACTION_HIGH = 0.60
 
+# Lecture du score (percentile historique) : sous ce nombre de scores calculables,
+# un rang ne dit rien (chaque point vaut plus d'un point et demi de pourcentage).
+# SOURCE UNIQUE : le service le passe au moteur, le front n'en a pas besoin.
+MOMENTUM_PERCENTILE_MIN_POINTS = 60
+
+# Horizon du rendement conditionnel : 252 séances ≈ un an de bourse. SOURCE
+# UNIQUE : le service le passe au moteur et le payload l'annonce au front, qui
+# n'écrit donc jamais « un an » ni « 252 » de son côté.
+MOMENTUM_FORWARD_SESSIONS = 252
+
+# Sous ce nombre d'épisodes INDÉPENDANTS, une zone ne dit presque rien : le
+# service marque son bloc `thin` et le front affiche une mention de prudence.
+# La règle vit ici, pas dans le JS (même mécanisme que `short_history`).
+MOMENTUM_CONDITIONAL_MIN_EPISODES = 3
+
 # Fenêtres du sélecteur de la table « monde de Markovitz » (années ; 0 = maximum).
 MOMENTUM_TABLE_WINDOWS = (1, 5, 10, 20, 0)
 

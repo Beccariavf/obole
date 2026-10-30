@@ -780,6 +780,45 @@
               </div>
               <div class="gauge-scale"><span>satisfaite</span><span>frustrée</span></div>
             </div>
+            <!-- Rang du score dans l'histoire du titre : HORS de `.gauge`, dont
+                 le role="meter" rend ses descendants présentatifs (le texte ne
+                 serait pas annoncé). Visuellement, la ligne reste sous l'échelle. -->
+            <p class="mom-percentile" x-show="momPercentile() !== null"
+               x-text="momPercentileLabel()"></p>
+          </div>
+
+          <!-- Ce qui a suivi chaque zone de score (lecture du score, phase 2) :
+               rendements à horizon constant, calculés serveur sur tout
+               l'historique. La carte disparaît quand aucune zone n'a de fenêtre
+               complète — un historique court n'a rien à raconter. -->
+          <div class="card mom-cond-card" x-show="momConditionalRows().length">
+            <h3>Ce qui a suivi le score</h3>
+            <div class="mom-table-wrap">
+              <table class="mom-table mom-cond-table">
+                <caption class="sr-only">
+                  Rendement qui a suivi chaque zone de score, sur tout l'historique du titre.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Zone de score</th>
+                    <th scope="col">Médiane</th>
+                    <th scope="col">10e / 90e</th>
+                    <th scope="col">Épisodes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="r in momConditionalRows()" :key="r.key">
+                    <tr :class="{ current: r.current }" :aria-current="r.current ? 'true' : null">
+                      <th scope="row" :title="r.hint || null" x-text="r.label"></th>
+                      <td x-text="r.median"></td>
+                      <td x-text="r.range"></td>
+                      <td x-text="r.episodes"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="mom-cond-note" x-text="momConditionalNote()"></p>
           </div>
 
           <div class="card mom-year-card">

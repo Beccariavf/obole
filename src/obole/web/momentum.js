@@ -436,6 +436,141 @@ export const momentumMixin = {
     return "neutre";
   },
 
+  // Série effectivement affichée. La bascule « ajusté » ne vaut que si le
+  // payload porte la série : un indice n'en a pas, et `momSeries` peut rester
+  // sur « adj » après une fiche action (le radio est alors désactivé).
+  momUsesAdj() {
+    return this.momSeries === "adj" && this.momHasAdj();
+  },
+
+  // Rang du score dans l'histoire du titre (0–100). Le payload le porte déjà
+  // calculé sur l'historique COMPLET : le front ne refait pas le percentile sur
+  // la plage affichée, et un payload sans le champ (cache ancien) ne casse rien.
+  momPercentile() {
+    const m = this.momData();
+    if (!m) return null;
+    const value = this.momUsesAdj() ? m.percentile_adj : m.percentile_raw;
+    const n = Number(value);
+    return value == null || !Number.isFinite(n) ? null : n;
+  },
+
+  // Libellé de la ligne sous la jauge : ordinal français (« 1er », « 51e ») et
+  // année de départ de l'historique. La date suit la SÉRIE AFFICHÉE : l'ajusté
+  // peut commencer ailleurs, ou manquer, sans que le rang brut soit faux pour
+  // autant. Vide quand le rang manque — la ligne disparaît, elle ne montre pas
+  // un « — » qui laisserait croire à une panne.
+  momPercentileLabel() {
+    const rank = this.momPercentile();
+    if (rank == null) return "";
+    const ordinal = rank === 1 ? "1er" : `${rank}e`;
+    const start = this.momUsesAdj()
+      ? this.momData()?.history_start_adj
+      : this.momData()?.history_start;
+    const year = String(start || "").slice(0, 4);
+    const since = /^\d{4}$/.test(year) ? `, depuis ${year}` : "";
+    return `${ordinal} percentile de l'historique du titre${since}`;
+  },
+
+  // --- Ce qui a suivi chaque zone de score -----------------------------------
+  //
+  // Le payload porte déjà les rendements conditionnels (médiane, 10e/90e,
+  // épisodes) et la prudence (`thin`) : le front ne calcule rien, il choisit la
+  // série affichée et formate. Une zone sans fenêtre complète vaut `null` et
+  // s'affiche en tirets — elle garde sa ligne, sinon le lecteur croirait la
+  // zone disparue.
+
+  momConditional() {
+    const m = this.momData();
+    if (!m) return null;
+    return (this.momUsesAdj() ? m.conditional_adj : m.conditional_raw) || null;
+  },
+
+  // Pourcentage à une décimale : un rendement conditionnel se lit au dixième,
+  // pas au centième (les mesures du backtest, elles, gardent deux décimales).
+  _momPctOne(value) {
+    const n = Number(value);
+    if (value == null || !Number.isFinite(n)) return "—";
+    return (
+      n.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %"
+    );
+  },
+
+  _momPctRange(block) {
+    const p10 = this._momPctOne(block?.p10_pct);
+    const p90 = this._momPctOne(block?.p90_pct);
+    return p10 === "—" || p90 === "—" ? "—" : `${p10} / ${p90}`;
+  },
+
+  // Quatre lignes : les trois zones, puis le repère de tout l'historique. La
+  // zone du score courant est marquée (fond et gras), et une zone `thin` porte
+  // sa mention de prudence.
+  momConditionalRows() {
+    const conditional = this.momConditional();
+    const zones = conditional?.zones;
+    if (!zones) return [];
+    const hasWindow = (block) =>
+      block?.median_pct != null && Number.isFinite(Number(block.median_pct));
+    // Aucune zone n'a de fenêtre complète : la carte n'a rien à dire.
+    if (!hasWindow(zones.bas) && !hasWindow(zones.neutre) && !hasWindow(zones.haut)) return [];
+
+    const current = this.momState(this.momScore());
+    const low = MOMENTUM.low;
+    const high = MOMENTUM.high;
+    const spec = [
+      {
+        key: "bas",
+        label: low == null ? "Score bas" : `Score bas (< ${this.fmt(low)})`,
+        block: zones.bas,
+      },
+      { key: "neutre", label: "Score neutre", block: zones.neutre },
+      {
+        key: "haut",
+        label: high == null ? "Score haut" : `Score haut (> ${this.fmt(high)})`,
+        block: zones.haut,
+      },
+      { key: "baseline", label: "Tout l'historique", block: conditional.baseline },
+    ];
+    return spec.map(({ key, label, block }) => {
+      const episodes = Number(block?.episodes);
+      const row = {
+        key,
+        label,
+        current: key === current,
+        median: this._momPctOne(block?.median_pct),
+        range: this._momPctRange(block),
+        episodes:
+          block?.episodes != null && Number.isFinite(episodes)
+            ? String(Math.round(episodes))
+            : "—",
+        thin: block?.thin === true,
+      };
+      if (row.thin) {
+        row.hint = "Trop peu d'épisodes indépendants : cette zone ne dit presque rien.";
+      }
+      return row;
+    });
+  },
+
+  // Note de lecture : l'horizon vient du payload (jamais un « 12 mois » en
+  // dur), et le chevauchement des fenêtres est dit en toutes lettres — c'est
+  // lui qui interdit de lire les centiles comme un échantillon indépendant.
+  momConditionalNote() {
+    const conditional = this.momConditional();
+    const horizon = Number(conditional?.horizon);
+    const span =
+      conditional?.horizon != null && Number.isFinite(horizon) && horizon > 0
+        ? `${Math.round(horizon)} séances`
+        : "";
+    const lead = span
+      ? `Le rendement des ${span} qui ont suivi chaque date.`
+      : "Le rendement qui a suivi chaque date.";
+    const note =
+      `${lead} Les fenêtres se chevauchent : les centiles mesurent une dispersion, ` +
+      "pas des observations indépendantes. Les épisodes ne retiennent qu'une fenêtre par horizon.";
+    const thin = this.momConditionalRows().some((row) => row.thin);
+    return thin ? `${note} Une zone à trop peu d'épisodes ne dit presque rien.` : note;
+  },
+
   // Largeur des trois zones de la jauge : satisfaite (gauche), neutre, frustrée.
   momZones() {
     const low = MOMENTUM.low;

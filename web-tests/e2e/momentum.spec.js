@@ -32,6 +32,170 @@ test("section Momentum : table, jauge et deux tracés", async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+test("lecture du score : le rang du score s'affiche sous la jauge", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+
+  // La ligne apparaît sous l'échelle, avec l'ordinal français et l'année de
+  // départ de l'historique du titre — le rang vient du payload, pas d'un calcul
+  // sur la plage affichée.
+  const line = page.locator(".mom-gauge-card .mom-percentile");
+  await expect(line).toBeVisible({ timeout: 30_000 });
+  await expect(line).toHaveText(/\d+(?:er|e) percentile de l'historique du titre, depuis \d{4}/);
+
+  const ranks = await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    const m = comp.momData();
+    return { raw: m.percentile_raw, adj: m.percentile_adj, start: m.history_start };
+  });
+  expect(Number.isInteger(ranks.raw)).toBe(true);
+  expect(Number.isInteger(ranks.adj)).toBe(true);
+  expect(ranks.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+  // Changer de série change le rang LU (les deux séries sont distinctes) : la
+  // ligne suit la bascule, sans requête supplémentaire.
+  await page.locator('input[name="mom-series"][value="adj"]').check();
+  await expect(line).toHaveText(new RegExp(`^${ranks.adj}(?:er|e) percentile`));
+
+  // Un rang absent (historique trop court, cache d'avant le déploiement)
+  // masque la ligne : pas de tiret qui ferait croire à une panne.
+  await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    comp.data.chart.momentum = {
+      ...comp.data.chart.momentum,
+      percentile_raw: null,
+      percentile_adj: null,
+      history_start: null,
+    };
+  });
+  await expect(line).toBeHidden();
+
+  expect(errors).toEqual([]);
+});
+
+test("lecture du score : la carte du rendement conditionnel", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+
+  const card = page.locator(".mom-cond-card");
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  const table = card.locator(".mom-cond-table");
+  await expect(table.locator("thead th")).toHaveCount(4);
+  await expect(table.locator("tbody tr")).toHaveCount(4);
+  // Trois zones de score puis le repère de tout l'historique.
+  await expect(table.locator("tbody tr th")).toHaveText([
+    /Score bas/,
+    /Score neutre/,
+    /Score haut/,
+    /Tout l'historique/,
+  ]);
+
+  // Chaque ligne porte des chiffres : médiane, intervalle 10e/90e, épisodes.
+  for (const row of await table.locator("tbody tr").all()) {
+    const cells = await row.locator("td").allTextContents();
+    expect(cells).toHaveLength(3);
+    expect(cells[0]).toMatch(/^(-?[\d,]+ %|—)$/);
+    expect(cells[1]).toMatch(/^(-?[\d,]+ % \/ -?[\d,]+ %|—)$/);
+    expect(cells[2]).toMatch(/^(\d+|—)$/);
+  }
+
+  // La zone du score courant est distinguée (fond + gras, et `aria-current`),
+  // une seule à la fois.
+  await expect(table.locator("tbody tr.current")).toHaveCount(1);
+  await expect(table.locator("tbody tr.current")).toHaveAttribute("aria-current", "true");
+
+  // La note dit le chevauchement des fenêtres, en toutes lettres : c'est lui
+  // qui interdit de lire les centiles comme un échantillon indépendant.
+  await expect(card.locator(".mom-cond-note")).toContainText("chevauchent");
+
+  // La carte est entre la jauge et le graphe d'un an.
+  const order = await page.evaluate(() =>
+    [...document.querySelectorAll(".mom-blocks > .card")].map((node) => node.className),
+  );
+  const gauge = order.findIndex((name) => name.includes("mom-gauge-card"));
+  const conditional = order.findIndex((name) => name.includes("mom-cond-card"));
+  const year = order.findIndex((name) => name.includes("mom-year-card"));
+  expect(conditional).toBe(gauge + 1);
+  expect(conditional).toBeLessThan(year);
+
+  expect(errors).toEqual([]);
+});
+
+test("rendement conditionnel : zone courante, prudence et chiffres formatés", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+  await expect(page.locator(".mom-cond-card")).toBeVisible({ timeout: 30_000 });
+
+  // Payload déterministe : le rendu réel doit suivre le score courant et la
+  // prudence décidée par le serveur, sans re-seuiller côté JS.
+  const inject = (score) =>
+    page.evaluate((scoreRaw) => {
+      const comp = window.Alpine.$data(document.querySelector(".wrap"));
+      const block = (median, episodes, thin) => ({
+        median_pct: median,
+        p10_pct: -5.0,
+        p90_pct: 12.0,
+        episodes,
+        thin,
+      });
+      comp.data.chart.momentum = {
+        ...comp.data.chart.momentum,
+        score_raw: scoreRaw,
+        conditional_raw: {
+          zones: {
+            bas: block(-3.2, 2, true),
+            neutre: block(4.5, 30, false),
+            haut: block(9.1, 12, false),
+          },
+          baseline: block(5.6, 40, false),
+          horizon: 252,
+        },
+      };
+    }, score);
+
+  const table = page.locator(".mom-cond-table");
+  const current = table.locator("tbody tr.current");
+  await inject(0.8); // score haut
+  await expect(table.locator("tbody tr").first().locator("td").first()).toHaveText("-3,2 %");
+  await expect(table.locator("tbody tr").first().locator("td").nth(1)).toHaveText("-5,0 % / 12,0 %");
+  await expect(table.locator("tbody tr").first().locator("td").nth(2)).toHaveText("2");
+  await expect(current).toHaveCount(1);
+  await expect(current.locator("th")).toContainText("Score haut");
+
+  // Moins de trois épisodes indépendants : la prudence est visible (infobulle
+  // de la ligne et note), sans que le front ait décidé du seuil.
+  await expect(table.locator("tbody tr").first().locator("th")).toHaveAttribute(
+    "title",
+    /Trop peu d'épisodes/,
+  );
+  await expect(page.locator(".mom-cond-note")).toContainText("trop peu d'épisodes");
+
+  // Changer le score courant change la ligne distinguée.
+  await inject(0.1); // score bas
+  await expect(current).toHaveCount(1);
+  await expect(current.locator("th")).toContainText("Score bas");
+
+  // Aucune fenêtre complète (historique plus court que l'horizon) : la carte
+  // disparaît au lieu de montrer un squelette vide.
+  await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    comp.data.chart.momentum = {
+      ...comp.data.chart.momentum,
+      conditional_raw: {
+        zones: { bas: null, neutre: null, haut: null },
+        baseline: null,
+        horizon: 252,
+      },
+    };
+  });
+  await expect(page.locator(".mom-cond-card")).toBeHidden();
+
+  expect(errors).toEqual([]);
+});
+
 test("section Momentum : changer de fenêtre change la table", async ({ page }) => {
   await page.goto("/#RI.PA/momentum");
   await expect(page.locator(".mom-card .mom-table")).toBeVisible();

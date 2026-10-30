@@ -983,7 +983,7 @@ select.pf-ctl {
 .mom-table tbody td { font-variant-numeric: tabular-nums; }
 .mom-group-head { margin-top: 22px; }
 .mom-blocks { display: flex; flex-direction: column; gap: 14px; }
-.mom-gauge-card, .mom-year-card, .mom-history-card, .mom-backtest-card { padding: 14px 16px; }
+.mom-gauge-card, .mom-cond-card, .mom-year-card, .mom-history-card, .mom-backtest-card { padding: 14px 16px; }
 .mom-gauge-head {
   display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
 }
@@ -994,8 +994,23 @@ select.pf-ctl {
 .mom-zone-good { background: #BFDBFE; }
 .mom-zone-neutral { background: #F3F4F6; }
 .mom-zone-bad { background: #FECACA; }
-.mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
+.mom-year-card h3, .mom-history-card h3, .mom-cond-card h3 { margin-bottom: 10px; }
+/* Rendement conditionnel : tableau compact, chiffres alignés à droite, et la
+   zone du score courant marquée par un FOND + du gras — pas seulement par la
+   couleur (la couleur reste réservée à bien/mal, et une zone n'est ni l'un ni
+   l'autre). */
+.mom-cond-table th[scope="row"] { text-align: left; font-weight: 500; }
+.mom-cond-table thead th:not(:first-child), .mom-cond-table td { text-align: right; }
+.mom-cond-table tr.current { background: var(--bg); }
+.mom-cond-table tr.current th, .mom-cond-table tr.current td { font-weight: 600; }
+.mom-cond-note { margin: 10px 0 0; font-size: 12px; color: var(--text-soft); line-height: 1.4; }
 .mom-short { font-size: 10px; margin-left: 4px; }
+/* Rang du score dans l'histoire du titre : sous l'échelle de la jauge, discret,
+   chiffres tabulaires pour que la ligne ne danse pas quand le rang change. */
+.mom-percentile {
+  margin: 6px 0 0; font-size: 11px; color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
 /* Backtest de fiabilité (#31 puis #32) : la carte annonce la série et la durée,
    le tableau aligne les nombres à droite (mesures lisibles, comparaison
    directe) et les trois colonnes portent la polarité de leur lecture. */
@@ -1029,11 +1044,12 @@ select.pf-ctl {
   /* La fiche est en flex-colonne `align-items:start` : une carte large impose sa
      largeur max-content à toute la page. On plafonne donc CETTE carte à la
      fenêtre pour que le tableau défile DANS elle au lieu d'élargir la page. */
-  .mom-backtest-card { width: calc(100vw - 32px); max-width: 100%; }
+  .mom-backtest-card, .mom-cond-card { width: calc(100vw - 32px); max-width: 100%; }
   .mom-backtest-head { flex-direction: column; align-items: flex-start; gap: 4px; }
   .mom-backtest-legend { line-height: 1.4; }
   .mom-backtest-foot { flex-direction: column; gap: 4px; }
   .mom-backtest-table { min-width: 680px; }
+  .mom-cond-table { min-width: 520px; }
 }
 /* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :
    sans hauteur fixe, Plotly pilote le div et la règle « conteneur = layout » de
