@@ -712,18 +712,17 @@ describe("lecture du score : rendement conditionnel", () => {
   it("la note dit la question, l'horizon, le chevauchement et les épisodes", () => {
     const comp = readingComponent();
     const note = comp.momConditionalNote();
-    expect(note).toContain("question simple");
     expect(note).toContain("que s'est-il passé ensuite");
     expect(note).toContain("252 séances");
     expect(note).toContain("chevauchent");
-    expect(note).toContain("pas des observations indépendantes");
+    expect(note).toContain("centiles ne le sont pas");
     expect(note).toContain("épisodes");
     expect(note).not.toContain("presque rien"); // aucune zone `thin` ici
     // L'horizon vient du payload : pas de « 12 mois » recopié côté JS.
     comp.data.chart.momentum.conditional_raw = conditionalPayload({ horizon: 126 });
     expect(comp.momConditionalNote()).toContain("126 séances");
     delete comp.data.chart.momentum.conditional_raw.horizon;
-    expect(comp.momConditionalNote()).toContain("Le rendement qui a suivi chaque date.");
+    expect(comp.momConditionalNote()).toContain("les séances qui ont suivi chaque date");
   });
 
   it("une zone `thin` porte la mention de prudence", () => {

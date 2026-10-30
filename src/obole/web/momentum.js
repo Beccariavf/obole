@@ -557,21 +557,13 @@ export const momentumMixin = {
   momConditionalNote() {
     const conditional = this.momConditional();
     const horizon = Number(conditional?.horizon);
-    const span =
-      conditional?.horizon != null && Number.isFinite(horizon) && horizon > 0
-        ? `${Math.round(horizon)} séances`
-        : "";
-    const lead = span
-      ? `Le rendement des ${span} qui ont suivi chaque date.`
-      : "Le rendement qui a suivi chaque date.";
-    const question =
-      "La question simple à laquelle répond ce tableau : quand ce titre était dans cette " +
-      "zone de score, que s'est-il passé ensuite ?";
+    const span = horizon > 0 ? `les ${Math.round(horizon)} séances` : "les séances";
     const note =
-      `${lead} ${question} Médiane : la moitié des épisodes ont fait mieux, la moitié moins bien. ` +
-      "10e / 90e : 10 % des épisodes sous le premier chiffre, 10 % au-dessus du second. " +
-      "Les fenêtres se chevauchent : les centiles mesurent une dispersion, pas des observations " +
-      "indépendantes. Les épisodes ne retiennent qu'une fenêtre par horizon.";
+      `Sur ${span} qui ont suivi chaque date, quand ce titre était dans cette zone, ` +
+      "que s'est-il passé ensuite ? " +
+      "Médiane : la moitié des épisodes font mieux. " +
+      "10e / 90e : 10 % en dessous, 10 % au-dessus. " +
+      "Épisodes : fenêtres indépendantes ; les fenêtres se chevauchent, les centiles ne le sont pas.";
     const thin = this.momConditionalRows().some((row) => row.thin);
     return thin ? `${note} Une zone à trop peu d'épisodes ne dit presque rien.` : note;
   },
