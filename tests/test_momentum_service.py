@@ -139,6 +139,8 @@ def test_payload_carries_percentile_and_history_start(temp_cache):
     # Première date où le score est calculable : la fenêtre est alors pleine.
     expected = prices.raw.index[config.MOMENTUM_WINDOW - 1].strftime("%Y-%m-%d")
     assert p["history_start"] == expected
+    # Chaque série porte SA date de départ : le libellé lit celle qu'il affiche.
+    assert p["history_start_adj"] == expected
 
 
 def test_percentile_reaches_a_hundred_at_the_history_maximum(temp_cache):
@@ -168,6 +170,7 @@ def test_index_has_no_adjusted_percentile(temp_cache):
     p = momentum.momentum_payload("INDEX:7", prices.raw, None, _grid(prices))
 
     assert p["percentile_adj"] is None
+    assert p["history_start_adj"] is None
     assert isinstance(p["percentile_raw"], int)
 
 

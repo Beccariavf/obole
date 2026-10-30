@@ -11,11 +11,11 @@ status: done
 ```txt
 .
 ├── src/obole/
-│   ├── config.py                                   ✏️  MOMENTUM_FORWARD_SESSIONS
+│   ├── config.py                                   ✏️  MOMENTUM_FORWARD_SESSIONS, MOMENTUM_CONDITIONAL_MIN_EPISODES
 │   ├── engine/
 │   │   └── momentum_stats.py                       ✏️  conditional_forward_returns (pur)
 │   ├── services/
-│   │   └── momentum.py                             ✏️  conditional_raw/adj
+│   │   └── momentum.py                             ✏️  conditional_raw/adj + thin
 │   └── web/
 │       ├── momentum.js                             ✏️  momConditionalRows / momConditionalNote
 │       ├── index.html                              ✏️  carte « ce qui a suivi »
@@ -102,7 +102,8 @@ journey
 
 1. Calculer `conditional_raw` et `conditional_adj` (ce dernier seulement si la série ajustée existe), sur l'historique complet du titre et non sur la plage affichée.
 2. Garder la forme : un objet `zones` (bas, neutre, haut), un objet `baseline`, un champ `horizon`.
-3. Ne rien recalculer à chaque requête : le bloc vit dans le payload déjà mis en cache.
+3. Marquer d'un booléen `thin` chaque bloc dont les épisodes tombent sous `MOMENTUM_CONDITIONAL_MIN_EPISODES` : la prudence est une décision serveur, le front n'affiche qu'un fait.
+4. Ne rien recalculer à chaque requête : le bloc vit dans le payload déjà mis en cache.
 
 ### `3)` Front : lignes et note
 

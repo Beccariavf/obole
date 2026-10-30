@@ -40,10 +40,11 @@ _KIND_PREFIX = "momentum"
 def _cache_kind() -> str:
     """La fenêtre et la forme du payload font partie de la clé.
 
-    Le suffixe `lecture` date l'ajout du percentile et du rendement
-    conditionnel : un payload calculé avant ce déploiement ne porte pas ces
-    champs, et le servir laisserait la fiche muette jusqu'à l'expiration du TTL
-    (24 h). Le changer à chaque nouveau champ du bloc est le prix de ce cache.
+    Le suffixe `lecture` date l'ajout du bloc de lecture — percentile ET
+    rendement conditionnel, livrés d'un seul tenant : un payload calculé avant
+    ce déploiement ne porte ni l'un ni l'autre, et le servir laisserait la fiche
+    muette jusqu'à l'expiration du TTL (24 h). Il change quand la FORME du bloc
+    change (un champ ajouté ou retiré), pas à chaque retouche de son calcul.
     """
     return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}:lecture"
 
@@ -109,6 +110,10 @@ def momentum_payload(
     low = config.MOMENTUM_SATISFACTION_LOW
     high = config.MOMENTUM_SATISFACTION_HIGH
     horizon = config.MOMENTUM_FORWARD_SESSIONS
+    history_start = _history_start(raw_series)
+    # L'ajusté peut commencer ailleurs (ou manquer) : la ligne de rang affiche
+    # la date de la série qu'elle lit, jamais celle de l'autre.
+    history_start_adj = _history_start(adj_series) if adj_series is not None else None
     tail = raw_series.index[-window:]
     payload = {
         "score_raw": score_raw.value,
@@ -122,9 +127,10 @@ def momentum_payload(
             if adj_series is not None and score_adj is not None
             else None
         ),
-        # Première date où le score brut est calculable : la ligne de rang dit
-        # depuis quand le titre a un historique comparable.
-        "history_start": _history_start(raw_series),
+        # Première date où le score est calculable : la ligne de rang dit
+        # depuis quand le titre a un historique comparable, série par série.
+        "history_start": history_start,
+        "history_start_adj": history_start_adj,
         # Ce qui a suivi chaque zone de score, sur tout l'historique du titre.
         # Même règle que le rang : un indice n'a pas de série ajustée, donc pas
         # de rendement conditionnel ajusté.

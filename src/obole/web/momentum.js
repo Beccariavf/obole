@@ -455,13 +455,18 @@ export const momentumMixin = {
   },
 
   // Libellé de la ligne sous la jauge : ordinal français (« 1er », « 51e ») et
-  // année de départ de l'historique. Vide quand le rang manque — la ligne
-  // disparaît, elle ne montre pas un « — » qui laisserait croire à une panne.
+  // année de départ de l'historique. La date suit la SÉRIE AFFICHÉE : l'ajusté
+  // peut commencer ailleurs, ou manquer, sans que le rang brut soit faux pour
+  // autant. Vide quand le rang manque — la ligne disparaît, elle ne montre pas
+  // un « — » qui laisserait croire à une panne.
   momPercentileLabel() {
     const rank = this.momPercentile();
     if (rank == null) return "";
     const ordinal = rank === 1 ? "1er" : `${rank}e`;
-    const year = String(this.momData()?.history_start || "").slice(0, 4);
+    const start = this.momUsesAdj()
+      ? this.momData()?.history_start_adj
+      : this.momData()?.history_start;
+    const year = String(start || "").slice(0, 4);
     const since = /^\d{4}$/.test(year) ? `, depuis ${year}` : "";
     return `${ordinal} percentile de l'historique du titre${since}`;
   },

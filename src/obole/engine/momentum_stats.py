@@ -27,13 +27,16 @@ def score_percentile(
 ) -> int | None:
     """Rang de `value` dans `scores`, en pourcentage entier 0–100.
 
-    Rang = part des scores **inférieurs ou égaux** à `value`. Deux bornes à ne
-    pas confondre :
+    Rang = part des scores **inférieurs ou égaux** à `value`. Le minimum de la
+    série est égal à lui-même : son rang vaut `1/n` — 10 % sur dix points, 2 %
+    sur soixante —, mais **0 % dès que `n ≥ 200`** (1/200 = 0,5 %, que `round`
+    ramène à 0). Un score strictement inférieur au minimum rend 0 lui aussi :
+    les deux se confondent, c'est assumé. **0 ne signifie donc pas « sous tout
+    l'historique »**, mais « au plus bas de son histoire », ce qui est exact.
+    Une valeur égale au maximum rend 100.
 
-    - le minimum de la série garde son rang `1/n` (le score est égal à lui-même),
-      et non 0 ;
-    - une valeur **strictement inférieure** au minimum rend 0, une valeur égale
-      au maximum rend 100.
+    Pas de plancher : relever le minimum à 1 ferait dire à un score
+    rigoureusement au plus bas qu'il dépasse encore quelque chose.
 
     Les NaN sont ignorés. `None` si la série utile compte moins de `min_points`
     points ou si `value` est absente : un rang sur trois points ne veut rien
@@ -87,8 +90,14 @@ def conditional_forward_returns(
     Pour chaque séance `t` dont le score est connu, le rendement réalisé est
     `P[t + h] / P[t] − 1`. La séance est rangée dans la zone de son score, avec
     les MÊMES bornes que la jauge : sous `low` la zone basse, au-dessus de `high`
-    la zone haute, sinon la zone neutre. Les fenêtres sans cotation complète
-    (trou dans la série, horizon qui dépasse la fin) sont ignorées.
+    la zone haute, sinon la zone neutre.
+
+    La série est d'abord nettoyée (`dropna`, cours strictement positifs) : un
+    trou interne est donc **ponté**, et la fenêtre se calcule sur la grille des
+    séances nettoyée — même convention que `clara_vallis` et le backtest, qui
+    lisent eux aussi la série nettoyée comme la grille. Seules les fenêtres qui
+    dépassent la fin de l'historique, ou dont le score est inconnu, sont
+    écartées.
 
     **Les fenêtres se chevauchent.** Sur un horizon d'un an, deux séances
     voisines partagent 251 des 252 séances qui suivent : toutes les fenêtres

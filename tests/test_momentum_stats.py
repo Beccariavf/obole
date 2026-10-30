@@ -20,10 +20,23 @@ def test_percentile_is_the_share_of_scores_below_or_equal():
 
 
 def test_minimum_keeps_its_one_over_n_rank():
-    # Le minimum est égal à lui-même : son rang vaut 1/n, pas 0 (10 points → 10 %).
+    # Le minimum est égal à lui-même : son rang vaut 1/n, visible sur les petits
+    # échantillons (10 points → 10 %). Sur 60 points, 1/60 ≈ 1,67 % → 2 %.
+    # Au-delà de ~200 points il arrondit à 0 : 0 veut alors dire « au plus bas
+    # de l'historique », pas « sous tout l'historique » (test dédié plus bas).
     assert stats.score_percentile(_scores(range(1, 11)), 1.0, min_points=10) == 10
-    # 60 points → 1/60 ≈ 1,67 % → 2 %, arrondi entier.
     assert stats.score_percentile(_scores(range(1, 61)), 1.0, min_points=60) == 2
+
+
+def test_minimum_rounds_to_zero_on_a_long_history():
+    # 1/600 ≈ 0,17 % : le rang du minimum arrondit à 0, exactement comme un
+    # score strictement inférieur — les deux se confondent, c'est assumé. Pas de
+    # plancher : 0 dit « au plus bas de son histoire », ce qui est exact.
+    scores = _scores(np.linspace(0.2, 0.8, 600))
+    assert stats.score_percentile(scores, 0.2, min_points=600) == 0
+    assert stats.score_percentile(scores, 0.1, min_points=600) == 0
+    # Le reste de l'échelle n'est pas écrasé par ce 0 : le milieu vaut 50.
+    assert stats.score_percentile(scores, float(scores.iloc[300]), min_points=600) == 50
 
 
 def test_below_minimum_is_zero_and_maximum_is_a_hundred():
@@ -180,9 +193,18 @@ def test_horizon_must_cover_at_least_one_session():
 
 def test_zone_bounds_match_the_gauge():
     # Bornes STRICTES : un score égal à `low` ou à `high` est neutre, comme
-    # `momState` dans le front.
+    # `momState` dans le front ; il faut le dépasser pour changer de zone.
     prices = _prices(np.linspace(100, 160, 40))
-    scores = pd.Series(0.35, index=prices.index)
-    result = stats.conditional_forward_returns(prices, scores, 0.35, 0.60, 5)
-    assert result["zones"]["bas"] is None
-    assert result["zones"]["neutre"] is not None
+
+    def zones(score):
+        scores = pd.Series(score, index=prices.index)
+        return stats.conditional_forward_returns(prices, scores, 0.35, 0.60, 5)["zones"]
+
+    assert zones(0.35)["neutre"] is not None
+    assert zones(0.35)["bas"] is None
+    assert zones(0.3499)["bas"] is not None
+    assert zones(0.3499)["neutre"] is None
+    assert zones(0.60)["neutre"] is not None
+    assert zones(0.60)["haut"] is None
+    assert zones(0.6001)["haut"] is not None
+    assert zones(0.6001)["neutre"] is None
