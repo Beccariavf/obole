@@ -565,8 +565,10 @@ export const momentumMixin = {
       ? `Le rendement des ${span} qui ont suivi chaque date.`
       : "Le rendement qui a suivi chaque date.";
     const note =
-      `${lead} Les fenêtres se chevauchent : les centiles mesurent une dispersion, ` +
-      "pas des observations indépendantes. Les épisodes ne retiennent qu'une fenêtre par horizon.";
+      `${lead} Médiane : la moitié des épisodes ont fait mieux, la moitié moins bien. ` +
+      "10e / 90e : 10 % des épisodes sous le premier chiffre, 10 % au-dessus du second. " +
+      "Les fenêtres se chevauchent : les centiles mesurent une dispersion, pas des observations " +
+      "indépendantes. Les épisodes ne retiennent qu'une fenêtre par horizon.";
     const thin = this.momConditionalRows().some((row) => row.thin);
     return thin ? `${note} Une zone à trop peu d'épisodes ne dit presque rien.` : note;
   },

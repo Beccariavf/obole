@@ -792,7 +792,15 @@
                l'historique. La carte disparaît quand aucune zone n'a de fenêtre
                complète — un historique court n'a rien à raconter. -->
           <div class="card mom-cond-card" x-show="momConditionalRows().length">
-            <h3>Ce qui a suivi le score</h3>
+            <h3>Ce qui a suivi le score<span class="info-btn" role="button" tabindex="0"
+                  @click.stop="toggleInfo('momentum-cond')"
+                  @keydown.enter.prevent="toggleInfo('momentum-cond')"
+                  @keydown.space.prevent="toggleInfo('momentum-cond')"
+                  :aria-expanded="showInfo['momentum-cond'] ? 'true' : 'false'"
+                  aria-label="Comment lire cette carte"
+                  x-text="showInfo['momentum-cond'] ? '✕' : 'ⓘ'"></span></h3>
+            <div class="info-panel" x-show="showInfo['momentum-cond']"
+                 x-text="momConditionalNote()"></div>
             <div class="mom-table-wrap">
               <table class="mom-table mom-cond-table">
                 <caption class="sr-only">
@@ -818,7 +826,6 @@
                 </tbody>
               </table>
             </div>
-            <p class="mom-cond-note" x-text="momConditionalNote()"></p>
           </div>
 
           <div class="card mom-year-card">

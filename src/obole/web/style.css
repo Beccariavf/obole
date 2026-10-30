@@ -1003,7 +1003,11 @@ select.pf-ctl {
 .mom-cond-table thead th:not(:first-child), .mom-cond-table td { text-align: right; }
 .mom-cond-table tr.current { background: var(--bg); }
 .mom-cond-table tr.current th, .mom-cond-table tr.current td { font-weight: 600; }
-.mom-cond-note { margin: 10px 0 0; font-size: 12px; color: var(--text-soft); line-height: 1.4; }
+.mom-cond-card h3 .info-btn {
+  display: inline-block; cursor: pointer; font-size: 14px; color: var(--text-soft);
+  margin-left: 6px; user-select: none; vertical-align: middle;
+}
+.mom-cond-card h3 .info-btn:hover, .mom-cond-card h3 .info-btn:focus-visible { color: var(--accent); }
 .mom-short { font-size: 10px; margin-left: 4px; }
 /* Rang du score dans l'histoire du titre : sous l'échelle de la jauge, discret,
    chiffres tabulaires pour que la ligne ne danse pas quand le rang change. */

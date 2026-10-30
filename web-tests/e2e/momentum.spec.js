@@ -107,8 +107,10 @@ test("lecture du score : la carte du rendement conditionnel", async ({ page }) =
   await expect(table.locator("tbody tr.current")).toHaveAttribute("aria-current", "true");
 
   // La note dit le chevauchement des fenêtres, en toutes lettres : c'est lui
-  // qui interdit de lire les centiles comme un échantillon indépendant.
-  await expect(card.locator(".mom-cond-note")).toContainText("chevauchent");
+  // qui interdit de lire les centiles comme un échantillon indépendant. Elle
+  // vit dans l'info-bulle « ⓘ » du titre, ouverte au clic.
+  await card.locator("h3 .info-btn").click();
+  await expect(card.locator(".info-panel")).toContainText("chevauchent");
 
   // La carte est entre la jauge et le graphe d'un an.
   const order = await page.evaluate(() =>
@@ -171,7 +173,8 @@ test("rendement conditionnel : zone courante, prudence et chiffres formatés", a
     "title",
     /Trop peu d'épisodes/,
   );
-  await expect(page.locator(".mom-cond-note")).toContainText("trop peu d'épisodes");
+  await page.locator(".mom-cond-card h3 .info-btn").click();
+  await expect(page.locator(".mom-cond-card .info-panel")).toContainText("trop peu d'épisodes");
 
   // Changer le score courant change la ligne distinguée.
   await inject(0.1); // score bas
