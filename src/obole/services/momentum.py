@@ -56,6 +56,33 @@ def _history_start(scores: pd.Series) -> str | None:
     return known.index[0].strftime("%Y-%m-%d")
 
 
+def _conditional_block(
+    prices: pd.Series,
+    scores: pd.Series,
+    low: float,
+    high: float,
+    horizon: int,
+) -> dict:
+    """Rendement conditionnel d'une série, prêt pour le front.
+
+    L'horizon voyage AVEC les chiffres : le front écrit « 252 séances » sans
+    recopier la constante, et la note reste vraie si le réglage change. La
+    prudence est tranchée ICI : `thin` dit qu'une zone compte trop peu
+    d'épisodes indépendants pour être lue, exactement comme `short_history` le
+    fait pour le score — le front ne décide d'aucun seuil.
+    """
+    block = stats.conditional_forward_returns(prices, scores, low, high, horizon)
+    block["horizon"] = horizon
+    min_episodes = config.MOMENTUM_CONDITIONAL_MIN_EPISODES
+    for zone in (block["zones"]["bas"], block["zones"]["neutre"], block["zones"]["haut"]):
+        if zone is not None:
+            zone["thin"] = zone["episodes"] < min_episodes
+    baseline = block["baseline"]
+    if baseline is not None:
+        baseline["thin"] = baseline["episodes"] < min_episodes
+    return block
+
+
 def momentum_payload(
     ref: str,
     raw: pd.Series,
@@ -79,6 +106,9 @@ def momentum_payload(
     score_raw = cv.satisfaction_score(raw, window)
     score_adj = cv.satisfaction_score(adjusted, window) if adjusted is not None else None
     min_points = config.MOMENTUM_PERCENTILE_MIN_POINTS
+    low = config.MOMENTUM_SATISFACTION_LOW
+    high = config.MOMENTUM_SATISFACTION_HIGH
+    horizon = config.MOMENTUM_FORWARD_SESSIONS
     tail = raw_series.index[-window:]
     payload = {
         "score_raw": score_raw.value,
@@ -95,6 +125,15 @@ def momentum_payload(
         # Première date où le score brut est calculable : la ligne de rang dit
         # depuis quand le titre a un historique comparable.
         "history_start": _history_start(raw_series),
+        # Ce qui a suivi chaque zone de score, sur tout l'historique du titre.
+        # Même règle que le rang : un indice n'a pas de série ajustée, donc pas
+        # de rendement conditionnel ajusté.
+        "conditional_raw": _conditional_block(raw, raw_series, low, high, horizon),
+        "conditional_adj": (
+            _conditional_block(adjusted, adj_series, low, high, horizon)
+            if adjusted is not None and adj_series is not None
+            else None
+        ),
         "n_used": score_raw.n_used,
         "short_history": score_raw.short_history,
         "raw": to_values(raw_series.reindex(grid)),
