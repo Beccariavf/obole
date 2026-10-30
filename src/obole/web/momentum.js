@@ -559,8 +559,7 @@ export const momentumMixin = {
     const horizon = Number(conditional?.horizon);
     const span = horizon > 0 ? `les ${Math.round(horizon)} séances` : "les séances";
     const note =
-      `Sur ${span} qui ont suivi chaque date, quand ce titre était dans cette zone, ` +
-      "que s'est-il passé ensuite ? " +
+      `Quand ce titre était dans cette zone, que s'est-il passé sur ${span} suivantes ? ` +
       "Médiane : la moitié des épisodes font mieux. " +
       "10e / 90e : 10 % en dessous, 10 % au-dessus. " +
       "Épisodes : fenêtres indépendantes ; les fenêtres se chevauchent, les centiles ne le sont pas.";
