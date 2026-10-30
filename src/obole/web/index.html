@@ -780,6 +780,11 @@
               </div>
               <div class="gauge-scale"><span>satisfaite</span><span>frustrée</span></div>
             </div>
+            <!-- Rang du score dans l'histoire du titre : HORS de `.gauge`, dont
+                 le role="meter" rend ses descendants présentatifs (le texte ne
+                 serait pas annoncé). Visuellement, la ligne reste sous l'échelle. -->
+            <p class="mom-percentile" x-show="momPercentile() !== null"
+               x-text="momPercentileLabel()"></p>
           </div>
 
           <div class="card mom-year-card">

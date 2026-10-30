@@ -527,3 +527,48 @@ describe("fiabilité de l'indicateur", () => {
     expect(load).toHaveBeenCalledTimes(3);
   });
 });
+
+// Phase 1 de la lecture du score : le rang du score dans l'histoire du titre.
+// Il arrive déjà calculé dans le payload (historique complet, pas la plage
+// affichée) ; le front ne fait que choisir la série et formater le libellé.
+describe("lecture du score : percentile", () => {
+  it("le rang suit la bascule brut / ajusté", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.data.chart.momentum.percentile_raw = 30;
+    comp.data.chart.momentum.percentile_adj = 80;
+    comp.data.chart.momentum.history_start = "1998-05-04";
+    expect(comp.momPercentile()).toBe(30);
+    expect(comp.momPercentileLabel()).toBe(
+      "30e percentile de l'historique du titre, depuis 1998",
+    );
+    comp.momSeries = "adj";
+    expect(comp.momPercentile()).toBe(80);
+  });
+
+  it("le premier rang s'écrit « 1er »", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.data.chart.momentum.percentile_raw = 1;
+    expect(comp.momPercentileLabel()).toBe("1er percentile de l'historique du titre");
+  });
+
+  it("sans rang, la ligne est vide — jamais un tiret", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    expect(comp.momPercentile()).toBeNull();
+    expect(comp.momPercentileLabel()).toBe("");
+    // Un rang illisible ne s'affiche pas non plus.
+    comp.data.chart.momentum.percentile_raw = "abc";
+    expect(comp.momPercentile()).toBeNull();
+    comp.data.chart.momentum.percentile_raw = Number.POSITIVE_INFINITY;
+    expect(comp.momPercentile()).toBeNull();
+  });
+
+  it("un indice sans série ajustée lit le rang brut, même bascule sur ajusté", () => {
+    const comp = component(Array.from({ length: 300 }, (_, i) => 100 + i));
+    comp.data.chart.momentum.adj = null;
+    comp.data.chart.momentum.percentile_raw = 42;
+    comp.data.chart.momentum.percentile_adj = null;
+    comp.momSeries = "adj"; // radio désactivé, mais la valeur peut rester
+    expect(comp.momUsesAdj()).toBe(false);
+    expect(comp.momPercentile()).toBe(42);
+  });
+});

@@ -996,6 +996,12 @@ select.pf-ctl {
 .mom-zone-bad { background: #FECACA; }
 .mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
 .mom-short { font-size: 10px; margin-left: 4px; }
+/* Rang du score dans l'histoire du titre : sous l'échelle de la jauge, discret,
+   chiffres tabulaires pour que la ligne ne danse pas quand le rang change. */
+.mom-percentile {
+  margin: 6px 0 0; font-size: 11px; color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
 /* Backtest de fiabilité (#31 puis #32) : la carte annonce la série et la durée,
    le tableau aligne les nombres à droite (mesures lisibles, comparaison
    directe) et les trois colonnes portent la polarité de leur lecture. */

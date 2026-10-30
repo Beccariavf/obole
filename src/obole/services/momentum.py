@@ -13,6 +13,11 @@ sur la série PLEINE, puis la fenêtre demandée est tranchée et passée au mot
 Un backtest sur la grille décimée raterait des croisements et fausserait les
 trades et le drawdown. Depuis #32, il expose le marché pendant les séances in et
 out (plus le rendement réel de la stratégie, en pied).
+
+La lecture du score obéit à la même règle : le percentile et les rendements
+conditionnels portent sur l'HISTORIQUE COMPLET du titre, pas sur la plage
+affichée par le graphe. Ils sont donc calculés ici, une fois par jour et par
+référence, dans le payload déjà mis en cache — le front ne recalcule rien.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from obole import config
 from obole.data import cache, yahoo
 from obole.engine import clara_vallis as cv
 from obole.engine import momentum_backtest as backtest_engine
+from obole.engine import momentum_stats as stats
 from obole.services import indices as indices_service
 from obole.services.values import to_values
 
@@ -32,8 +38,22 @@ _KIND_PREFIX = "momentum"
 
 
 def _cache_kind() -> str:
-    """La fenêtre fait partie de la clé : la changer invalide le payload."""
-    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}"
+    """La fenêtre et la forme du payload font partie de la clé.
+
+    Le suffixe `lecture` date l'ajout du percentile et du rendement
+    conditionnel : un payload calculé avant ce déploiement ne porte pas ces
+    champs, et le servir laisserait la fiche muette jusqu'à l'expiration du TTL
+    (24 h). Le changer à chaque nouveau champ du bloc est le prix de ce cache.
+    """
+    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}:lecture"
+
+
+def _history_start(scores: pd.Series) -> str | None:
+    """Première date où le score est calculable, en ISO ; `None` si aucune."""
+    known = scores.dropna()
+    if known.empty:
+        return None
+    return known.index[0].strftime("%Y-%m-%d")
 
 
 def momentum_payload(
@@ -57,12 +77,24 @@ def momentum_payload(
     adj_series = cv.satisfaction_series(adjusted, window) if adjusted is not None else None
 
     score_raw = cv.satisfaction_score(raw, window)
+    score_adj = cv.satisfaction_score(adjusted, window) if adjusted is not None else None
+    min_points = config.MOMENTUM_PERCENTILE_MIN_POINTS
     tail = raw_series.index[-window:]
     payload = {
         "score_raw": score_raw.value,
-        "score_adj": (
-            cv.satisfaction_score(adjusted, window).value if adjusted is not None else None
+        "score_adj": score_adj.value if score_adj is not None else None,
+        # Rang du score dans TOUT l'historique du titre, pas dans la plage
+        # affichée par le graphe. Un indice n'a pas de série ajustée : son rang
+        # ajusté n'existe pas (le front n'affiche qu'une série à la fois).
+        "percentile_raw": stats.score_percentile(raw_series, score_raw.value, min_points),
+        "percentile_adj": (
+            stats.score_percentile(adj_series, score_adj.value, min_points)
+            if adj_series is not None and score_adj is not None
+            else None
         ),
+        # Première date où le score brut est calculable : la ligne de rang dit
+        # depuis quand le titre a un historique comparable.
+        "history_start": _history_start(raw_series),
         "n_used": score_raw.n_used,
         "short_history": score_raw.short_history,
         "raw": to_values(raw_series.reindex(grid)),

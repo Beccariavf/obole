@@ -155,6 +155,11 @@ MOMENTUM_WINDOW = 250
 MOMENTUM_SATISFACTION_LOW = 0.35
 MOMENTUM_SATISFACTION_HIGH = 0.60
 
+# Lecture du score (percentile historique) : sous ce nombre de scores calculables,
+# un rang ne dit rien (chaque point vaut plus d'un point et demi de pourcentage).
+# SOURCE UNIQUE : le service le passe au moteur, le front n'en a pas besoin.
+MOMENTUM_PERCENTILE_MIN_POINTS = 60
+
 # Fenêtres du sélecteur de la table « monde de Markovitz » (années ; 0 = maximum).
 MOMENTUM_TABLE_WINDOWS = (1, 5, 10, 20, 0)
 

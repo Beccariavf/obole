@@ -335,7 +335,7 @@ def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: b
     PAS construit (aucun calcul de moyennes mobiles inutile) — utile aux outils MCP
     qui ne tracent rien.
     """
-    out = {
+    out: dict[str, object] = {
         "kind_payload": "basket",  # le front distingue fiche indice vs action/ratio
         "identity": {
             "name": analysis.name,
@@ -376,12 +376,13 @@ def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: b
         "warnings": analysis.warnings,
     }
     if include_chart:
-        out["chart"] = basket_chart_payload(series)
+        chart = basket_chart_payload(series)
         # Un indice synthétique est déjà en total-return : `raw == adj`, pas de
         # bascule possible côté front.
-        out["chart"]["momentum"] = momentum_payload(
+        chart["momentum"] = momentum_payload(
             f"INDEX:{analysis.index_id}", series, None, _downsample(series).index
         )
+        out["chart"] = chart
     return out
 
 
@@ -834,7 +835,7 @@ def analysis_to_dict(
     """
     ind = analysis.indicators
     ident = analysis.identity
-    out = {
+    out: dict[str, object] = {
         "kind_payload": "stock",  # le front distingue fiche action vs ratio
         "identity": {
             "ticker": ident.ticker,
@@ -877,13 +878,14 @@ def analysis_to_dict(
         "warnings": analysis.warnings,
     }
     if include_chart:
-        out["chart"] = chart_payload(prices, analysis.fundamentals)
+        chart = chart_payload(prices, analysis.fundamentals)
         # Momentum (Clara Vallis) : séries alignées sur la grille du graphe.
         # La grille est recalculée depuis les prix, jamais lue du dict `chart` :
         # le tracé et le momentum partagent la même décimation déterministe.
         # Absent quand `include_chart=False` (MCP, prompt de thèse) : rien à
         # tracer, donc rien à calculer.
-        out["chart"]["momentum"] = momentum_payload(
+        chart["momentum"] = momentum_payload(
             ident.ticker, prices.raw, prices.adjusted, _downsample(prices.raw).index
         )
+        out["chart"] = chart
     return out

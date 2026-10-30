@@ -436,6 +436,36 @@ export const momentumMixin = {
     return "neutre";
   },
 
+  // Série effectivement affichée. La bascule « ajusté » ne vaut que si le
+  // payload porte la série : un indice n'en a pas, et `momSeries` peut rester
+  // sur « adj » après une fiche action (le radio est alors désactivé).
+  momUsesAdj() {
+    return this.momSeries === "adj" && this.momHasAdj();
+  },
+
+  // Rang du score dans l'histoire du titre (0–100). Le payload le porte déjà
+  // calculé sur l'historique COMPLET : le front ne refait pas le percentile sur
+  // la plage affichée, et un payload sans le champ (cache ancien) ne casse rien.
+  momPercentile() {
+    const m = this.momData();
+    if (!m) return null;
+    const value = this.momUsesAdj() ? m.percentile_adj : m.percentile_raw;
+    const n = Number(value);
+    return value == null || !Number.isFinite(n) ? null : n;
+  },
+
+  // Libellé de la ligne sous la jauge : ordinal français (« 1er », « 51e ») et
+  // année de départ de l'historique. Vide quand le rang manque — la ligne
+  // disparaît, elle ne montre pas un « — » qui laisserait croire à une panne.
+  momPercentileLabel() {
+    const rank = this.momPercentile();
+    if (rank == null) return "";
+    const ordinal = rank === 1 ? "1er" : `${rank}e`;
+    const year = String(this.momData()?.history_start || "").slice(0, 4);
+    const since = /^\d{4}$/.test(year) ? `, depuis ${year}` : "";
+    return `${ordinal} percentile de l'historique du titre${since}`;
+  },
+
   // Largeur des trois zones de la jauge : satisfaite (gauche), neutre, frustrée.
   momZones() {
     const low = MOMENTUM.low;

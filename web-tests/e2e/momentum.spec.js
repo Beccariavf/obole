@@ -32,6 +32,48 @@ test("section Momentum : table, jauge et deux tracés", async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+test("lecture du score : le rang du score s'affiche sous la jauge", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+
+  // La ligne apparaît sous l'échelle, avec l'ordinal français et l'année de
+  // départ de l'historique du titre — le rang vient du payload, pas d'un calcul
+  // sur la plage affichée.
+  const line = page.locator(".mom-gauge-card .mom-percentile");
+  await expect(line).toBeVisible({ timeout: 30_000 });
+  await expect(line).toHaveText(/\d+(?:er|e) percentile de l'historique du titre, depuis \d{4}/);
+
+  const ranks = await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    const m = comp.momData();
+    return { raw: m.percentile_raw, adj: m.percentile_adj, start: m.history_start };
+  });
+  expect(Number.isInteger(ranks.raw)).toBe(true);
+  expect(Number.isInteger(ranks.adj)).toBe(true);
+  expect(ranks.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+  // Changer de série change le rang LU (les deux séries sont distinctes) : la
+  // ligne suit la bascule, sans requête supplémentaire.
+  await page.locator('input[name="mom-series"][value="adj"]').check();
+  await expect(line).toHaveText(new RegExp(`^${ranks.adj}(?:er|e) percentile`));
+
+  // Un rang absent (historique trop court, cache d'avant le déploiement)
+  // masque la ligne : pas de tiret qui ferait croire à une panne.
+  await page.evaluate(() => {
+    const comp = window.Alpine.$data(document.querySelector(".wrap"));
+    comp.data.chart.momentum = {
+      ...comp.data.chart.momentum,
+      percentile_raw: null,
+      percentile_adj: null,
+      history_start: null,
+    };
+  });
+  await expect(line).toBeHidden();
+
+  expect(errors).toEqual([]);
+});
+
 test("section Momentum : changer de fenêtre change la table", async ({ page }) => {
   await page.goto("/#RI.PA/momentum");
   await expect(page.locator(".mom-card .mom-table")).toBeVisible();

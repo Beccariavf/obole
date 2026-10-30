@@ -1,6 +1,6 @@
 ---
 objective: "La fiche Momentum situe le score dans l'histoire du titre (percentile) et montre le rendement qui a suivi chaque zone (médiane, dispersion, épisodes), sans ajouter de signal prédictif."
-status: pending
+status: in-progress
 ---
 
 # Plan: Lecture du score Momentum — percentile et rendement conditionnel
