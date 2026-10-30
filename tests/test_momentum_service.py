@@ -122,8 +122,9 @@ def test_cache_key_carries_the_window(temp_cache, monkeypatch):
 
 def test_cache_key_carries_the_reading_suffix(temp_cache):
     # Un payload mis en cache avant la lecture du score n'a ni percentile ni
-    # rendement conditionnel : sans suffixe, la fiche resterait muette 24 h.
-    assert momentum._cache_kind().endswith(":lecture")
+    # rendement conditionnel, ni la date de départ ajustée : sans suffixe, la
+    # fiche resterait muette 24 h.
+    assert momentum._cache_kind().endswith(":lecture2")
 
 
 # --- Lecture du score : percentile et date de départ -------------------------

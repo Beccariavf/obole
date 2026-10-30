@@ -15,7 +15,7 @@ status: done
 │   ├── engine/
 │   │   └── momentum_stats.py                       ✅  score_percentile (pur)
 │   ├── services/
-│   │   └── momentum.py                             ✏️  percentile_raw/adj + history_start
+│   │   └── momentum.py                             ✏️  percentile_raw/adj + history_start(_adj)
 │   └── web/
 │       ├── momentum.js                             ✏️  momPercentile / momPercentileLabel
 │       ├── index.html                              ✏️  ligne sous la jauge
@@ -89,7 +89,7 @@ journey
 
 1. Ajouter `MOMENTUM_PERCENTILE_MIN_POINTS = 60` dans `config.py`, à côté du bloc Clara Vallis.
 2. Dans `momentum_payload`, calculer `percentile_raw` et `percentile_adj` (ce dernier seulement si la série ajustée existe), sur l'historique complet du titre et non sur la plage affichée.
-3. Ajouter `history_start` : première date où le score brut est calculable, au format ISO.
+3. Ajouter `history_start` (première date où le score brut est calculable) et `history_start_adj` (la même pour la série ajustée, `None` sans série ajustée), au format ISO : le libellé lit la date de la série affichée.
 4. Ajouter un suffixe `:lecture` à la clé de cache, pour ne pas servir un payload sans les nouveaux champs.
 
 ### `3)` Front : accesseur et libellé

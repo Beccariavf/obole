@@ -40,13 +40,16 @@ _KIND_PREFIX = "momentum"
 def _cache_kind() -> str:
     """La fenêtre et la forme du payload font partie de la clé.
 
-    Le suffixe `lecture` date l'ajout du bloc de lecture — percentile ET
-    rendement conditionnel, livrés d'un seul tenant : un payload calculé avant
-    ce déploiement ne porte ni l'un ni l'autre, et le servir laisserait la fiche
-    muette jusqu'à l'expiration du TTL (24 h). Il change quand la FORME du bloc
-    change (un champ ajouté ou retiré), pas à chaque retouche de son calcul.
+    Le suffixe date la forme du bloc de lecture, pas son calcul. `lecture` a
+    livré le percentile ET le rendement conditionnel d'un seul tenant ; `lecture2`
+    y ajoute `history_start_adj` (la date de départ de la série ajustée, sans
+    laquelle le rang ajusté s'afficherait sans année). Un payload calculé avant
+    un changement de forme ne porte pas les nouveaux champs : le servir
+    laisserait la fiche muette jusqu'à l'expiration du TTL (24 h). Le suffixe
+    change donc quand un champ est ajouté ou retiré, jamais à chaque retouche
+    de son calcul.
     """
-    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}:lecture"
+    return f"{_KIND_PREFIX}:{config.MOMENTUM_WINDOW}:lecture2"
 
 
 def _history_start(scores: pd.Series) -> str | None:
