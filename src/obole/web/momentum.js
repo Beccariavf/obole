@@ -565,8 +565,8 @@ export const momentumMixin = {
       ? `Le rendement des ${span} qui ont suivi chaque date.`
       : "Le rendement qui a suivi chaque date.";
     const question =
-      "La question simple à laquelle il répond : quand ce titre était dans cette zone de " +
-      "score, que s'est-il passé ensuite ?";
+      "La question simple à laquelle répond ce tableau : quand ce titre était dans cette " +
+      "zone de score, que s'est-il passé ensuite ?";
     const note =
       `${lead} ${question} Médiane : la moitié des épisodes ont fait mieux, la moitié moins bien. ` +
       "10e / 90e : 10 % des épisodes sous le premier chiffre, 10 % au-dessus du second. " +
