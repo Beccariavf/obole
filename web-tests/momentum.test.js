@@ -709,9 +709,11 @@ describe("lecture du score : rendement conditionnel", () => {
     expect(legacy.momConditionalRows()).toEqual([]);
   });
 
-  it("la note dit l'horizon, le chevauchement et les épisodes", () => {
+  it("la note dit la question, l'horizon, le chevauchement et les épisodes", () => {
     const comp = readingComponent();
     const note = comp.momConditionalNote();
+    expect(note).toContain("question simple");
+    expect(note).toContain("que s'est-il passé ensuite");
     expect(note).toContain("252 séances");
     expect(note).toContain("chevauchent");
     expect(note).toContain("pas des observations indépendantes");
