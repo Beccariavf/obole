@@ -122,9 +122,8 @@ def test_cache_key_carries_the_window(temp_cache, monkeypatch):
 
 def test_cache_key_carries_the_reading_suffix(temp_cache):
     # Un payload mis en cache avant la lecture du score n'a ni percentile ni
-    # rendement conditionnel, ni la date de départ ajustée : sans suffixe, la
-    # fiche resterait muette 24 h.
-    assert momentum._cache_kind().endswith(":lecture2")
+    # date de départ ajustée : sans suffixe, la fiche resterait muette 24 h.
+    assert momentum._cache_kind().endswith(":lecture3")
 
 
 # --- Lecture du score : percentile et date de départ -------------------------
@@ -203,87 +202,3 @@ def test_cold_payload_stays_fast(temp_cache):
     t0 = time.perf_counter()
     momentum.momentum_payload("FAST.PA", prices.raw, prices.adjusted, _grid(prices))
     assert time.perf_counter() - t0 < 0.5
-
-
-# --- Lecture du score : rendement conditionnel par zone ----------------------
-
-
-def _zigzag(n: int = 4000, period: int = 500) -> list[float]:
-    """Cours qui monte puis descend : les trois zones de score sont visitées."""
-    phases = 2.0 * np.pi * np.arange(n) / period
-    return [float(v) for v in 100.0 * np.exp(0.3 * np.sin(phases))]
-
-
-def test_payload_carries_conditional_returns(temp_cache):
-    prices = _price_series(_zigzag())
-    p = momentum.momentum_payload("COND.PA", prices.raw, prices.adjusted, _grid(prices))
-    block = p["conditional_raw"]
-
-    assert set(block) == {"zones", "baseline", "horizon"}
-    assert set(block["zones"]) == {"bas", "neutre", "haut"}
-    assert block["horizon"] == config.MOMENTUM_FORWARD_SESSIONS
-    for zone in (*block["zones"].values(), block["baseline"]):
-        assert zone is not None
-        assert set(zone) == {"median_pct", "p10_pct", "p90_pct", "episodes", "thin"}
-        assert zone["p10_pct"] <= zone["median_pct"] <= zone["p90_pct"]
-        assert zone["episodes"] > 0
-    # Le zigzag traverse tout l'intervalle de score : aucune zone vide.
-    assert all(zone is not None for zone in block["zones"].values())
-    assert p["conditional_adj"] is not None
-
-
-def test_conditional_adj_reads_the_adjusted_series(temp_cache):
-    raw = _zigzag()
-    # Même forme, plus une dérive : la série ajustée ne rend pas les mêmes
-    # rendements, donc le bloc ajusté ne peut pas recopier le bloc brut.
-    drift = [value * (1.0005**i) for i, value in enumerate(raw)]
-    prices = _price_series(raw, adjusted=drift)
-    p = momentum.momentum_payload("CONDA.PA", prices.raw, prices.adjusted, _grid(prices))
-
-    raw_median = p["conditional_raw"]["baseline"]["median_pct"]
-    adj_median = p["conditional_adj"]["baseline"]["median_pct"]
-    assert raw_median is not None
-    assert adj_median is not None
-    assert adj_median > raw_median
-
-
-def test_index_has_no_adjusted_conditional(temp_cache):
-    prices = _price_series(_zigzag())
-    p = momentum.momentum_payload("INDEX:9", prices.raw, None, _grid(prices))
-
-    assert p["conditional_adj"] is None
-    assert p["conditional_raw"]["baseline"] is not None
-
-
-def test_short_history_has_no_conditional(temp_cache):
-    # 300 séances : l'horizon de 252 dépasse tout ce que le score peut couvrir.
-    prices = _price_series(np.linspace(100, 120, 300))
-    p = momentum.momentum_payload("SHORTC.PA", prices.raw, prices.adjusted, _grid(prices))
-    block = p["conditional_raw"]
-
-    assert block["baseline"] is None
-    assert all(zone is None for zone in block["zones"].values())
-    assert block["horizon"] == config.MOMENTUM_FORWARD_SESSIONS
-
-
-def test_thin_zones_follow_the_config(temp_cache, monkeypatch):
-    prices = _price_series(_zigzag())
-    normal = momentum.momentum_payload("THIN.PA", prices.raw, prices.adjusted, _grid(prices))
-    assert normal["conditional_raw"]["baseline"]["thin"] is False
-
-    # La prudence est une décision serveur : relever le seuil la déclenche.
-    monkeypatch.setattr(config, "MOMENTUM_CONDITIONAL_MIN_EPISODES", 10_000)
-    tight = momentum.momentum_payload("TIGHT.PA", prices.raw, prices.adjusted, _grid(prices))
-    assert tight["conditional_raw"]["baseline"]["thin"] is True
-    assert tight["conditional_raw"]["zones"]["bas"]["thin"] is True
-
-
-def test_conditional_ignores_the_displayed_range(temp_cache):
-    prices = _price_series(_zigzag())
-    full = momentum.momentum_payload("CRANGE.PA", prices.raw, prices.adjusted, _grid(prices))
-    narrow = momentum.momentum_payload(
-        "CRANGE2.PA", prices.raw, prices.adjusted, _grid(prices)[-100:]
-    )
-
-    assert full["conditional_raw"] == narrow["conditional_raw"]
-    assert full["conditional_adj"] == narrow["conditional_adj"]
