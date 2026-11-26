@@ -130,5 +130,6 @@ sans jamais suggérer un achat ou une vente. La table Markovitz rejoint Valorisa
   de `/api/meta`, onglet « Risque & dynamique » (`web/risk.js`), tests pytest/Vitest/e2e
   et documentation.
 - Plan d'exécution : délégué à OpenCode, un plan par jalon (hors dépôt).
-- Branche : `feat/risque-dynamique`. Chantier **clos** : la branche pourra être annotée
-  « Branche (historique) » au prochain aplatissement, comme le veut la convention.
+- Branche : `feat/risque-dynamique`. **J2 livré, prêt à fusionner** ; l'index reste
+  « en cours » et la branche ne sera annotée « Branche (historique) » qu'après la
+  fusion sur `main`, comme le veut la convention.

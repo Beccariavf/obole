@@ -84,7 +84,7 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   Screener, Portefeuille, Watchlist, puis **Paramètres en pied** (séparé par un filet — ce
   n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
   changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
-  Thèse & Société, Valorisation.
+  Thèse & Société, Valorisation, Risque & dynamique.
 - **Un espace est une PAGE, pas une couche.** Les cinq espaces sont des vues **sœurs** de
   l'analyse dans `.app-main` (`.app-view.view-<espace>`), sur lesquelles `x-show` bascule :
   le rail reste donc visible ET cliquable en permanence, et passer d'un espace à l'autre
