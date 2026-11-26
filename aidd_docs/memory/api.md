@@ -50,3 +50,15 @@ La surface HTTP : son style, ses ressources et ses contrats.
   `line`, `z`, `ecart_type_pct`, `trend_gap_pct`, `pente_pct`) : `a`/`b`/`sigma` permettent
   au front de retracer exactement la droite persistée quand la fenêtre affichée est la
   référence.
+- `GET /api/stock/<ticker>` et `GET /api/index/<id>` portent `chart.risk` (#33), un
+  objet à quatre clés : `drawdown_pct` et `vol_pct` (listes alignées 1:1 sur
+  `chart.dates`, même longueur), `vol_threshold_pct` (float ou `null`) et `now`
+  (sept scalaires : `drawdown_pct`, `peak_date`, `vol_pct`, `vol_percentile`,
+  `bench_vol_pct`, `mom_12_1_pct`, `bench_mom_12_1_pct`). Les séries sont
+  calculées sur la pleine résolution ajustée (série du panier pour un indice),
+  puis décimées. Le benchmark est `^FCHI`, lu via `data/` (cache TTL) ; un
+  benchmark indisponible laisse ses deux champs à `None`, sans erreur.
+  `chart.risk` est absent quand `include_chart=False` (outils MCP en `summary`).
+  `/api/meta` expose le bloc `risk` (`vol_window`, `vol_anomaly_pctile`,
+  `vol_min_points`, `mom_lookback`, `mom_skip`, `benchmark`, `default_years`) et
+  `chart_heights.risk` ; aucun seuil littéral dans `risk.js`.

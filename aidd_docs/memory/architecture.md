@@ -56,6 +56,12 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
 - La régression est recalculée à trois endroits (serveur + deux calculs client) : toute
   modification de formule doit toucher les trois (détail dans `CLAUDE.md` §Invariants).
 - Les moyennes mobiles sont précalculées serveur sur la série pleine, puis décimées.
+- Les **séries de risque** (#33 : chute, volatilité) suivent le même patron :
+  calculées par `engine/risk.py` sur la **pleine résolution ajustée**, puis
+  réindexées sur la grille décimée du cours. Le 12-1 se mesure sur les cours
+  **bruts** des deux côtés (titre et CAC 40). Le benchmark `^FCHI` est lu une
+  fois par requête via `data/` (cache TTL) ; indisponible, ses champs valent
+  `None` et la fiche reste servie.
 - La table **« monde de Markovitz »** est recalculée CÔTÉ CLIENT dans la section
   **Valorisation** (#33) : σ de bande, z, pente, MM court/long et confiance `1 − R²`
   sur la fenêtre choisie. Seules les fenêtres du sélecteur viennent du serveur

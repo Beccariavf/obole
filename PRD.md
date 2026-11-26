@@ -333,6 +333,15 @@ L'ancien onglet Momentum (score de foule, jauge, historique, carte de fiabilité
 
 **Table « monde de Markovitz »** : σ de la bande `(e^sigma − 1) × 100`, z, pente `(e^b − 1) × 100`, MM court/long et confiance `1 − R²`, sur la fenêtre de référence (date persistée, sinon 20 ans, 30 pour les financières) ou l'une des fenêtres `1A` / `5A` / `10A` / `20A` / `MAX`. Recalculée côté client, comme le graphe héro.
 
+### 5.12 Risque & dynamique (onglet `risque`, #33)
+Onglet factuel qui remplace l'ancien Momentum, sans verdict ni prédiction :
+
+- **Chute depuis le plus haut** : `P_t / max(P_0..P_t) − 1`, en % sur la série ajustée complète ; la date du plus haut courant est affichée.
+- **Volatilité** : écart-type glissant (`ddof=1`) des rendements log quotidiens sur `RISK_VOL_WINDOW = 60` séances, annualisé `× √252`, en %. Son **percentile** est la part des valeurs passées de la série de vol qui lui sont inférieures (0–100) ; le **seuil d'anomalie** est le quantile `RISK_VOL_ANOMALY_PCTILE = 90` de cette même série. Sous `RISK_VOL_MIN_POINTS = 504` valeurs, ni percentile ni seuil : mention « historique trop court pour situer ».
+- **12-1** : `P_{t−21} / P_{t−252} − 1`, en %, sur les cours **bruts** (hors dividendes) ; « — » avec infobulle sous 13 mois d'historique.
+- Repères de marché : volatilité et 12-1 du **CAC 40** (`^FCHI`), lus via la couche `data/` ; indisponibles, ils valent `None`.
+- Tracé Plotly à deux étages (chute en haut, volatilité en bas) sur une **plage propre** de 10 ans par défaut. Couleurs neutres ; le rouge ne marque que les passages de volatilité au-dessus du seuil et le percentile en anomalie.
+
 ---
 
 ## 6. Données — yfinance

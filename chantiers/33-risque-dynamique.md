@@ -95,17 +95,17 @@ sans jamais suggérer un achat ou une vente. La table Markovitz rejoint Valorisa
 
 ## 5. Critères d'acceptation
 
-- [ ] `grep -rniE "clara|satisfaction_series|momentum_backtest" src tests web-tests/*.js web-tests/e2e`
+- [x] `grep -rniE "clara|satisfaction_series|momentum_backtest" src tests web-tests/*.js web-tests/e2e`
       ne renvoie plus rien (hors mentions historiques volontaires dans `chantiers/`).
-- [ ] La table Markovitz s'affiche dans Valorisation, ses tests de parité passent.
-- [ ] `GET /api/stock/RI.PA` porte `chart.risk` aligné sur la grille du cours ; un panier aussi.
-- [ ] Tests unitaires `engine/risk.py` : série plate, nouveau plus haut, historique < 13 mois,
+- [x] La table Markovitz s'affiche dans Valorisation, ses tests de parité passent.
+- [x] `GET /api/stock/RI.PA` porte `chart.risk` aligné sur la grille du cours ; un panier aussi.
+- [x] Tests unitaires `engine/risk.py` : série plate, nouveau plus haut, historique < 13 mois,
       historique < `RISK_VOL_MIN_POINTS`, valeurs non positives écartées.
-- [ ] Vitest : le mixin lit ses seuils depuis `/api/meta`, rouge seulement au-dessus du seuil,
+- [x] Vitest : le mixin lit ses seuils depuis `/api/meta`, rouge seulement au-dessus du seuil,
       « — » sur historique court.
-- [ ] e2e : l'onglet « Risque & dynamique » s'ouvre et trace son graphique ; `#X/momentum`
+- [x] e2e : l'onglet « Risque & dynamique » s'ouvre et trace son graphique ; `#X/momentum`
       retombe sur Résumé.
-- [ ] Portes `coding-assertions.md` « Before push » vertes (le test réseau n'est pas
+- [x] Portes `coding-assertions.md` « Before push » vertes (le test réseau n'est pas
       obligatoire : impact 🟢).
 
 ## 6. Invariants préservés
@@ -126,7 +126,9 @@ sans jamais suggérer un achat ou une vente. La table Markovitz rejoint Valorisa
 ## 8. Note de reprise
 
 - **J1 livré** : Clara Vallis retirée, table Markovitz déplacée dans Valorisation.
-- **J2 à suivre** sur la même branche : moteur `risk.py`, `chart.risk`, onglet
-  « Risque & dynamique ».
+- **J2 livré** : moteur `risk.py` (jalon J2a), `chart.risk` action et panier, bloc `risk`
+  de `/api/meta`, onglet « Risque & dynamique » (`web/risk.js`), tests pytest/Vitest/e2e
+  et documentation.
 - Plan d'exécution : délégué à OpenCode, un plan par jalon (hors dépôt).
-- Branche : `feat/risque-dynamique`.
+- Branche : `feat/risque-dynamique`. Chantier **clos** : la branche pourra être annotée
+  « Branche (historique) » au prochain aplatissement, comme le veut la convention.

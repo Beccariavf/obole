@@ -68,6 +68,15 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   court/long, confiance `1 − R²`) en bas de la section **Valorisation**, dans une
   carte `wide`. Fenêtres `Réf.`, `1A`, `5A`, `10A`, `20A`, `MAX` (source
   `/api/meta`) et bascule brut/ajusté ; recalcul client, comme le graphe héro.
+- **Risque & dynamique** (#33) : deux étages empilés à axe X partagé — chute
+  depuis le plus haut (aire neutre gris/ardoise) et volatilité `RISK_VOL_WINDOW`
+  (ligne d'accent). Le seuil d'anomalie est une pointillée neutre ; **seuls** les
+  passages de volatilité au-dessus et le percentile en anomalie sont rouges.
+  Plage propre (`riskStart`/`riskEnd`), puces `1A`/`5A`/`10A`/`20A`/`MAX`,
+  **10 ans par défaut** : elle est indépendante de la plage du héro. Sous le
+  graphique, trois lignes factuelles (chute et date du plus haut, volatilité et
+  percentile avec le CAC 40, 12-1 hors dividendes avec le CAC 40). **Aucun
+  verdict, aucune flèche d'achat ou de vente, aucun vert.**
 
 ## Navigation (coquille)
 

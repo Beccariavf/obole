@@ -16,7 +16,7 @@ flowchart TD
 - `src/obole/services/` : cas d'usage partagés API ↔ MCP (analyse, screener, indices,
   thèse, portefeuille, watchlist, imports, sérialisation).
 - `src/obole/engine/` : calcul pur (régression, labels, qualité, valorisation, dividende,
-  portefeuille, screener) — aucune I/O.
+  portefeuille, screener, risque) — aucune I/O.
 - `src/obole/data/` : I/O uniquement (`yahoo.py`, `cache.py`, `backup.py`, `health.py`,
   tables utilisateur : indices, thèses, portefeuille, points de contrôle, imports,
   watchlist et références de fenêtre).
@@ -47,6 +47,7 @@ vues d'espace, retour à l'accueil), `search.js`, `screener.js`, `indices.js`, `
 `cursor.js`, `exportcsv.js`,
 `events.js`, `settings.js`, `sections.js` (registre des sections et onglets), `summary.js`,
 `portfolio.js`, `portfolio-dividends.js`, `dividend.js`, `valorisation.js`,
+`risk.js`,
 `thesis.js`,
 `suivi.js`, `watchlist.js`, `watchlist-dials.js`, `conviction.js`, `conviction-mixin.js`,
 `markdown.js`.
