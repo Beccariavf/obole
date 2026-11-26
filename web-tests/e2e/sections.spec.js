@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { defiler } from "./defilement.js";
 
 // Refonte #16 : la fiche n'affiche qu'une section à la fois, pilotée par le
 // ruban d’onglets horizontaux (libellés lisibles) et par le deep-link `#TICKER/section`.
@@ -454,8 +455,8 @@ test("le plan de la thèse se replie et se souvient de son état (#21.2)", async
     await expect(page.locator("#thesis-plan")).toBeVisible();
     const hauteurDoc = await page.locator(".thesis-main").evaluate((el) => el.scrollHeight);
     expect(hauteurDoc).toBeGreaterThan(1000);      // il y a bien de quoi défiler
-    await page.mouse.wheel(0, 400);
-    await page.waitForTimeout(200);
+    // Défilement déterministe, attente sur condition (voir defilement.js).
+    await defiler(page, 400);
     const scrolled = await page.evaluate(() => window.scrollY);
     expect(scrolled).toBeGreaterThan(0);
     // L'onglet est toujours épinglé au bord droit, à hauteur de fenêtre.
@@ -504,13 +505,11 @@ test("coquille : le rail est sticky, actif par espace, et Paramètres est en pie
   // l'écran, même quand la page continue de descendre. Mesurer avant le premier
   // défilement comparerait la position de flux à la position collée — deux états
   // différents, et un écart de `top` attendu.
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(200);
+  await defiler(page, 600);
   const colle = await page.locator(".app-rail").boundingBox();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect(colle.y).toBeGreaterThanOrEqual(0);
-  await page.mouse.wheel(0, 400);
-  await page.waitForTimeout(200);
+  await defiler(page, 400);
   const colle2 = await page.locator(".app-rail").boundingBox();
   expect(Math.abs(colle2.y - colle.y)).toBeLessThanOrEqual(1);
   expect(colle2.y).toBeGreaterThanOrEqual(0);
@@ -708,12 +707,10 @@ test("espaces : la vue défile avec le document, sans hauteur imposée", async (
   if (defilable) {
     // On mesure APRÈS le premier défilement : avant, le rail est encore à sa
     // position de flux (20 px de padding de page), pas encore collé à 16 px.
-    await page.mouse.wheel(0, 600);
-    await page.waitForTimeout(200);
+    await defiler(page, 600);
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const colle = await page.locator(".app-rail").boundingBox();
-    await page.mouse.wheel(0, 400);
-    await page.waitForTimeout(200);
+    await defiler(page, 400);
     const encore = await page.locator(".app-rail").boundingBox();
     expect(Math.round(encore.y), "rail collé pendant le défilement de la vue").toBe(
       Math.round(colle.y),
@@ -783,8 +780,7 @@ test("espaces : ouvrir une vue repart du haut, re-cliquer ne détruit rien", asy
   //    écran, mesuré à y = −568).
   await page.locator(".app-rail-btn[data-space='settings']").click();
   await expect(page.locator(".app-view.view-settings")).toBeVisible();
-  await page.mouse.wheel(0, 500);
-  await page.waitForTimeout(200);
+  await defiler(page, 500);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
   await page.locator(".app-rail-btn[data-space='watchlist']").click();
