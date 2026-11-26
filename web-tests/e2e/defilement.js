@@ -20,8 +20,41 @@ export async function attendreDefilementStable(page) {
     .toBe(true);
 }
 
+// Mise en page posée : hauteur du document identique à 200 ms d'écart. Un clic
+// d'ancre ou un défilement lancé pendant qu'une vue se remplit encore vise une
+// position qui bouge ensuite (CI : titre d'ancre décalé sous l'en-tête).
+export async function attendreMiseEnPageStable(page) {
+  await expect
+    .poll(async () => {
+      const h = await page.evaluate(() => document.documentElement.scrollHeight);
+      await new Promise((r) => setTimeout(r, 200));
+      return h === (await page.evaluate(() => document.documentElement.scrollHeight));
+    })
+    .toBe(true);
+}
+
 // Fait défiler le document de `dy` px puis rend la main une fois immobile.
+// `scrollTo(y0 + dy)` est IDEMPOTENT : on peut le rejouer tant que la vue n'est
+// pas encore assez haute pour défiler (CI : `scrollY` resté à 0 sur une vue
+// Paramètres encore vide). Déjà en bas de page au départ : rien à faire, c'est
+// au test de juger la position.
 export async function defiler(page, dy) {
-  await page.evaluate((d) => window.scrollBy(0, d), dy);
+  await attendreMiseEnPageStable(page);
+  const y0 = await page.evaluate(() => window.scrollY);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ([depart, d]) => {
+            const max = document.documentElement.scrollHeight - window.innerHeight;
+            if (depart >= max - 1) return true;
+            window.scrollTo(0, depart + d);
+            return window.scrollY !== depart;
+          },
+          [y0, dy],
+        ),
+      { message: `le document n'a pas défilé de ${dy} px depuis ${y0}` },
+    )
+    .toBe(true);
   await attendreDefilementStable(page);
 }

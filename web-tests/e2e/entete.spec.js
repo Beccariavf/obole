@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { attendreDefilementStable, defiler } from "./defilement.js";
+import { attendreDefilementStable, attendreMiseEnPageStable, defiler } from "./defilement.js";
 
 // En-tête de l'espace Analyse (recherche collante + onglets collés dessous) et
 // grille de cartes sans colonne orpheline.
@@ -533,6 +533,9 @@ async function ancresSousEntete(page) {
   const lien = page.locator(".md-toc-item").nth(1);
   await expect(lien).toHaveCount(1);
   {
+    // La fiche finit de se remplir (graphes, polices) : un clic d'ancre lancé
+    // avant viserait une position qui bouge ensuite.
+    await attendreMiseEnPageStable(page);
     const yAvant = await page.evaluate(() => window.scrollY);
     await lien.click();
     // Défilement doux : on attend qu'il ait BOUGÉ puis qu'il soit STABLE (deux
@@ -546,7 +549,10 @@ async function ancresSousEntete(page) {
     );
     // Aucun titre visible ne doit être coincé SOUS l'en-tête (0 < top < entete).
     const coinces = tops.filter((t) => t > 0 && t < entete - 1);
-    expect(coinces, `titre(s) coincé(s) sous l'en-tête : ${coinces}`).toEqual([]);
+    expect(
+      coinces,
+      `titre(s) coincé(s) sous l'en-tête (${entete} px) : ${coinces} — tous : ${tops}`,
+    ).toEqual([]);
   }
 }
 
