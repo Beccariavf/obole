@@ -363,5 +363,34 @@ export const riskMixin = {
       },
       { displayModeBar: false, responsive: true },
     );
+    this._riskObserve(node);
+  },
+
+  // Ouverture directe par lien (`#X/risque`) : au premier chargement à froid, le
+  // tracé peut lire une largeur provisoire (mise en page pas finie), et
+  // `responsive: true` n'écoute que `window.resize`. On observe donc le
+  // conteneur et on ajuste le tracé dès que sa largeur réelle change — un seul
+  // observateur, rebranché si le nœud change.
+  _riskObserve(node) {
+    if (typeof ResizeObserver === "undefined" || !node) return;
+    if (this._riskObs && this._riskObsNode === node) return;
+    if (this._riskObs) this._riskObs.disconnect();
+    let lastW = node.clientWidth;
+    this._riskObs = new ResizeObserver((entries) => {
+      const w = entries?.[0]?.target?.clientWidth || 0;
+      if (!w || Math.abs(w - lastW) < 1) return; // anti-boucle
+      lastW = w;
+      const run = () => {
+        try {
+          Plotly.Plots.resize(node);
+        } catch {
+          /* tracé purgé entre-temps */
+        }
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+      else run();
+    });
+    this._riskObsNode = node;
+    this._riskObs.observe(node);
   },
 };
