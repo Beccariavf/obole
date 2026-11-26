@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { defiler } from "./defilement.js";
 
 // UX #13 : parcours du screener SANS scan réseau. On intercepte
 // `POST /api/screener/run` pour renvoyer une charge déterministe : le test
@@ -318,12 +319,11 @@ test("screener : l'en-tête du tableau reste accroché pendant le défilement (v
   // disparaîtrait alors au premier défilement, sans rien pour le signaler.
   const seal = vue.locator(".screen-table thead th").first();
   await expect(seal).toHaveText("Entreprise");
-  await page.mouse.wheel(0, 900);
-  await page.waitForTimeout(250);
+  // Défilement déterministe, attente sur condition (voir defilement.js).
+  await defiler(page, 900);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   const colle = await seal.boundingBox();
-  await page.mouse.wheel(0, 400);
-  await page.waitForTimeout(250);
+  await defiler(page, 400);
   const encore = await seal.boundingBox();
   expect(Math.round(encore.y), "en-tête de tableau accroché").toBe(Math.round(colle.y));
   expect(Math.abs(Math.round(colle.y) - 16), "accroché à --head-top").toBeLessThanOrEqual(1);
