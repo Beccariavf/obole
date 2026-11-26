@@ -3,8 +3,8 @@ export const C = {
   accent: "#2563EB", good: "#2563EB", bad: "#DC2626", neutral: "#6B7280",
   goodFill: "rgba(37,99,235,.10)", badFill: "rgba(220,38,38,.08)",
   grid: "#EEF1F5", text: "#6B7280", ma1: "#F59E0B", ma2: "#7C3AED",
-  // Teinte « terre de sienne » : série Dividende/Action (calculatrice de prix
-  // juste). Sortie des littéraux pour rester dans la charte centralisée.
+  // Teinte « terre de sienne » : indice de consensus de la calculatrice de
+  // prix juste (`.val-forecast`). Le dividende du graphe #34 est en `teal`.
   brown: "#B45309",
   // 2e couleur de la palette catégorielle unifiée (cf. conventions projet) :
   // sert les séries secondaires (rachats, 2e ligne de ratios) sans rouge ni vert.

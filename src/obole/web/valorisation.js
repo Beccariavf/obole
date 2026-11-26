@@ -40,13 +40,15 @@ function round2(v) {
 
 // Statut de l'en-tête : cours vs valorisation courante. La valorisation n'est
 // lue que si la métrique courante est strictement positive (`latestOk`) ; un
-// multiple d'entreprise n'en produit aucune. Au-delà de `gapRatioLimit` points
-// d'écart, le statut s'écrit en multiple (« cours ×N ») plutôt qu'en pourcentage.
+// multiple d'entreprise n'en produit aucune, une métrique absente non plus.
+// Au-delà de `gapRatioLimit` points d'écart, le statut s'écrit en multiple
+// (« cours ×N ») plutôt qu'en pourcentage ; un écart nul est neutre.
 export function valuationStatus({
-  price, valoNow, latestOk, isEnterprise, label, gapRatioLimit,
+  price, valoNow, latest, latestOk, isEnterprise, label, gapRatioLimit,
 }) {
   const base = { valoNow: null, gapPct: null, ratio: null, big: false, good: null, reason: null, label };
   if (isEnterprise) return { ...base, reason: "enterprise" };
+  if (latest == null) return { ...base, reason: "absent" };
   if (!latestOk) return { ...base, reason: "negative" };
   if (valoNow == null || !(valoNow > 0) || price == null || !(price > 0)) {
     return { ...base, reason: "none" };
@@ -59,7 +61,7 @@ export function valuationStatus({
     gapPct,
     ratio,
     big: Number.isFinite(limit) && Math.abs(gapPct) > limit,
-    good: gapPct < 0,
+    good: gapPct === 0 ? null : gapPct < 0,
     reason: null,
     label,
   };
@@ -195,26 +197,30 @@ export function spreadPills(items, { yMax, heightPx, minGapPx = 16 }) {
 
 // Pastilles de la colonne de droite : scénario central (ambre) et, si la couche
 // Scénarios est allumée et que l'éventail tient dans le cadre, ses deux bornes
-// (grises). Une valeur au-delà de `yMax` est collée sous le plafond ; son texte
-// porte le préfixe « ↑ » (construit par l'appelant).
+// (grises). Les deux bornes vont ensemble : sans pessimiste (multiple ≤ 0) il
+// n'y a pas d'éventail, donc aucune pastille orpheline. Une valeur au-delà de
+// `yMax` est collée sous le plafond ; son texte porte le préfixe « ↑ ».
 export function valuationPillItems({
   central, optimistic, pessimistic, showFan, fanFits, yMax, heightPx, minGapPx = 16,
 }) {
   const raw = [];
   const clip = (v) => (yMax != null ? Math.min(v, yMax * 0.97) : v);
   if (central != null) raw.push({ key: "central", value: central, y: clip(central) });
-  if (showFan && fanFits) {
+  if (showFan && fanFits && pessimistic != null) {
     if (optimistic != null) raw.push({ key: "optimistic", value: optimistic, y: clip(optimistic) });
-    if (pessimistic != null) raw.push({ key: "pessimistic", value: pessimistic, y: clip(pessimistic) });
+    raw.push({ key: "pessimistic", value: pessimistic, y: clip(pessimistic) });
   }
   return spreadPills(raw, { yMax, heightPx, minGapPx });
 }
 
 // Bâtons du dividende/action : une barre par année civile de la fenêtre. La
-// année civile EN COURS (divide versé partiellement) est un bâton CREUX — fond
-// blanc, bord vert — pour ne pas la comparer aux exercices complets.
-export function dividendBars(perShare, { years, currentYear }) {
+// fenêtre est celle du graphe (`startDate`) : une barre datée du 1er juillet
+// antérieure au début de l'axe serait invisible, donc elle est écartée. La
+// année civile EN COURS (dividende partiel) est un bâton CREUX — fond blanc,
+// bord vert — pour ne pas la comparer aux exercices complets.
+export function dividendBars(perShare, { years, currentYear, startDate = null }) {
   const empty = { has: false, x: [], y: [], current: [] };
+  const cutoff = startDate || `${currentYear - years}-01-01`;
   const entries = Object.entries(perShare || {})
     .map(([year, value]) => [Number(year), Number(value)])
     .filter(([year, value]) => (
@@ -222,7 +228,7 @@ export function dividendBars(perShare, { years, currentYear }) {
       Number.isFinite(value) &&
       value > 0 &&
       year <= currentYear &&
-      year >= currentYear - years
+      `${year}-07-01` >= cutoff
     ))
     .sort((a, b) => a[0] - b[0]);
   if (!entries.length) return empty;
@@ -234,9 +240,10 @@ export function dividendBars(perShare, { years, currentYear }) {
   };
 }
 
-// Pied de carte : CAGR du cours sur la fenêtre, de la métrique depuis son
-// premier exercice, du dividende sur ses années COMPLÈTES (l'année en cours est
-// exclue). `cagr == null` = non calculable, affiché « — » par l'appelant.
+// Pied de carte : trois CAGR TOUJOURS présents — cours sur la fenêtre, métrique
+// depuis son premier exercice, dividende sur ses années COMPLÈTES (l'année en
+// cours est exclue). `cagr == null` = non calculable, affiché « — » par
+// l'appelant : une ligne absente cacherait une donnée manquante.
 export function valuationCagrRows({
   dates, priceSeries, metricSeries, dividendPerShare, fromIndex, windowYears,
   currentYear, isEnterprise, metricLabel,
@@ -249,7 +256,9 @@ export function valuationCagrRows({
     cagr: cagrFromSeries(dates.slice(i0), (priceSeries || []).slice(i0)),
     span: `sur ${windowYears} ans`,
   }];
-  if (!isEnterprise) {
+  if (isEnterprise) {
+    rows.push({ key: "metric", label: metricLabel, cagr: null, span: "" });
+  } else {
     let first = null;
     for (let i = 0; i < (metricSeries || []).length; i++) {
       if (metricSeries[i] != null && metricSeries[i] > 0) { first = dates[i]; break; }
@@ -270,28 +279,26 @@ export function valuationCagrRows({
       dividendPerShare[year] != null
     ))
     .sort((a, b) => a - b);
-  if (completeYears.length) {
-    const byYear = {};
-    for (const year of completeYears) byYear[year] = dividendPerShare[year];
-    rows.push({
-      key: "dividend",
-      label: "Dividende",
-      cagr: cagrFromYearMap(byYear),
-      span: completeYears.length > 1
-        ? `sur ${completeYears[completeYears.length - 1] - completeYears[0]} ans`
-        : "",
-    });
-  }
+  const byYear = {};
+  for (const year of completeYears) byYear[year] = dividendPerShare[year];
+  rows.push({
+    key: "dividend",
+    label: "Dividende",
+    cagr: completeYears.length ? cagrFromYearMap(byYear) : null,
+    span: completeYears.length > 1
+      ? `sur ${completeYears[completeYears.length - 1] - completeYears[0]} ans`
+      : "",
+  });
   return rows;
 }
 
-// Notes factuelles sous le graphe (texte discret) : métrique négative, multiple
-// d'entreprise, projection hors cadre, étage dividende absent.
+// Notes factuelles sous le graphe (texte discret) : métrique négative ou
+// absente, multiple d'entreprise, projection hors cadre, étage dividende absent.
 export function valuationNotes({
-  isEnterprise, latestOk, hasValo, central, yMax, hasDividends, years,
+  isEnterprise, latest, latestOk, hasValo, central, yMax, hasDividends, years,
 }) {
   const notes = [];
-  if (!latestOk && hasValo) notes.push({ key: "negative" });
+  if (!latestOk && hasValo) notes.push({ key: latest == null ? "absent" : "negative" });
   if (!hasValo) notes.push({ key: isEnterprise ? "enterprise" : "empty" });
   if (central != null && yMax != null && central > yMax) {
     notes.push({ key: "out-of-frame", value: central });
@@ -755,10 +762,11 @@ export const valorisationMixin = {
       return null;
     }
     const key = [
-      this.data?.identity?.ticker, def.key, def.latest, this.valPeriod, this.valGrowth,
+      this.data?.identity?.ticker, this.data?.identity?.last_price,
+      def.key, def.latest, this.valPeriod, this.valMedian(), this.valGrowth,
       this.valMultiple, this.valTarget, this.valIncludeDividends,
       chart.dates.length, chart.dates[chart.dates.length - 1],
-      Object.keys(calc.dividend_per_share || {}).length,
+      JSON.stringify(calc.dividend_per_share || {}),
     ].join("|");
     if (this._valChartKey === key && this._valChartCache) return this._valChartCache;
 
@@ -769,8 +777,10 @@ export const valorisationMixin = {
     const median = this.valMedian();
     const isEnterprise = !!def.enterprise;
     const metric = chart[this._seriesKeyFor(def)] || null;
-    const windowYears = Number(cfg.years) || 10;
-    const horizonYears = Number(VALUATION_HORIZON_YEARS) || 5;
+    // Les défauts viennent de `thresholds.js` (lui-même nourri par config.py) :
+    // aucun nombre de repli n'est recopié ici.
+    const windowYears = Number(cfg.years);
+    const horizonYears = Number(VALUATION_HORIZON_YEARS);
     const lastDate = dates[dates.length - 1];
     const horizonDate = this._addYears(lastDate, horizonYears);
     const startDate = this._addYears(lastDate, -windowYears);
@@ -795,20 +805,35 @@ export const valorisationMixin = {
       growthSpan: cfg.fan_growth_span,
       multipleSpan: cfg.fan_multiple_span,
     });
+    // L'échelle ne regarde que la fenêtre affichée : une valorisation d'il y a
+    // 15 ans, invisible, ne doit pas écraser l'axe.
+    let valoFrom = hasValo ? valo.x.findIndex((d) => d >= dates[fromIndex]) : -1;
+    if (valoFrom < 0) valoFrom = 0;
     const scale = valuationScale({
       prices: priceSeries.slice(fromIndex),
-      valuationY: hasValo ? valo.y : [],
+      valuationY: hasValo ? valo.y.slice(valoFrom) : [],
       fair,
       central: fan.central,
       yCap: cfg.y_cap,
     });
     const yMax = scale.yMax || 1;
-    const fanFits = !!(fan.optimistic != null && fan.central != null && fan.central <= yMax);
+    // L'éventail n'existe que si les DEUX bornes existent (un multiple
+    // pessimiste ≤ 0 le supprime) et que le central tient dans le cadre.
+    const fanFits = !!(
+      fan.central != null &&
+      fan.optimistic != null &&
+      fan.pessimistic != null &&
+      fan.central <= yMax
+    );
     const corridor = hasValo
       ? valuationCorridor({ dates, price: priceSeries, valo, latestOk })
       : null;
     const currentYear = new Date(lastDate).getFullYear();
-    const dividends = dividendBars(calc.dividend_per_share, { years: windowYears, currentYear });
+    const dividends = dividendBars(calc.dividend_per_share, {
+      years: windowYears,
+      currentYear,
+      startDate,
+    });
     const height = Number(CHART_HEIGHTS.valuation_hero) || Number(CHART_HEIGHTS.hero) || 560;
     const margin = { l: 50, r: 70, t: 22, b: 26 };
     const cagr = valuationCagrRows({
@@ -824,6 +849,7 @@ export const valorisationMixin = {
     });
     const notes = valuationNotes({
       isEnterprise,
+      latest: def.latest,
       latestOk,
       hasValo,
       central: fan.central,
@@ -834,6 +860,7 @@ export const valorisationMixin = {
     const status = valuationStatus({
       price,
       valoNow,
+      latest: def.latest,
       latestOk,
       isEnterprise,
       label: def.label,
@@ -859,23 +886,21 @@ export const valorisationMixin = {
     const currency = this.data?.identity?.currency || "";
     const priceText = m.price == null ? "—" : `${this.fmt(m.price)} ${currency}`.trim();
     const st = m.status;
-    if (st.reason === "negative") {
+    if (st.reason === "absent" || st.reason === "negative") {
       return {
         lead: `Cours ${priceText}`,
-        text: ` · valorisation non calculable (${m.def.label} négatif)`,
+        text: ` · valorisation non calculable (${m.def.label} ${st.reason === "absent" ? "absent" : "négatif"})`,
         kind: "",
       };
     }
     if (st.gapPct == null) return { lead: `Cours ${priceText}`, text: "", kind: "" };
+    const lead = `Cours ${priceText} · valorisation ${this.fmt(st.valoNow)}`;
+    if (st.gapPct === 0) return { lead, text: " · à sa valorisation", kind: "" };
     const direction = st.gapPct < 0 ? "sous" : "sur";
     const text = st.big
       ? `${direction}-évalué (cours ×${this.fmt(st.ratio)})`
       : `${direction}-évalué de ${this.fmt(Math.abs(st.gapPct))} %`;
-    return {
-      lead: `Cours ${priceText} · valorisation ${this.fmt(st.valoNow)}`,
-      text: ` · ${text}`,
-      kind: st.good ? "good" : "bad",
-    };
+    return { lead, text: ` · ${text}`, kind: st.good ? "good" : "bad" };
   },
 
   // Pastilles fixes et bascules disponibles : une pastille n'existe que si sa
@@ -888,7 +913,9 @@ export const valorisationMixin = {
       valo: m.hasValo
         ? `Valorisation · ${m.def.label} × ${m.def.multiple} ${this.fmt(m.median)}`
         : "",
-      scenarios: m.fan.central != null,
+      // La bascule Scénarios n'existe que si l'éventail est réellement traçable
+      // (les deux bornes existent et le central tient dans le cadre).
+      scenarios: !!m.fanFits,
       dividends: m.dividends.has,
     };
   },
@@ -913,10 +940,15 @@ export const valorisationMixin = {
         if (note.key === "negative") {
           return `${m.def.label} négatif : valorisation et prix juste non calculables ; la courbe s'arrête au dernier exercice positif.`;
         }
+        if (note.key === "absent") {
+          return `${m.def.label} absent : valorisation et prix juste non calculables ; la courbe s'arrête au dernier exercice positif.`;
+        }
         if (note.key === "enterprise") {
           return "EV/EBITDA est un multiple d'entreprise : pas de courbe de valorisation ni de couloir.";
         }
-        if (note.key === "empty") return "Métrique négative ou absente : pas de valorisation tracée.";
+        if (note.key === "empty") {
+          return "Pas de valorisation tracée : métrique ou multiple indisponible.";
+        }
         if (note.key === "out-of-frame") {
           return `Projection hors cadre (${this.fmt(note.value)}) : croissance retenue ${this.fmt(m.growth)} %/an.`;
         }
@@ -1137,10 +1169,15 @@ export const valorisationMixin = {
     this._valObs.observe(node);
   },
 
-  // Ajoute `years` années à une date ISO (fin de l'axe de projection).
+  // Ajoute `years` années à une date ISO (fin de l'axe de projection). Les
+  // fractions sont converties en mois (0,6 an = 7 mois) : `setFullYear` seul
+  // les tronquait, et la marge droite de l'axe était un no-op.
   _addYears(iso, years) {
     const d = new Date(iso);
-    d.setFullYear(d.getFullYear() + years);
+    const whole = Math.trunc(years);
+    d.setFullYear(d.getFullYear() + whole);
+    const months = Math.round((years - whole) * 12);
+    if (months) d.setMonth(d.getMonth() + months);
     return d.toISOString().slice(0, 10);
   },
 

@@ -11,8 +11,8 @@
   --neutral: #6B7280;
   --text: #111827;
   --text-soft: #6B7280;
-  /* Teinte « terre de sienne » : série Dividende/Action de la calculatrice de
-     prix juste. Miroir du token `C.brown` de theme.js (charte centralisée). */
+  /* Teinte « terre de sienne » : indice de consensus de la calculatrice de prix
+     juste. Miroir du token `C.brown` de theme.js (charte centralisée). */
   --brown: #B45309;
   /* Graphe « Prix et valorisation » (#34) : ambre de la valorisation et vert de
      catégorie du dividende. Miroirs des tokens `C.valo` et `C.teal`. */
@@ -1492,7 +1492,7 @@ select.pf-ctl {
 .val-layer .val-sw-corridor { background: linear-gradient(90deg, rgba(37, 99, 235, .25) 50%, rgba(220, 38, 38, .22) 50%); }
 .val-layer .val-sw-scenarios { background: rgba(217, 119, 6, .18); border: 1px dashed var(--valo); }
 .val-layer .val-sw-dividend { background: var(--teal); }
-.val-toggle { background: none; cursor: pointer; }
+.val-toggle { background: none; cursor: pointer; font-family: inherit; }
 .val-toggle:hover { border-color: var(--border); }
 .val-toggle.on { border-color: #BFD3FE; background: var(--good-bg); color: #1E3A8A; }
 
