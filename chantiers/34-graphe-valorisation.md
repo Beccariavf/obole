@@ -104,15 +104,15 @@ dans un étage dédié).
 
 ## 5. Critères d'acceptation
 
-- [ ] Sur LVMH, la carte montre la ligne de statut, le couloir, le scénario central à 638 €,
+- [x] Sur LVMH, la carte montre la ligne de statut, le couloir, le scénario central à 638 €,
       le prix juste 422 € sur « aujourd'hui » et les bâtons de dividende (2026 creux).
-- [ ] Sur Ubisoft : « valorisation non calculable », courbe arrêtée au dernier exercice
+- [x] Sur Ubisoft : « valorisation non calculable », courbe arrêtée au dernier exercice
       positif, pas d'étage dividende.
-- [ ] Sur Kering : « sur-évalué (cours ×14,5) », pastille « ↑ 8 353 », pas d'éventail, note
+- [x] Sur Kering : « sur-évalué (cours ×14,5) », pastille « ↑ 8 353 », pas d'éventail, note
       hors cadre ; l'échelle reste lisible.
-- [ ] Base EV/EBITDA : ni valorisation, ni couloir, ni statut ; aucune erreur console.
-- [ ] Les trois bascules allument/éteignent leur couche sans requête réseau.
-- [ ] Vitest : helpers purs (séries, statut, éventail, échelle, pastilles, dividendes) ;
+- [x] Base EV/EBITDA : ni valorisation, ni couloir, ni statut ; aucune erreur console.
+- [x] Les trois bascules allument/éteignent leur couche sans requête réseau.
+- [x] Vitest : helpers purs (séries, statut, éventail, échelle, pastilles, dividendes) ;
       e2e mis à jour ; portes « Before push » vertes.
 
 ## 6. Invariants préservés
@@ -131,3 +131,15 @@ dans un étage dédié).
 
 - Maquette de référence (hors dépôt) éprouvée sur dix titres ; plan délégué à OpenCode.
 - Branche : `feat/graphe-valorisation`.
+- **J1 livré** (session #34) : carte à couches, cinq constantes dans `config.py` servies
+  par `/api/meta`, helpers purs exportés et testés (`web-tests/valuation-chart.test.js`),
+  e2e valorisation mis à jour, `design.md`. Preuve sur base jetable (`OBOLE_CACHE_DB`,
+  port ≠ 8000) : **MC.PA** — statut « sous-évalué de 25,58 % », couloir, scénario central
+  356,86, prix juste 235,04 posé sur « aujourd'hui », 11 bâtons de dividende dont 2026
+  creux ; **UBI.PA** — « valorisation non calculable », courbe arrêtée au dernier exercice
+  positif, pas d'étage dividende ; **KER.PA** — « sur-évalué (cours ×14,51) », pastille
+  « ↑ 8 353,44 », éventail absent même couche allumée, note hors cadre ; **EV/EBITDA**
+  (MC.PA) — ni valorisation, ni couloir, ni statut. Aucune erreur console. Les montants
+  638 €/422 € de la maquette datent d'un consensus antérieur : la structure est identique,
+  les valeurs suivent les saisies courantes de la calculatrice.
+- Reste : revue indépendante, puis PR draft (hors périmètre de cette session).
