@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { attendreDefilementStable, molette } from "./defilement.js";
+import { attendreDefilementStable, defiler } from "./defilement.js";
 
 // En-tête de l'espace Analyse (recherche collante + onglets collés dessous) et
 // grille de cartes sans colonne orpheline.
@@ -93,8 +93,8 @@ test("en-tête : la recherche et les onglets collent, l'identité défile", asyn
 
   // On défile assez pour que l'identité du titre ET les onglets aient quitté le
   // haut de page si rien ne collait.
-  // Molette depuis le contenu, attente sur condition (voir defilement.js).
-  await molette(page, 900);
+  // Défilement déterministe, attente sur condition (voir defilement.js).
+  await defiler(page, 900);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 
   const pos = await page.evaluate(() => {
@@ -450,11 +450,9 @@ async function stickyNonRecouverts(page) {
     await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
-    // Défilement programmatique : on teste la position COLLÉE, pas la molette.
-    // En WebKit CI à 1100×600, `mouse.wheel(0, 600)` ne déplaçait le document
-    // que de 57 px : le plan restait sous le pli, jamais collé.
-    await page.evaluate(() => window.scrollBy(0, 900));
-    await attendreDefilementStable(page);
+    // Défilement déterministe (voir defilement.js) : on teste la position
+    // COLLÉE, pas la molette.
+    await defiler(page, 900);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");
