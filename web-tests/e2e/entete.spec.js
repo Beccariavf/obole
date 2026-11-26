@@ -55,6 +55,28 @@ export const mesurerVide = (page) =>
     return out;
   });
 
+// Thèse jetable pour les tests qui mesurent le plan et les ancres. La CI part
+// d'une base neuve où AUCUNE thèse n'existe (règle testing.md : un e2e ne
+// présuppose jamais une base existante). Il faut ≥ 3 titres (le plan doit en
+// lister plus de 2), assez de texte pour défiler, et du texte ENTRE chaque
+// titre : deux titres collés font passer le précédent sous l'en-tête quand on
+// vise le suivant, ce qui fausserait la mesure des ancres. Renvoie la restauration.
+async function semerThese(request) {
+  const remplissage = "Paragraphe de remplissage pour rendre le document long. ";
+  const MEMO =
+    "# Thèse\n\n" + remplissage.repeat(40) + "\n\n## Pitch\n\n" + remplissage.repeat(40) +
+    "\n\n## Bull case\n\n" + remplissage.repeat(40) +
+    "\n\n## Bear case\n\n" + remplissage.repeat(40) + "\n";
+  const avant = await request.get("/api/thesis/RI.PA");
+  const precedent = avant.ok() ? (await avant.json()).content : null;
+  const ecrit = await request.put("/api/thesis/RI.PA", { data: { content: MEMO } });
+  expect(ecrit.ok(), "fixture de thèse non enregistrée").toBe(true);
+  return async () => {
+    if (precedent !== null) await request.put("/api/thesis/RI.PA", { data: { content: precedent } });
+    else await request.delete("/api/thesis/RI.PA");
+  };
+}
+
 test("en-tête : la recherche et les onglets collent, l'identité défile", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/#RI.PA/quantitatif");
@@ -70,9 +92,14 @@ test("en-tête : la recherche et les onglets collent, l'identité défile", asyn
 
   // On défile assez pour que l'identité du titre ET les onglets aient quitté le
   // haut de page si rien ne collait.
+  // La molette part du CONTENU (centre de la zone principale) : laissée en
+  // (0, 0), elle tombe sur le rail, qui défile sur lui-même, et WebKit ne fait
+  // alors pas défiler le document. Le défilement est asynchrone : on attend la
+  // condition plutôt qu'un délai fixe.
+  const main = await page.locator(".app-main").boundingBox();
+  await page.mouse.move(main.x + main.width / 2, 450);
   await page.mouse.wheel(0, 900);
-  await page.waitForTimeout(250);
-  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 
   const pos = await page.evaluate(() => {
     const b = (s) => document.querySelector(s).getBoundingClientRect();
@@ -367,7 +394,19 @@ test("grille : paliers responsives sans débordement horizontal", async ({ page 
   }
 });
 
-test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", async ({ page }) => {
+test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", async ({
+  page,
+  request,
+}) => {
+  const restaurer = await semerThese(request);
+  try {
+    await stickyNonRecouverts(page);
+  } finally {
+    await restaurer();
+  }
+});
+
+async function stickyNonRecouverts(page) {
   // Cette famille de régressions (plan de thèse, barre markdown) est passée
   // parce qu'aucun test ne regardait les AUTRES `sticky` de la fiche. On les
   // sonde tous : un élément collé est « atteignable » si `elementFromPoint` à son
@@ -415,8 +454,11 @@ test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", as
     await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
+    // Molette depuis le contenu (pas le rail), puis attente sur condition.
+    const main = await page.locator(".app-main").boundingBox();
+    await page.mouse.move(main.x + main.width / 2, h / 2);
     await page.mouse.wheel(0, 600);
-    await page.waitForTimeout(400);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");
@@ -439,9 +481,18 @@ test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", as
       2,
     );
   }
+}
+
+test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ page, request }) => {
+  const restaurer = await semerThese(request);
+  try {
+    await ancresSousEntete(page);
+  } finally {
+    await restaurer();
+  }
 });
 
-test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ page }) => {
+async function ancresSousEntete(page) {
   // `scrollIntoView({block:'start'})` plaquait le titre à 0 : recouvert par les
   // deux rangs (mesuré : 36 px sur « Synthèse », −107 px sur « Fondement »). Le
   // `scroll-margin-top` doit égaler la hauteur de l'en-tête.
@@ -463,10 +514,23 @@ test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ p
   expect(margin, "scroll-margin-top absent").toBe(entete);
 
   // Clic sur une ancre réelle du sommaire, puis mesure de l'atterrissage.
+  // La fixture sème plusieurs titres : le sommaire DOIT offrir une 2e ancre
+  // (sans elle, la mesure d'atterrissage ne prouverait rien).
   const lien = page.locator(".md-toc-item").nth(1);
-  if (await lien.count()) {
+  await expect(lien).toHaveCount(1);
+  {
+    const yAvant = await page.evaluate(() => window.scrollY);
     await lien.click();
-    await page.waitForTimeout(900);
+    // Défilement doux : on attend qu'il ait BOUGÉ puis qu'il soit STABLE (deux
+    // lectures identiques à 200 ms), jamais un délai fixe.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(yAvant);
+    await expect
+      .poll(async () => {
+        const a = await page.evaluate(() => window.scrollY);
+        await new Promise((r) => setTimeout(r, 200));
+        return a === (await page.evaluate(() => window.scrollY));
+      })
+      .toBe(true);
     const tops = await page.evaluate(() =>
       [...document.querySelectorAll(".md-body h1, .md-body h2")].map((h) =>
         Math.round(h.getBoundingClientRect().top),
@@ -476,7 +540,7 @@ test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ p
     const coinces = tops.filter((t) => t > 0 && t < entete - 1);
     expect(coinces, `titre(s) coincé(s) sous l'en-tête : ${coinces}`).toEqual([]);
   }
-});
+}
 
 test("le champ de recherche ne descend pas sous sa largeur de saisie", async ({ page }) => {
   // Un libellé de retour long écrasait le champ jusqu'à 203 px (mesuré) : sous
