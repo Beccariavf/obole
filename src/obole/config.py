@@ -1220,6 +1220,7 @@ CHART_HEIGHT_PORTFOLIO_DIV_CONC = (
 CHART_HEIGHT_PORTFOLIO_DIV_CONC_ROW = 34  # hauteur d'une barre + son espacement
 CHART_HEIGHT_PORTFOLIO_DIV_CONC_PAD = 40  # marges haute et basse du tracé
 CHART_HEIGHT_DETAIL = 420  # modale de zoom plein écran
+CHART_HEIGHT_RISK = 420  # deux étages empilés de la section Risque & dynamique (#33)
 
 # --- Recherche : priorité des bourses principales (vs OTC/pink sheets) ------
 # Plus l'indice est petit, plus l'exchange est prioritaire dans les suggestions.

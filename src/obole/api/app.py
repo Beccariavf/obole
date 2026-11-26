@@ -28,7 +28,12 @@ from obole.services import portfolio as portfolio_service
 from obole.services import screener as screener_service
 from obole.services import thesis as thesis_service
 from obole.services import watchlist as watchlist_service
-from obole.services.analysis import analyze_ratio_tickers, analyze_ticker, summarize_indices
+from obole.services.analysis import (
+    analyze_ratio_tickers,
+    analyze_ticker,
+    benchmark_prices,
+    summarize_indices,
+)
 from obole.services.checkpoints import CheckpointNotFound
 from obole.services.indices import IndexNotFound
 from obole.services.serialize import (
@@ -132,7 +137,7 @@ def get_stock(ticker: str) -> dict:
     except ValueError as exc:  # historique trop court, etc.
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    payload = analysis_to_dict(analysis, prices)
+    payload = analysis_to_dict(analysis, prices, benchmark=benchmark_prices())
     # État watchlist (#25) ajouté ICI, jamais dans `analyze()` : c'est de l'état
     # utilisateur, pas de l'analyse (le payload MCP de la thèse reste propre).
     return watchlist_service.decorate_stock_payload(payload, analysis.identity.ticker, prices)
@@ -185,7 +190,7 @@ def get_index(index_id: int) -> dict:
     except ValueError as exc:  # panier trop court, membre sans prix…
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    return basket_to_dict(analysis, series)
+    return basket_to_dict(analysis, series, benchmark=benchmark_prices())
 
 
 @app.post("/api/index/{index_id}/refresh")
@@ -718,6 +723,17 @@ def get_meta() -> dict:
         "markowitz": {
             "table_windows": list(config.MARKOWITZ_TABLE_WINDOWS),
         },
+        # Section « Risque & dynamique » (#33) : fenêtres, centile d'anomalie et
+        # benchmark sont lus par le front. Aucun seuil littéral dans risk.js.
+        "risk": {
+            "vol_window": config.RISK_VOL_WINDOW,
+            "vol_anomaly_pctile": config.RISK_VOL_ANOMALY_PCTILE,
+            "vol_min_points": config.RISK_VOL_MIN_POINTS,
+            "mom_lookback": config.RISK_MOM_LOOKBACK,
+            "mom_skip": config.RISK_MOM_SKIP,
+            "benchmark": config.RISK_BENCHMARK,
+            "default_years": config.RISK_DEFAULT_YEARS,
+        },
         "quant_groups": config.QUANT_GROUPS,
         "dividend_groups": config.DIVIDEND_GROUPS,
         # Page Dividende du PORTEFEUILLE (#17.5) : taxonomie des tuiles KPI,
@@ -753,6 +769,7 @@ def get_meta() -> dict:
             "portfolio_div_conc_row": config.CHART_HEIGHT_PORTFOLIO_DIV_CONC_ROW,
             "portfolio_div_conc_pad": config.CHART_HEIGHT_PORTFOLIO_DIV_CONC_PAD,
             "detail": config.CHART_HEIGHT_DETAIL,
+            "risk": config.CHART_HEIGHT_RISK,
         },
         "metric_units": {**config.METRIC_UNITS, **config.DIVIDEND_METRIC_UNITS},
         # Taxonomie des comptes (document financier CSV) : {nom, rôle}. Union des

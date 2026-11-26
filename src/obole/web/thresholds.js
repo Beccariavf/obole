@@ -32,7 +32,7 @@ export let DIVIDEND_DEFAULT_WINDOW_YEARS = 0;
 export let DIVIDEND_MIN_WINDOW_YEARS = 0;
 // Hauteurs de tracé (standard UI, source unique config.py via /api/meta) : le CSS
 // et le layout Plotly doivent coïncider. Aucune valeur écrite en dur côté JS.
-export let CHART_HEIGHTS = { hero: 440, mini: 200, dividend_hero: 300, valuation_hero: 560, portfolio_resume: 360, portfolio_donut: 320, portfolio_drawdown: 300, portfolio_corr: 460, portfolio_corr_test: 110, portfolio_monthly: 300, portfolio_contrib: 300, portfolio_dividends: 300, portfolio_div_conc: 300, portfolio_div_conc_row: 34, portfolio_div_conc_pad: 40, detail: 420 };
+export let CHART_HEIGHTS = { hero: 440, mini: 200, dividend_hero: 300, valuation_hero: 560, portfolio_resume: 360, portfolio_donut: 320, portfolio_drawdown: 300, portfolio_corr: 460, portfolio_corr_test: 110, portfolio_monthly: 300, portfolio_contrib: 300, portfolio_dividends: 300, portfolio_div_conc: 300, portfolio_div_conc_row: 34, portfolio_div_conc_pad: 40, detail: 420, risk: 420 };
 // Taxonomie des tuiles KPI de l'onglet Dividende du PORTEFEUILLE (#17.5) :
 // source unique `config.PORTFOLIO_DIVIDEND_GROUPS` via `/api/meta`. Le front rend
 // les tuiles dans cet ordre, sans libellé ni unité en dur.
@@ -99,6 +99,10 @@ export let WATCH_MAX_ITEMS = 0;
 // Source unique `config.py` via `/api/meta` — aucun seuil en dur dans le mixin.
 // Valeur neutre tant que le payload n'est pas chargé.
 export let MARKOWITZ = { table_windows: [] };
+// Section « Risque & dynamique » (#33) : fenêtres de volatilité et de momentum,
+// centile d'anomalie, minimum d'observations, benchmark et plage par défaut.
+// Source unique `config.py` via `/api/meta` — risk.js ne réécrit aucun seuil.
+export let RISK = {};
 
 // Applique les seuils reçus de /api/meta (source unique config.py). Idempotent.
 export function applyMeta(m) {
@@ -112,6 +116,7 @@ export function applyMeta(m) {
   CORR_MIN_POINTS = m.corr_min_points || 0;
   POTENTIAL_HORIZONS = m.potential_horizons || [];
   MARKOWITZ = m.markowitz || MARKOWITZ;
+  RISK = m.risk || RISK;
   QUANT_GROUPS = m.quant_groups || [];
   DIVIDEND_GROUPS = m.dividend_groups || [];
   DIVIDEND_COLORS = m.dividend_colors || {};

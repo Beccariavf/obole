@@ -19,6 +19,9 @@ export const C = {
   // rester dans la charte centralisée.
   goodBandFill: "rgba(37,99,235,.14)",
   badBandFill: "rgba(220,38,38,.14)",
+  // Aire neutre de la section Risque & dynamique (#33) : la chute n'est ni
+  // « bonne » ni « mauvaise », elle se lit en gris/ardoise.
+  neutralFill: "rgba(107,114,128,.08)",
 };
 
 // Échelle SÉQUENTIELLE monochrome de la matrice de corrélation (section Risque

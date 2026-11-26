@@ -757,6 +757,41 @@
         </div>
       </div>
 
+      <!-- Section « Risque & dynamique » (#33) : deux étages factuels (chute
+           depuis le plus haut, volatilité 60 j). Séries précalculées serveur
+           sur la pleine résolution puis décimées ; plage propre 10 ans par
+           défaut. Aucun verdict, aucune flèche d'achat/vente. -->
+      <div class="section" x-show="activeSection === 'risque' && riskAvailable()">
+        <h2>Risque &amp; dynamique</h2>
+        <div class="card risk-card">
+          <div class="risk-toolbar">
+            <div class="period-presets" role="group" aria-label="Plage du graphique de risque">
+              <template x-for="p in riskPresets()" :key="p">
+                <button type="button" class="period-chip"
+                        :class="{ active: riskChipActive(p) }"
+                        @click="riskPreset(p)" x-text="riskPresetLabel(p)"></button>
+              </template>
+            </div>
+          </div>
+          <div class="risk-chart" id="risk-chart"></div>
+          <div class="risk-lines">
+            <p class="risk-line" x-text="riskDrawdownText()"></p>
+            <p class="risk-line">
+              <template x-for="(part, i) in riskVolParts()" :key="part.key">
+                <span :class="{ bad: part.bad }"
+                      x-text="(i ? ' · ' : '') + part.text"></span>
+              </template>
+            </p>
+            <p class="risk-line">
+              <template x-for="(part, i) in riskMomentumParts()" :key="part.key">
+                <span :class="{ bad: part.bad }" :title="part.title || null"
+                      x-text="(i ? ' · ' : '') + part.text"></span>
+              </template>
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class="section" x-show="data.fundamentals && activeSection === 'finance'">
         <h2>Données complémentaires</h2>
         <div class="card mini" style="padding:16px 20px">

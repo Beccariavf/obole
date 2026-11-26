@@ -319,6 +319,20 @@ def _valuation_calc_payload(fundamentals, prices: PriceSeries, ticker: str) -> d
     }
 
 
+def benchmark_prices() -> PriceSeries | None:
+    """Prix du benchmark de la section Risque (#33), lus via `data/` (cache TTL).
+
+    Lecture UNE fois par requête, jamais depuis `engine/` ni depuis le front :
+    `data/yahoo.fetch_prices` porte le cache et la fragilité de la source. Une
+    indisponibilité du benchmark (réseau, ticker inconnu) n'est jamais fatale :
+    elle rend `None`, et les champs `bench_*` du payload valent `None`.
+    """
+    try:
+        return yahoo.fetch_prices(config.RISK_BENCHMARK)
+    except (yahoo.TickerNotFound, ValueError):
+        return None
+
+
 def analyze_ticker(ticker: str) -> tuple[StockAnalysis, PriceSeries]:
     """Analyse complète d'une valeur à partir de son ticker (fetch + analyse).
 

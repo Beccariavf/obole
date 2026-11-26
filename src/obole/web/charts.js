@@ -593,6 +593,11 @@ export const chartsMixin = {
       if (typeof this.valuationAvailable === "function" && this.valuationAvailable()) return true;
       return typeof this.valuationGroups === "function" && this.valuationGroups().length > 0;
     }
+    // Risque & dynamique : le payload porte ses séries précalculées (une action
+    // ou un panier ; un ratio n'en a pas).
+    if (id === "risque") {
+      return typeof this.riskAvailable === "function" && this.riskAvailable();
+    }
     return this._groupsFor(id).length > 0;
   },
 

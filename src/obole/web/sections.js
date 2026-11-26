@@ -47,6 +47,11 @@ export const SECTIONS = [
     label: "Valorisation",
     svg: icon('<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>'),
   },
+  {
+    id: "risque",
+    label: "Risque & dynamique",
+    svg: icon('<path d="M3 12h4l2.5-7 5 14 2.5-7H21"/>'),
+  },
 ];
 
 export const DEFAULT_SECTION = "resume";
@@ -184,15 +189,23 @@ export const sectionsMixin = {
     if (typeof this._loadThesisIfNeeded === "function") this._loadThesisIfNeeded();
   },
 
-  // Redessine ce qui est visible : le graphe héro (section Résumé) et les
-  // mini-charts de la section active. Indispensable car un graphe masqué par
-  // `x-show` a une taille nulle et Plotly ne peut pas le tracer.
+  // Redessine ce qui est visible : le graphe héro (section Résumé), le graphe
+  // de risque (section Risque & dynamique) et les mini-charts de la section
+  // active. Indispensable car un graphe masqué par `x-show` a une taille nulle
+  // et Plotly ne peut pas le tracer.
   redrawActiveSection() {
     if (this.activeSection === "resume") {
       try {
         this.drawChart();
       } catch (e) {
         console.error("drawChart error:", e);
+      }
+    }
+    if (this.activeSection === "risque" && typeof this.drawRiskChart === "function") {
+      try {
+        this.drawRiskChart();
+      } catch (e) {
+        console.error("drawRiskChart error:", e);
       }
     }
     try {
@@ -202,6 +215,15 @@ export const sectionsMixin = {
     }
   },
 
+  // Le conteneur du graphe de risque est statique dans `index.html` : il existe
+  // toujours, mais `x-show` peut ne pas avoir encore flushé son affichage (une
+  // largeur nulle empêcherait Plotly de tracer).
+  _riskChartReady() {
+    if (typeof document === "undefined") return true;
+    const node = document.getElementById("risk-chart");
+    return !!node && node.getBoundingClientRect().width > 0;
+  },
+
   // Attend que les conteneurs des mini-charts de la section active existent
   // RÉELLEMENT dans le DOM avant de tracer. Un simple `$nextTick` ne suffit pas :
   // après un changement de section, le re-render Alpine de `sectionGroups()`
@@ -209,7 +231,9 @@ export const sectionsMixin = {
   // itérerait alors l'ancien DOM et laisserait la nouvelle section vide. On
   // réessaie donc sur quelques frames, puis on trace quoi qu'il arrive.
   scheduleRedraw(attempt = 0) {
-    const ready = this.expectedMiniIds().every((id) => document.getElementById(id));
+    const ready =
+      this.expectedMiniIds().every((id) => document.getElementById(id)) &&
+      (this.activeSection !== "risque" || this._riskChartReady());
     if (!ready && attempt < 12) {
       const raf =
         typeof requestAnimationFrame === "function"

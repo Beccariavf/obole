@@ -851,6 +851,7 @@ select.pf-ctl {
   --chart-h-pf-dividends: 300px;
   --chart-h-pf-div-conc: 300px;
   --chart-h-detail: 420px;
+  --chart-h-risk: 420px;
   /* Hauteur max du menu flottant des points d'entrée/sortie (modale détail) :
      au-delà, la liste défile — elle ne grandit jamais au-delà du graphe. */
   --pf-entry-menu-h: 260px;
@@ -983,6 +984,19 @@ select.pf-ctl {
   .mkw-card { width: calc(100vw - 32px); max-width: 100%; }
   .mkw-table { min-width: 560px; }
 }
+
+/* --- Section « Risque & dynamique » (#33) --- */
+.risk-card { padding: 14px 16px; }
+.risk-toolbar {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+}
+/* Conteneur = hauteur du layout Plotly (source unique config.CHART_HEIGHT_RISK). */
+.risk-chart { width: 100%; height: var(--chart-h-risk); }
+.risk-lines { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.risk-line { margin: 0; font-size: 13px; color: var(--text); }
+/* Rouge réservé à l'anomalie de volatilité (percentile au-dessus du seuil). */
+.risk-line .bad { color: var(--bad); font-weight: 600; }
 .detail-range { font-size: 12px; color: var(--text-soft); }
 .detail-toolbar-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .detail-cagr {
