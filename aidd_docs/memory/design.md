@@ -90,10 +90,10 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   (ligne d'accent). Le seuil d'anomalie est une pointillée neutre ; **seuls** les
   passages de volatilité au-dessus et le percentile en anomalie sont rouges.
   Plage propre (`riskStart`/`riskEnd`), puces `1A`/`5A`/`10A`/`20A`/`MAX`,
-  **10 ans par défaut** : elle est indépendante de la plage du héro. Sous le
-  graphique, trois lignes factuelles (chute et date du plus haut, volatilité et
-  percentile avec le CAC 40, 12-1 hors dividendes avec le CAC 40). **Aucun
-  verdict, aucune flèche d'achat ou de vente, aucun vert.**
+  **10 ans par défaut** : elle est indépendante de la plage du héro. Trois lignes
+  factuelles (chute depuis le plus haut, volatilité et percentile face au CAC 40,
+  12-1 hors dividendes) vivent dans l'info-bulle ⓘ de la barre de période.
+  **Aucun verdict, aucune flèche d'achat ou de vente, aucun vert.**
 
 ## Navigation (coquille)
 
