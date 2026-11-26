@@ -55,6 +55,19 @@ export const mesurerVide = (page) =>
     return out;
   });
 
+// Défilement fini : deux lectures de `scrollY` identiques à 200 ms d'écart.
+// `scrollY > 0` ne suffit pas — WebKit en CI mesurait en plein défilement, quand
+// un élément sticky n'avait pas encore rejoint sa position collée.
+async function attendreDefilementStable(page) {
+  await expect
+    .poll(async () => {
+      const a = await page.evaluate(() => window.scrollY);
+      await new Promise((r) => setTimeout(r, 200));
+      return a === (await page.evaluate(() => window.scrollY));
+    })
+    .toBe(true);
+}
+
 // Thèse jetable pour les tests qui mesurent le plan et les ancres. La CI part
 // d'une base neuve où AUCUNE thèse n'existe (règle testing.md : un e2e ne
 // présuppose jamais une base existante). Il faut ≥ 3 titres (le plan doit en
@@ -100,6 +113,7 @@ test("en-tête : la recherche et les onglets collent, l'identité défile", asyn
   await page.mouse.move(main.x + main.width / 2, 450);
   await page.mouse.wheel(0, 900);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+  await attendreDefilementStable(page);
 
   const pos = await page.evaluate(() => {
     const b = (s) => document.querySelector(s).getBoundingClientRect();
@@ -459,6 +473,7 @@ async function stickyNonRecouverts(page) {
     await page.mouse.move(main.x + main.width / 2, h / 2);
     await page.mouse.wheel(0, 600);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await attendreDefilementStable(page);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");
@@ -524,13 +539,7 @@ async function ancresSousEntete(page) {
     // Défilement doux : on attend qu'il ait BOUGÉ puis qu'il soit STABLE (deux
     // lectures identiques à 200 ms), jamais un délai fixe.
     await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(yAvant);
-    await expect
-      .poll(async () => {
-        const a = await page.evaluate(() => window.scrollY);
-        await new Promise((r) => setTimeout(r, 200));
-        return a === (await page.evaluate(() => window.scrollY));
-      })
-      .toBe(true);
+    await attendreDefilementStable(page);
     const tops = await page.evaluate(() =>
       [...document.querySelectorAll(".md-body h1, .md-body h2")].map((h) =>
         Math.round(h.getBoundingClientRect().top),
