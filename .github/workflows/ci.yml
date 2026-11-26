@@ -77,3 +77,12 @@ jobs:
         run: npm run test:e2e
         env:
           OBOLE_SERVER_CMD: python -u ../run.py
+      # Traces Playwright (retain-on-failure) : sans elles, un échec propre au
+      # runner CI (WebKit Linux) ne se diagnostique qu'à l'aveugle.
+      - name: Publier les traces des tests en échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: web-tests/test-results/
+          retention-days: 7
