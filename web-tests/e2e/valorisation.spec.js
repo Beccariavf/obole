@@ -53,6 +53,18 @@ test("section Valorisation : KPI, graphique et bascule Matrice", async ({ page }
     .poll(async () => page.locator("#val-chart .annotation").count(), { timeout: 20_000 })
     .toBeGreaterThanOrEqual(2);
 
+  // Bâton de l'année en cours : creux (fond blanc) exactement quand le survol
+  // l'annonce — jamais l'inverse.
+  const bar = await page.evaluate(() => {
+    const trace = document.querySelector("#val-chart").data.find((t) => t.type === "bar");
+    if (!trace) return null;
+    return {
+      white: trace.marker.color.filter((c) => c === "#FFFFFF").length,
+      hollow: trace.customdata.filter(Boolean).length,
+    };
+  });
+  if (bar) expect(bar.white).toBe(bar.hollow);
+
   // Pied de carte : CAGR du cours, de la métrique et du dividende.
   const foot = page.locator(".val-foot");
   await expect(foot).toBeVisible();

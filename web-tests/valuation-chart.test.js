@@ -3,7 +3,6 @@ import {
   loadApp,
   metaFromConfig,
   readConfigSource,
-  readValorisationSource,
 } from "./helpers/load-app.js";
 
 // #34 — graphe « Prix et valorisation » à couches. Ce fichier verrouille les
@@ -30,7 +29,7 @@ const DATES = ["2020-01-01", "2021-01-01", "2022-01-01", "2023-01-01"];
 describe("Valorisation — statut de l'en-tête", () => {
   it("sous-évalué (bleu) / sur-évalué (rouge) en pourcentage", () => {
     const under = valuationStatus({
-      price: 90, valoNow: 100, latestOk: true, isEnterprise: false,
+      price: 90, valoNow: 100, latest: 5, latestOk: true, isEnterprise: false,
       label: "Bénéfices/Actions", gapRatioLimit: 100,
     });
     expect(under.gapPct).toBeCloseTo(-10, 6);
@@ -38,7 +37,7 @@ describe("Valorisation — statut de l'en-tête", () => {
     expect(under.big).toBe(false);
 
     const over = valuationStatus({
-      price: 150, valoNow: 100, latestOk: true, isEnterprise: false,
+      price: 150, valoNow: 100, latest: 5, latestOk: true, isEnterprise: false,
       label: "Bénéfices/Actions", gapRatioLimit: 100,
     });
     expect(over.gapPct).toBeCloseTo(50, 6);
@@ -47,23 +46,38 @@ describe("Valorisation — statut de l'en-tête", () => {
 
   it("au-delà de gap_ratio_limit, le statut s'écrit en multiple", () => {
     const st = valuationStatus({
-      price: 300, valoNow: 20, latestOk: true, isEnterprise: false,
+      price: 300, valoNow: 20, latest: 5, latestOk: true, isEnterprise: false,
       label: "Bénéfices/Actions", gapRatioLimit: 100,
     });
     expect(st.big).toBe(true);
     expect(st.ratio).toBeCloseTo(15, 6);
   });
 
-  it("métrique courante ≤ 0 : non calculable ; multiple d'entreprise : aucun statut", () => {
+  it("un écart nul est neutre (ni sous ni sur)", () => {
+    const st = valuationStatus({
+      price: 100, valoNow: 100, latest: 5, latestOk: true, isEnterprise: false,
+      label: "Bénéfices/Actions", gapRatioLimit: 100,
+    });
+    expect(st.gapPct).toBe(0);
+    expect(st.good).toBeNull();
+  });
+
+  it("métrique négative, absente ou multiple d'entreprise : aucun verdict", () => {
     const negative = valuationStatus({
-      price: 90, valoNow: null, latestOk: false, isEnterprise: false,
+      price: 90, valoNow: null, latest: -1, latestOk: false, isEnterprise: false,
       label: "Bénéfices/Actions", gapRatioLimit: 100,
     });
     expect(negative.reason).toBe("negative");
     expect(negative.gapPct).toBeNull();
 
+    const absent = valuationStatus({
+      price: 90, valoNow: null, latest: null, latestOk: false, isEnterprise: false,
+      label: "Bénéfices/Actions", gapRatioLimit: 100,
+    });
+    expect(absent.reason).toBe("absent");
+
     const enterprise = valuationStatus({
-      price: 90, valoNow: null, latestOk: true, isEnterprise: true,
+      price: 90, valoNow: null, latest: 8, latestOk: true, isEnterprise: true,
       label: "EBITDA", gapRatioLimit: 100,
     });
     expect(enterprise.reason).toBe("enterprise");
@@ -80,7 +94,7 @@ describe("Valorisation — série bornée et escalier", () => {
     });
   });
 
-  it("métrique courante négative : la courbe s'arrête au dernier exercice positif", () => {
+  it("métrique courante négative : la courbe s'arrête au dernier exercice positif (palier fermé au premier non positif)", () => {
     const s = valuationSeries(DATES, [1, 1, 2, -1], 10, false);
     expect(s.x).toEqual(["2020-01-01", "2022-01-01", "2023-01-01"]);
     expect(s.y).toEqual([10, 20, 20]);
@@ -190,6 +204,13 @@ describe("Valorisation — pastilles et dé-collision", () => {
       yMax: 10, heightPx: 100,
     });
     expect(noFit.map((p) => p.key)).toEqual(["central"]);
+    // Sans borne pessimiste (multiple ≤ 0), pas d'éventail : aucune pastille
+    // optimiste orpheline, même si l'appelant croit l'éventail compatible.
+    const noPessimistic = valuationPillItems({
+      central: 5, optimistic: 9, pessimistic: null, showFan: true, fanFits: true,
+      yMax: 10, heightPx: 100,
+    });
+    expect(noPessimistic.map((p) => p.key)).toEqual(["central"]);
   });
 });
 
@@ -204,6 +225,15 @@ describe("Valorisation — barres de dividende", () => {
     expect(bars.y).toEqual([2, 3, 1.5]);
     // 2026 = année civile en cours (bâton creux) ; 2027 (futur) est ignorée.
     expect(bars.current).toEqual([false, false, true]);
+  });
+
+  it("écarte une barre datée avant le début réel de l'axe", () => {
+    const bars = dividendBars(
+      { "2016": 1, "2017": 2, "2026": 1.5 },
+      { years: 10, currentYear: 2026, startDate: "2016-11-26" },
+    );
+    // Le 1er juillet 2016 précède le 26/11/2016 : barre invisible, écartée.
+    expect(bars.x).toEqual(["2017-07-01", "2026-07-01"]);
   });
 
   it("sans versement positif sur la fenêtre : étage absent", () => {
@@ -234,7 +264,7 @@ describe("Valorisation — CAGR du pied", () => {
     expect(rows[2].span).toBe("sur 3 ans");
   });
 
-  it("multiple d'entreprise : pas de ligne métrique ; dividende non calculable -> null", () => {
+  it("multiple d'entreprise : la ligne métrique reste, « — » ; dividende non calculable -> null", () => {
     const rows = valuationCagrRows({
       dates: DATES,
       priceSeries: [100, 110, 120, 121],
@@ -246,23 +276,26 @@ describe("Valorisation — CAGR du pied", () => {
       isEnterprise: true,
       metricLabel: "EBITDA",
     });
-    expect(rows.map((r) => r.key)).toEqual(["price", "dividend"]);
+    // Trois lignes TOUJOURS : une donnée absente s'affiche « — », jamais masquée.
+    expect(rows.map((r) => r.key)).toEqual(["price", "metric", "dividend"]);
+    expect(rows[1].label).toBe("EBITDA");
     expect(rows[1].cagr).toBeNull();
+    expect(rows[2].cagr).toBeNull();
   });
 });
 
 describe("Valorisation — notes sous le graphe", () => {
   it("métrique négative, multiple d'entreprise, hors cadre, dividende absent", () => {
     expect(valuationNotes({
-      isEnterprise: false, latestOk: false, hasValo: true, central: 1,
+      isEnterprise: false, latest: -1, latestOk: false, hasValo: true, central: 1,
       yMax: 10, hasDividends: true, years: 10,
     })).toEqual([{ key: "negative" }]);
     expect(valuationNotes({
-      isEnterprise: true, latestOk: true, hasValo: false, central: 1,
+      isEnterprise: true, latest: 8, latestOk: true, hasValo: false, central: 1,
       yMax: 10, hasDividends: true, years: 10,
     })).toEqual([{ key: "enterprise" }]);
     expect(valuationNotes({
-      isEnterprise: false, latestOk: true, hasValo: false, central: 100,
+      isEnterprise: false, latest: 5, latestOk: true, hasValo: false, central: 100,
       yMax: 10, hasDividends: false, years: 10,
     })).toEqual([
       { key: "empty" },
@@ -370,14 +403,50 @@ describe("Valorisation — carte à couches (modèle du composant)", () => {
     expect(status.kind).toBe("");
   });
 
+  it("métrique absente : « valorisation non calculable (… absent) »", () => {
+    const comp = fiche();
+    comp.data.fundamentals.valuation_calc.metrics[0].latest = null;
+    expect(comp.valChartStatus().text).toBe(
+      " · valorisation non calculable (Bénéfices/Actions absent)",
+    );
+  });
+
   it("multiple d'entreprise : ni valorisation, ni statut, note dédiée", () => {
     const comp = fiche({ metric: "ebitda" });
     expect(comp.valChartStatus().text).toBe("");
     expect(comp.valChartLegend().valo).toBe("");
+    // L'éventail de la base EV/EBITDA existe et tient : la bascule reste offerte.
     expect(comp.valChartLegend().scenarios).toBe(true);
     expect(comp.valChartNotes()).toContain(
       "EV/EBITDA est un multiple d'entreprise : pas de courbe de valorisation ni de couloir.",
     );
+    // Le pied garde trois lignes : la métrique d'entreprise n'a pas de CAGR,
+    // elle s'affiche « — », pas une ligne supprimée.
+    const footer = comp.valChartFooter();
+    expect(footer.map((r) => r.key)).toEqual(["price", "metric", "dividend"]);
+    expect(footer[1].text).toBe("—");
+    expect(footer[1].kind).toBe("neutral");
+  });
+
+  it("un multiple pessimiste ≤ 0 supprime l'éventail et sa bascule", () => {
+    // Base à multiple saisi 3 : 3 − 4 ≤ 0, donc pas de borne pessimiste, donc
+    // pas d'éventail, pas de pastille orpheline et pas de bouton Scénarios.
+    const comp = fiche();
+    comp.valMultiple = 3;
+    const model = comp.valChartModel();
+    expect(model.fan.pessimistic).toBeNull();
+    expect(model.fanFits).toBe(false);
+    expect(comp.valChartLegend().scenarios).toBe(false);
+  });
+
+  it("scénario central hors cadre : note « hors cadre », éventail et bascule absents", () => {
+    const comp = fiche();
+    comp.valGrowth = 268; // projection hors écran, comme Kering
+    const model = comp.valChartModel();
+    expect(model.fan.central).toBeGreaterThan(model.yMax);
+    expect(model.fanFits).toBe(false);
+    expect(comp.valChartLegend().scenarios).toBe(false);
+    expect(comp.valChartNotes().some((n) => n.startsWith("Projection hors cadre"))).toBe(true);
   });
 
   it("le pied affiche trois CAGR, « — » si non calculable", () => {
@@ -411,13 +480,36 @@ describe("Valorisation — carte à couches (modèle du composant)", () => {
     expect(comp.valChartModel()).not.toBe(a);
   });
 
-  it("aucune constante du graphe n'est écrite en dur dans valorisation.js", () => {
-    const src = readValorisationSource();
-    // Les cinq valeurs de 4.15 viennent de /api/meta (thresholds.VALUATION_CHART).
-    expect(src).not.toMatch(/VALUATION_CHART_YEARS\s*=\s*10\b/);
-    expect(src).not.toMatch(/FAN_GROWTH_SPAN\s*=\s*3\b/);
-    expect(src).not.toMatch(/FAN_MULTIPLE_SPAN\s*=\s*4\b/);
-    expect(src).not.toMatch(/CHART_Y_CAP\s*=\s*2\.2\b/);
-    expect(src).not.toMatch(/GAP_RATIO_LIMIT\s*=\s*100\b/);
+  it("la fenêtre et l'éventail suivent /api/meta (aucun littéral de repli)", () => {
+    const meta = metaFromConfig(readConfigSource());
+    const comp = fiche();
+    expect(comp.valChartModel().windowYears).toBe(meta.valuation_chart.years);
+    // Une autre valeur de config change réellement le modèle (preuve que le JS
+    // consomme la liaison, pas un nombre recopié).
+    try {
+      app.applyMeta({
+        ...meta,
+        valuation_chart: { ...meta.valuation_chart, years: 7, fan_growth_span: 2 },
+      });
+      const tuned = fiche().valChartModel();
+      expect(tuned.windowYears).toBe(7);
+      expect(tuned.fan.optimistic).toBeCloseTo(
+        5 * 1.07 ** 5 * (10 + meta.valuation_chart.fan_multiple_span), 6,
+      );
+    } finally {
+      app.applyMeta(meta); // restaure pour les tests suivants
+    }
+  });
+
+  it("l'échelle ignore une valorisation antérieure à la fenêtre", () => {
+    const comp = fiche();
+    // Un exercice ancien très haut, hors des 10 ans affichés : il ne doit pas
+    // écraser l'axe (il n'est pas visible).
+    comp.data.chart.dates.unshift("2010-01-01");
+    comp.data.chart.price_raw.unshift(10);
+    comp.data.chart.eps_ps.unshift(1000);
+    const model = comp.valChartModel();
+    // Plus haut cours visible = 95 → 95 × 1,12 = 106,4 (et non le plafond 209).
+    expect(model.yMax).toBeCloseTo(95 * 1.12, 5);
   });
 });
