@@ -1263,9 +1263,9 @@ RISK_VOL_MIN_POINTS = 504
 # le retournement de court terme.
 RISK_MOM_LOOKBACK = 252
 RISK_MOM_SKIP = 21
-# CAC 40 : référence de marché pour situer la dynamique du portefeuille.
+# CAC 40 : référence de marché pour situer la volatilité et le 12-1 du titre.
 RISK_BENCHMARK = "^FCHI"
-# Profondeur par défaut de l'historique téléchargé pour l'onglet Risque.
+# Plage affichée par défaut du graphique de l'onglet Risque (puces 1A…Max).
 RISK_DEFAULT_YEARS = 10
 
 # --- Screener : univers français (J1) ---------------------------------------
