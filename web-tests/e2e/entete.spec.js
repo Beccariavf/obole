@@ -479,19 +479,31 @@ async function stickyNonRecouverts(page) {
       const plan = document.querySelector("#thesis-plan");
       const top = parseFloat(getComputedStyle(plan).top);
       const items = [...plan.querySelectorAll(".thesis-plan-item")];
-      const invisibles = items.filter((a) => {
-        const r = a.getBoundingClientRect();
-        if (r.width < 1 || r.top < 0) return false;
-        const at = document.elementFromPoint(r.x + 6, r.top + r.height / 2);
-        return !(at === a || a.contains(at));
-      }).length;
-      return { top, items: items.length, invisibles };
+      // Pour chaque entrée recouverte, on garde CE qui la recouvre et où elle
+      // est : sans cela, un échec propre à un runner (WebKit CI) est muet.
+      const decrire = (e) =>
+        e ? `${e.tagName.toLowerCase()}${e.id ? "#" + e.id : ""}.${[...e.classList].join(".")}` : "rien";
+      const recouvertes = items
+        .map((a) => {
+          const r = a.getBoundingClientRect();
+          if (r.width < 1 || r.top < 0) return null;
+          const at = document.elementFromPoint(r.x + 6, r.top + r.height / 2);
+          if (at === a || a.contains(at)) return null;
+          return `x=${Math.round(r.x)} y=${Math.round(r.top)} sous ${decrire(at)}`;
+        })
+        .filter(Boolean);
+      return {
+        top,
+        items: items.length,
+        invisibles: recouvertes.length,
+        detail: `${recouvertes.join(" ; ")} (scrollY=${Math.round(scrollY)}, vue=${innerWidth}×${innerHeight})`,
+      };
     });
 
     // Le plan ne commence pas sous l'en-tête…
     expect(sonde.top, `${w}×${h} : top du plan`).toBeGreaterThanOrEqual(attendu - 1);
     // …et toutes ses entrées sauf celles sorties par le haut sont cliquables.
-    expect(sonde.invisibles, `${w}×${h} : ${sonde.invisibles} entrée(s) recouverte(s)`).toBe(0);
+    expect(sonde.invisibles, `${w}×${h} : ${sonde.invisibles} entrée(s) recouverte(s) — ${sonde.detail}`).toBe(0);
     expect(sonde.items, `${w}×${h} : le plan est vide, la mesure ne prouve rien`).toBeGreaterThan(
       2,
     );
