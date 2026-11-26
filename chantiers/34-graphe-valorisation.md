@@ -1,6 +1,6 @@
 # #34 — Graphe « Prix et valorisation » à couches
 
-> **Statut :** en cours · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
+> **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/graphe-valorisation` · **Taille :** ~1 session
 
 > **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
