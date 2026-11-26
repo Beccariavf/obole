@@ -22,20 +22,42 @@ test("section Valorisation : KPI, graphique et bascule Matrice", async ({ page }
   await expect(kpis.nth(1)).toContainText("%/an");
   await expect(kpis.nth(2)).toContainText("Marge de sécurité");
 
-  // Graphique : courbe Plotly tracée (cours + valorisation + dividende + projection).
+  // En-tête de la carte à couches : titre + ligne de statut.
+  await expect(page.locator(".val-hero-title")).toContainText("Prix et valorisation");
+  const status = page.locator(".val-hero-status");
+  await expect(status).toContainText("Cours");
+  await expect(status).toContainText("valorisation");
+
+  // Graphique : courbe Plotly tracée (cours + valorisation + scénario + prix juste).
   await expect
     .poll(async () => page.locator("#val-chart .scatterlayer .trace").count(), { timeout: 20_000 })
     .toBeGreaterThan(2);
 
-  // Badges prix juste et projeté (annotations sur le graphe).
+  // Pastilles-interrupteurs HTML (pas de légende Plotly) : cours et valorisation
+  // sont fixes, les trois couches sont des boutons `aria-pressed`.
+  const toggles = page.locator(".val-layer.val-toggle");
+  await expect(toggles).toHaveCount(3);
+  for (const button of await toggles.all()) {
+    await expect(button).toHaveAttribute("aria-pressed", /true|false/);
+  }
+  // Défaut : couloir et dividende allumés, scénarios éteints.
+  await expect(page.locator(".val-toggle", { hasText: "Sous / sur-évalué" }))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".val-toggle", { hasText: "Scénarios" }))
+    .toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".val-toggle", { hasText: "Dividende" }))
+    .toHaveAttribute("aria-pressed", "true");
+
+  // Badges prix juste, scénario central et repères de dates (annotations).
   await expect
     .poll(async () => page.locator("#val-chart .annotation").count(), { timeout: 20_000 })
     .toBeGreaterThanOrEqual(2);
 
-  // Légende CAGR sous le graphe (croissance annualisée des séries).
-  const cagr = page.locator(".val-cagr-legend");
-  await expect(cagr).toBeVisible();
-  await expect(cagr).toContainText("CAGR");
+  // Pied de carte : CAGR du cours, de la métrique et du dividende.
+  const foot = page.locator(".val-foot");
+  await expect(foot).toBeVisible();
+  await expect(foot).toContainText("%/an");
+  await expect(page.locator(".val-cagr-legend")).toHaveCount(0);
 
   // Bascule en Matrice : la heatmap apparaît avec 15 lignes et une cellule active.
   await page.locator(".seg-btn", { hasText: "Matrice" }).click();
@@ -135,22 +157,71 @@ test("section Valorisation : courbes continues (jamais de barres)", async ({ pag
   expect(peStyle).toBeUndefined();
   const peMarker = await pe.evaluate((el) => el.data[0].marker || null);
   expect(peMarker).toBeNull();
-  // Ligne de valorisation du graphique prix juste : OR, lissée, avec fond doré pâle.
+  // Ligne de valorisation du graphe prix juste : ambre (C.valo), en ESCALIER
+  // (`hv`), sans remplissage ni lissage.
   const hero = page.locator("#val-chart");
   const valo = await hero.evaluate((el) => {
-    const t = el.data.find((tr) => (tr.name || "").startsWith("Valorisation"));
-    return t ? { shape: t.line.shape, color: t.line.color, fill: t.fill, fillcolor: t.fillcolor } : null;
+    const t = el.data.find((tr) => tr.name === "Valorisation");
+    return t ? { shape: t.line.shape, color: t.line.color, fill: t.fill ?? null } : null;
   });
-  expect(valo.shape).toBe("spline");
-  expect(valo.color).toBe("#F59E0B");
-  expect(valo.fill).toBe("tozeroy");
-  expect(valo.fillcolor).toBe("rgba(245,158,11,.08)");
-  // La projection est dorée pointillée (Baggr) et porte aussi le fond doré.
+  expect(valo).toEqual({ shape: "hv", color: "#D97706", fill: null });
+  // Le scénario central est ambre pointillé ; il relie le cours à l'horizon.
   const proj = await hero.evaluate((el) => {
-    const t = el.data.find((tr) => tr.name === "Projection");
-    return t ? { color: t.line.color, dash: t.line.dash, fill: t.fill } : null;
+    const t = el.data.find((tr) => tr.name === "Central");
+    return t ? { color: t.line.color, dash: t.line.dash } : null;
   });
-  expect(proj).toEqual({ color: "#F59E0B", dash: "dot", fill: "tozeroy" });
+  expect(proj).toEqual({ color: "#D97706", dash: "dot" });
+  // Le prix juste est un rond creux POSÉ SUR aujourd'hui, pas une ligne dans le passé.
+  const fair = await hero.evaluate((el) => {
+    const t = el.data.find((tr) => tr.name === "Prix juste");
+    const last = el.data.find((tr) => tr.name === "Cours").x.slice(-1)[0];
+    return t ? { mode: t.mode, lastX: t.x[t.x.length - 1], last } : null;
+  });
+  expect(fair.mode).toBe("markers");
+  expect(fair.lastX).toBe(fair.last);
+});
+
+test("section Valorisation : les trois bascules redessinent sans requête", async ({ page }) => {
+  await page.goto("/#RI.PA/valorisation");
+  await expect(page.locator(".header")).toBeVisible();
+  await expect
+    .poll(async () => page.locator("#val-chart .scatterlayer .trace").count(), { timeout: 20_000 })
+    .toBeGreaterThan(2);
+
+  // Aucune requête réseau ne doit partir d'un clic sur une pastille.
+  const apiCalls = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/api/")) apiCalls.push(req.url());
+  });
+  const traces = () => page.evaluate(() => document.querySelector("#val-chart").data.length);
+  const barTraces = () => page.evaluate(
+    () => document.querySelector("#val-chart").data.filter((t) => t.type === "bar").length,
+  );
+
+  const base = await traces();
+  // Scénarios : éteints par défaut ; allumés, ils ajoutent les deux bornes de
+  // l'éventail (l'aire est portée par la borne optimiste).
+  const scenarios = page.locator(".val-toggle", { hasText: "Scénarios" });
+  await scenarios.click();
+  await expect(scenarios).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(traces).toBe(base + 2);
+  await scenarios.click();
+  await expect(scenarios).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(traces).toBe(base);
+
+  // Couloir : quatre traces de remplissage (deux baselines + deux aires).
+  const couloir = page.locator(".val-toggle", { hasText: "Sous / sur-évalué" });
+  await couloir.click();
+  await expect(couloir).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(traces).toBe(base - 4);
+
+  // Dividende : l'étage et son bâton disparaissent.
+  const dividend = page.locator(".val-toggle", { hasText: "Dividende" });
+  await expect.poll(barTraces).toBeGreaterThan(0);
+  await dividend.click();
+  await expect.poll(barTraces).toBe(0);
+
+  expect(apiCalls).toEqual([]);
 });
 
 test("section Valorisation : boutons icônes (sans emoji) et graphe étalé (breakout)", async ({ page }) => {
@@ -192,7 +263,17 @@ test("section Valorisation : boutons icônes (sans emoji) et graphe étalé (bre
 
   // Le tracé Plotly occupe TOUTE la largeur du conteneur (sinon il retombe sur sa
   // largeur par défaut ~700px et laisse un grand vide à droite — régression vue
-  // quand la section était tracée pendant son masquage `x-show`).
+  // quand la section était tracée pendant son masquage `x-show`). On attend que
+  // `_fullLayout` existe : une course en CI WebKit mesurait avant le premier layout.
+  await expect
+    .poll(
+      async () => page.evaluate(() => {
+        const gd = document.querySelector("#val-chart");
+        return gd._fullLayout?.width == null ? null : Math.round(gd.getBoundingClientRect().width);
+      }),
+      { timeout: 20_000 },
+    )
+    .not.toBeNull();
   const fit = await page.evaluate(() => {
     const gd = document.querySelector("#val-chart");
     return { divW: Math.round(gd.getBoundingClientRect().width), layoutW: gd._fullLayout?.width };
