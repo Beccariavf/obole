@@ -563,6 +563,18 @@ test("portefeuille : le Résumé trace la performance et s'agrandit en plein éc
       };
     });
 
+  // Premier rendu : la carte peut encore prendre sa largeur (polices, grille)
+  // quand Plotly trace ; c'est le ResizeObserver qui recentre. On attend donc
+  // que le donut SOIT centré (délai borné), puis on fige la mesure de départ.
+  await expect
+    .poll(
+      async () => {
+        const g = await donutGeom();
+        return Math.abs(g.dx) <= 2 && Math.abs(g.dy) <= 2 && g.svgW <= g.donutW + 1;
+      },
+      { message: "donut centré au premier rendu", timeout: 5000 },
+    )
+    .toBe(true);
   const before = await donutGeom();
   expect(Math.abs(before.dx), "donut centré horizontalement").toBeLessThanOrEqual(2);
   expect(Math.abs(before.dy), "donut centré verticalement").toBeLessThanOrEqual(2);

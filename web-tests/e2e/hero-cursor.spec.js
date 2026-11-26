@@ -56,10 +56,14 @@ async function lastPointX(page) {
 
 test("à l'ouverture, le readout est posé sur le dernier point (aucun survol)", async ({ page }) => {
   await loadHero(page, "RI.PA");
-  // Aucune souris sur le graphe : l'overlay doit déjà afficher le dernier point.
+  // Aucune souris sur le graphe : l'overlay doit afficher le dernier point. Il
+  // est posé après le premier rendu Plotly (WebKit en CI peut le poser une
+  // frame après la trace) : on attend sa présence, sans aucun survol.
+  await expect
+    .poll(() => crosshairX(page), { message: "readout de repos présent sans survol" })
+    .not.toBeNull();
   const cx = await crosshairX(page);
   const lx = await lastPointX(page);
-  expect(cx, "readout de repos présent sans survol").not.toBeNull();
   expect(Math.abs(cx - lx), "posé sur le dernier point").toBeLessThan(2);
   const badge = page.locator(".cursor-overlay .cur-badge");
   await expect(badge, "badge prix·σ visible au repos").toBeVisible();
