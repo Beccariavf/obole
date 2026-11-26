@@ -99,6 +99,7 @@ chantier est classé selon ce qu'il risque de casser :
 | 31 | **Fiabilité de la Clara Vallis** (jauge simplifiée, chip Réf., backtest buy & hold) | 🟡 Q2 | 🟢 | 2-3 sessions | **fait** | [→](chantiers/31-clara-vallis-fiabilite.md) |
 | 32 | **Fiabilité, seconde lecture** (in contre out : le signal sépare-t-il les jours ?) | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/32-momentum-in-out.md) |
 | 33 | **Risque & dynamique** (remplace la Clara Vallis ; table Markovitz → Valorisation) | 🟡 Q2 | 🟢 | 2 sessions | **fait** | [→](chantiers/33-risque-dynamique.md) |
+| 34 | **Graphe « Prix et valorisation » à couches** (couloir, éventail, dividendes en bâtons) | 🟡 Q2 | 🟢 | 1 session | **fait** | [→](chantiers/34-graphe-valorisation.md) |
 | — | Screener (J0–J5ter ✅ · J6 Europe restant) | 🔵 Q3 | 🟠 | — | en cours | [→](chantiers/screener.md) |
 
 ### Sous-fiches Portefeuille (#17)

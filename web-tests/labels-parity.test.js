@@ -69,7 +69,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
       "label_polarity", "labels", "markowitz", "metric_units", "portfolio_corr_annotate_max",
       "portfolio_corr_min_obs", "portfolio_tag_max", "potential_horizons", "quant_groups",
       "ratio_thresholds", "reg_years_default", "reg_years_financial", "risk",
-      "valuation_color_ratios", "valuation_groups", "valuation_horizon_years",
+      "valuation_chart", "valuation_color_ratios", "valuation_groups", "valuation_horizon_years",
       "valuation_matrix", "valuation_metrics", "valuation_period_default",
       "valuation_periods", "valuation_target_default", "watch",
     ]);
@@ -140,6 +140,21 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
     expect(app.PORTFOLIO_TAG_MAX).toBe(meta.portfolio_tag_max);
     expect(app.PORTFOLIO_CORR_MIN_OBS).toBe(meta.portfolio_corr_min_obs);
     expect(app.PORTFOLIO_CORR_ANNOTATE_MAX).toBe(meta.portfolio_corr_annotate_max);
+  });
+
+  it("les constantes du graphe de valorisation viennent de config.py (source unique)", () => {
+    const app = loadApp();
+    app.applyMeta(meta);
+    // #34 : fenêtre, éventail, plafond d'échelle et seuil de statut — le graphe
+    // ne code aucune de ces valeurs en dur.
+    expect(app.VALUATION_CHART).toEqual(meta.valuation_chart);
+    expect(app.VALUATION_CHART).toEqual({
+      years: 10,
+      fan_growth_span: 3,
+      fan_multiple_span: 4,
+      y_cap: 2.2,
+      gap_ratio_limit: 100,
+    });
   });
 
   it("les seuils de la section Risque viennent de config.py (source unique)", () => {

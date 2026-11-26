@@ -414,6 +414,15 @@ class TestMeta:
         assert data["valuation_periods"] == list(config.VALUATION_PERIODS)
         assert data["valuation_matrix"]["rows"] == config.VALUATION_MATRIX_ROWS
         assert data["valuation_color_ratios"] == list(config.VALUATION_COLOR_RATIOS)
+        # Graphe « Prix et valorisation » (#34) : les cinq constantes sont
+        # sérialisées telles quelles (fenêtre, éventail, plafond, seuil).
+        assert data["valuation_chart"] == {
+            "years": config.VALUATION_CHART_YEARS,
+            "fan_growth_span": config.VALUATION_FAN_GROWTH_SPAN,
+            "fan_multiple_span": config.VALUATION_FAN_MULTIPLE_SPAN,
+            "y_cap": config.VALUATION_CHART_Y_CAP,
+            "gap_ratio_limit": config.VALUATION_GAP_RATIO_LIMIT,
+        }
         # Les courbes de la partie 2 sont continues (jamais de barres).
         types = {c["type"] for g in data["valuation_groups"] for c in g["cards"]}
         assert types == {"vline"}

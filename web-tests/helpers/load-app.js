@@ -9,12 +9,12 @@ const CONVICTION_JS_PATH = __CONVICTION_JS_PATH__;
 // #04 : `app.js` est désormais un module ES (plus de script classique évalué
 // par `vm`). On importe les modules réels : le composant Alpine vient de
 // `app.js`, les maths/seuils de `thresholds.js`, la charte de `theme.js`.
-import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS, WATCH_TIERS, WATCH_MIN_REF_POINTS, WATCH_MAX_ITEMS, MARKOWITZ, RISK } from "../../src/obole/web/thresholds.js";
+import { applyMeta, applyPortfolioMeta, periodLabel, olsLog, classify, scored, ratioGood, LABELS, RATIO_THRESHOLDS, LABEL_POLARITY, REG_YEARS_DEFAULT, REG_YEARS_FINANCIAL, BETA_MIN_POINTS, CORR_MIN_POINTS, POTENTIAL_HORIZONS, QUANT_GROUPS, METRIC_UNITS, FUNDAMENTAL_METRICS, DIVIDEND_GROUPS, DIVIDEND_COLORS, DIVIDEND_CAGR_HORIZONS, DIVIDEND_DEFAULT_WINDOW_YEARS, DIVIDEND_MIN_WINDOW_YEARS, CHART_HEIGHTS, PORTFOLIO_BENCHMARKS, PORTFOLIO_BENCHMARK_DEFAULT, PORTFOLIO_PERIODS, PORTFOLIO_PERIOD_DEFAULT, PORTFOLIO_DETAIL_HORIZONS, PORTFOLIO_DETAIL_HORIZON_DEFAULT, PORTFOLIO_TOP_N, PORTFOLIO_TAG_MAX, PORTFOLIO_CORR_MIN_OBS, PORTFOLIO_CORR_ANNOTATE_MAX, VALUATION_METRICS, VALUATION_GROUPS, VALUATION_HORIZON_YEARS, VALUATION_PERIODS, VALUATION_MATRIX, VALUATION_COLOR_RATIOS, VALUATION_CHART, WATCH_TIERS, WATCH_MIN_REF_POINTS, WATCH_MAX_ITEMS, MARKOWITZ, RISK } from "../../src/obole/web/thresholds.js";
 import { C } from "../../src/obole/web/theme.js";
 import { obole } from "../../src/obole/web/app.js";
 import { chartsMixin } from "../../src/obole/web/charts.js";
 import { dividendMixin } from "../../src/obole/web/dividend.js";
-import { valorisationMixin, fairPrice, safetyMargin, estimatedReturn, targetEntryPrice, matrixGrid, colorBucket, cagrFromSeries } from "../../src/obole/web/valorisation.js";
+import { valorisationMixin, fairPrice, safetyMargin, estimatedReturn, targetEntryPrice, matrixGrid, colorBucket, cagrFromSeries, valuationStatus, valuationSeries, valuationFan, valuationScale, valuationCorridor, spreadPills, valuationPillItems, dividendBars, valuationCagrRows, valuationNotes } from "../../src/obole/web/valorisation.js";
 import { watchlistMixin, sortWatchRows, watchCoverage, tierLabel, fairPriceSourceLabel } from "../../src/obole/web/watchlist.js";
 
 // `LABELS`, `RATIO_THRESHOLDS`, etc. sont des `let` mutables réassignés par
@@ -66,10 +66,13 @@ export function loadApp() {
     get VALUATION_PERIODS() { return VALUATION_PERIODS; },
     get VALUATION_MATRIX() { return VALUATION_MATRIX; },
     get VALUATION_COLOR_RATIOS() { return VALUATION_COLOR_RATIOS; },
+    get VALUATION_CHART() { return VALUATION_CHART; },
     get WATCH_TIERS() { return WATCH_TIERS; },
     get WATCH_MIN_REF_POINTS() { return WATCH_MIN_REF_POINTS; },
     get WATCH_MAX_ITEMS() { return WATCH_MAX_ITEMS; },
     fairPrice, safetyMargin, estimatedReturn, targetEntryPrice, matrixGrid, colorBucket, cagrFromSeries,
+    valuationStatus, valuationSeries, valuationFan, valuationScale, valuationCorridor,
+    spreadPills, valuationPillItems, dividendBars, valuationCagrRows, valuationNotes,
     watchlistMixin,
     sortWatchRows,
     watchCoverage,
@@ -412,6 +415,13 @@ export function metaFromConfig(source) {
     valuation_color_ratios: [
       ...source.match(/VALUATION_COLOR_RATIOS\s*=\s*\(([^)]*)\)/)[1].matchAll(/[\d.]+/g),
     ].map((m) => Number(m[0])),
+    valuation_chart: {
+      years: Number(source.match(/VALUATION_CHART_YEARS\s*=\s*(\d+)/)[1]),
+      fan_growth_span: Number(source.match(/VALUATION_FAN_GROWTH_SPAN\s*=\s*([\d.]+)/)[1]),
+      fan_multiple_span: Number(source.match(/VALUATION_FAN_MULTIPLE_SPAN\s*=\s*([\d.]+)/)[1]),
+      y_cap: Number(source.match(/VALUATION_CHART_Y_CAP\s*=\s*([\d.]+)/)[1]),
+      gap_ratio_limit: Number(source.match(/VALUATION_GAP_RATIO_LIMIT\s*=\s*([\d.]+)/)[1]),
+    },
     checkpoint_label_max: Number(source.match(/CHECKPOINT_LABEL_MAX\s*=\s*(\d+)/)[1]),
     portfolio_tag_max: Number(source.match(/PORTFOLIO_TAG_MAX\s*=\s*(\d+)/)[1]),
     portfolio_corr_min_obs: Number(source.match(/PORTFOLIO_CORR_MIN_OBS\s*=\s*(\d+)/)[1]),

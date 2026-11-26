@@ -11,9 +11,13 @@
   --neutral: #6B7280;
   --text: #111827;
   --text-soft: #6B7280;
-  /* Teinte « terre de sienne » : série Dividende/Action de la calculatrice de
-     prix juste. Miroir du token `C.brown` de theme.js (charte centralisée). */
+  /* Teinte « terre de sienne » : indice de consensus de la calculatrice de prix
+     juste. Miroir du token `C.brown` de theme.js (charte centralisée). */
   --brown: #B45309;
+  /* Graphe « Prix et valorisation » (#34) : ambre de la valorisation et vert de
+     catégorie du dividende. Miroirs des tokens `C.valo` et `C.teal`. */
+  --valo: #D97706;
+  --teal: #0D9488;
   --radius: 14px;
   --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 16px rgba(16, 24, 40, .04);
   /* Texte posé SUR un aplat `--accent` (chips actives, boutons pleins) : un
@@ -1473,12 +1477,49 @@ select.pf-ctl {
   .val-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* Légende CAGR sous le graphique de la calculatrice. */
-.val-cagr-legend {
-  display: flex; flex-wrap: wrap; gap: 18px; justify-content: center;
-  margin-top: 6px; font-size: 12px; color: var(--text-soft);
+/* Carte « Prix et valorisation » (#34) : en-tête (titre + statut), pastilles-
+   interrupteurs HTML (pas de légende Plotly), pied de CAGR et notes. Trois
+   familles de couleurs seulement : bleu (cours, prix juste), ambre
+   (valorisation, projection, éventail), vert (dividende, couleur de catégorie). */
+.val-hero-head { display: flex; flex-direction: column; gap: 2px; }
+.val-hero-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.val-hero-status { margin: 0; font-size: 12px; color: var(--text-soft); }
+.val-hero-status b { font-weight: 600; }
+.val-hero-status b.good { color: var(--accent); }
+.val-hero-status b.bad { color: var(--bad); }
+
+.val-layers { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.val-layer {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; border: 1px solid transparent;
+  font-size: 12px; color: var(--text); white-space: nowrap;
 }
-.val-cagr-item b { color: var(--text); font-weight: 600; margin-right: 3px; }
+.val-layer .val-sw { width: 14px; height: 10px; border-radius: 2px; flex: none; }
+.val-layer .val-sw-price { height: 2px; background: var(--accent); }
+.val-layer .val-sw-valo { height: 3px; background: var(--valo); }
+.val-layer .val-sw-corridor { background: linear-gradient(90deg, rgba(37, 99, 235, .25) 50%, rgba(220, 38, 38, .22) 50%); }
+.val-layer .val-sw-scenarios { background: rgba(217, 119, 6, .18); border: 1px dashed var(--valo); }
+.val-layer .val-sw-dividend { background: var(--teal); }
+.val-toggle { background: none; cursor: pointer; font-family: inherit; }
+.val-toggle:hover { border-color: var(--border); }
+.val-toggle.on { border-color: #BFD3FE; background: var(--good-bg); color: #1E3A8A; }
+
+.val-chart { margin-top: 4px; }
+
+.val-foot {
+  display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px;
+  color: var(--text-soft); border-top: 1px solid #F1F2F4;
+  margin-top: 4px; padding: 8px 0 2px;
+}
+.val-foot b { font-weight: 600; }
+.val-foot b.good { color: var(--accent); }
+.val-foot b.bad { color: var(--bad); }
+.val-foot b.neutral { color: var(--text-soft); }
+
+.val-warn {
+  margin: 6px 0 0; font-size: 12px; color: #92400E;
+  background: #FFFBEB; border-radius: 6px; padding: 4px 8px;
+}
 
 /* Matrice (heatmap) — colonnes resserrées pour tenir en pleine largeur (les 15
    multiples visibles d'un coup, sans scroll horizontal). */

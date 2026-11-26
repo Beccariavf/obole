@@ -86,6 +86,15 @@ export let VALUATION_PERIODS = [];
 export let VALUATION_PERIOD_DEFAULT = 10;
 export let VALUATION_MATRIX = { rows: 15, cols: 15, growth_step: 0.5, multiple_step: 1 };
 export let VALUATION_COLOR_RATIOS = [0.5, 1.0];
+// Graphe « Prix et valorisation » (#34) : fenêtre, éventail, plafond d'échelle
+// et seuil de statut. Source unique `config.py` via `/api/meta`.
+export let VALUATION_CHART = {
+  years: 10,
+  fan_growth_span: 3,
+  fan_multiple_span: 4,
+  y_cap: 2.2,
+  gap_ratio_limit: 100,
+};
 // Bornes des points de contrôle suivis (#21) : source unique `config.py` via
 // `/api/meta`. `null` tant que le payload n'est pas chargé (le serveur valide).
 export let CHECKPOINT_LABEL_MAX = null;
@@ -139,6 +148,7 @@ export function applyMeta(m) {
   VALUATION_PERIOD_DEFAULT = m.valuation_period_default || VALUATION_PERIOD_DEFAULT;
   VALUATION_MATRIX = m.valuation_matrix || VALUATION_MATRIX;
   VALUATION_COLOR_RATIOS = m.valuation_color_ratios || VALUATION_COLOR_RATIOS;
+  VALUATION_CHART = m.valuation_chart || VALUATION_CHART;
   CHECKPOINT_LABEL_MAX = m.checkpoint_label_max || CHECKPOINT_LABEL_MAX;
   WATCH_TIERS = (m.watch && m.watch.tiers) || [];
   WATCH_MIN_REF_POINTS = (m.watch && m.watch.min_ref_points) || 0;

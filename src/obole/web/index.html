@@ -549,18 +549,66 @@
             </div>
           </div>
           <div class="val-main">
-            <!-- Vue Graphique -->
-            <div class="card" x-show="valView === 'graph'">
-              <div class="mini-chart" id="val-chart" style="height:var(--chart-h-val-hero)"></div>
-              <!-- Légende CAGR : croissance annualisée des séries tracées. -->
-              <div class="val-cagr-legend" x-show="valuationCagrLegend().length">
-                <template x-for="l in valuationCagrLegend()" :key="l.label">
-                  <span class="val-cagr-item">
-                    <b x-text="l.label"></b>
-                    <span x-text="'(CAGR: ' + fmt(l.cagr) + '%)'"></span>
+            <!-- Vue Graphique : carte « Prix et valorisation » à couches (#34).
+                 Pastilles-interrupteurs HTML (pas de légende Plotly) ; un clic
+                 sur une bascule redessine sans requête. -->
+            <div class="card val-hero" x-show="valView === 'graph'">
+              <div class="val-hero-head">
+                <p class="val-hero-title"
+                   x-text="'Prix et valorisation · ' + (data.identity.name || data.identity.ticker)"></p>
+                <p class="val-hero-status">
+                  <span x-text="valChartStatus().lead"></span><b
+                    :class="valChartStatus().kind" x-text="valChartStatus().text"></b>
+                </p>
+              </div>
+              <div class="val-layers">
+                <span class="val-layer">
+                  <span class="val-sw val-sw-price" aria-hidden="true"></span>Cours
+                </span>
+                <template x-if="valChartLegend().valo">
+                  <span class="val-layer">
+                    <span class="val-sw val-sw-valo" aria-hidden="true"></span>
+                    <span x-text="valChartLegend().valo"></span>
+                  </span>
+                </template>
+                <template x-if="valChartLegend().valo">
+                  <button type="button" class="val-layer val-toggle"
+                          :class="{ on: valLayers.couloir }" :aria-pressed="valLayers.couloir"
+                          @click="valToggleLayer('couloir')">
+                    <span class="val-sw val-sw-corridor" aria-hidden="true"></span>Sous / sur-évalué
+                  </button>
+                </template>
+                <template x-if="valChartLegend().scenarios">
+                  <button type="button" class="val-layer val-toggle"
+                          :class="{ on: valLayers.scenarios }" :aria-pressed="valLayers.scenarios"
+                          @click="valToggleLayer('scenarios')">
+                    <span class="val-sw val-sw-scenarios" aria-hidden="true"></span>Scénarios 5 ans
+                  </button>
+                </template>
+                <template x-if="valChartLegend().dividends">
+                  <button type="button" class="val-layer val-toggle"
+                          :class="{ on: valLayers.dividendes }" :aria-pressed="valLayers.dividendes"
+                          @click="valToggleLayer('dividendes')">
+                    <span class="val-sw val-sw-dividend" aria-hidden="true"></span>Dividende / action
+                  </button>
+                </template>
+              </div>
+              <div class="mini-chart val-chart" id="val-chart" style="height:var(--chart-h-val-hero)"></div>
+              <!-- Pied : CAGR du cours, de la métrique et du dividende complet. -->
+              <div class="val-foot" x-show="valChartFooter().length">
+                <template x-for="row in valChartFooter()" :key="row.key">
+                  <span>
+                    <span x-text="row.label"></span>
+                    <b :class="row.kind" x-text="row.text"></b>
+                    <span x-text="row.span"></span>
                   </span>
                 </template>
               </div>
+              <!-- Notes factuelles : métrique négative, multiple d'entreprise,
+                   projection hors cadre, dividende absent. -->
+              <template x-for="note in valChartNotes()" :key="note">
+                <p class="val-warn" x-text="note"></p>
+              </template>
             </div>
             <!-- Vue Matrice -->
             <div class="card val-matrix-wrap" x-show="valView === 'matrix'">

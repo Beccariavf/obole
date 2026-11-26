@@ -68,6 +68,23 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   court/long, confiance `1 − R²`) en bas de la section **Valorisation**, dans une
   carte `wide`. Fenêtres `Réf.`, `1A`, `5A`, `10A`, `20A`, `MAX` (source
   `/api/meta`) et bascule brut/ajusté ; recalcul client, comme le graphe héro.
+- **Valorisation — graphe à couches** (#34) : carte « Prix et valorisation » de la vue
+  Graphique. **Trois familles de couleurs seulement** : bleu (`C.accent`) pour le cours et
+  le prix juste, ambre (`C.valo`, `#D97706`) pour la valorisation, la projection et
+  l'éventail, **vert (`C.teal`) pour le dividende — couleur de catégorie, jamais un
+  jugement** ; le bleu/rouge ne sert qu'au verdict (couloir, statut, pied). Fenêtre de
+  10 ans + horizon 5 ans (zone future teintée, trait « aujourd'hui »). La valorisation est
+  un **escalier sans remplissage**, le **prix juste un rond creux posé sur « aujourd'hui »**
+  (plus de ligne dans le passé), le scénario central une pointillée ambre reliée au cours.
+  L'éventail (couche Scénarios, **éteinte par défaut**) ouvre croissance −3 pts et
+  multiple −4 ; une valeur hors cadre garde sa pastille « ↑ ». Les pastilles-interrupteurs
+  (couloir, scénarios **quand l'éventail est réellement traçable**, dividende) sont des
+  `<button aria-pressed>` HTML, pas une légende Plotly : un clic redessine sans requête. Le
+  dividende vit dans un étage bas (≈ 20 %), l'année civile en cours est un bâton **creux**,
+  l'axe X est ancré sous cet étage. Le pied remplace la légende CAGR : **trois lignes
+  toujours** (cours sur la fenêtre, métrique depuis son premier exercice, dividende sur ses
+  années **complètes**), « — » quand un CAGR n'est pas calculable. Fenêtre, éventail,
+  plafond d'échelle et seuil de statut viennent de `config.py` via `/api/meta`.
 - **Risque & dynamique** (#33) : deux étages empilés à axe X partagé — chute
   depuis le plus haut (aire neutre gris/ardoise) et volatilité `RISK_VOL_WINDOW`
   (ligne d'accent). Le seuil d'anomalie est une pointillée neutre ; **seuls** les
