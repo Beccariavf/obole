@@ -450,8 +450,11 @@ async function stickyNonRecouverts(page) {
     await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
-    // Molette depuis le contenu (pas le rail), puis attente sur condition.
-    await molette(page, 600);
+    // Défilement programmatique : on teste la position COLLÉE, pas la molette.
+    // En WebKit CI à 1100×600, `mouse.wheel(0, 600)` ne déplaçait le document
+    // que de 57 px : le plan restait sous le pli, jamais collé.
+    await page.evaluate(() => window.scrollBy(0, 900));
+    await attendreDefilementStable(page);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");
@@ -472,6 +475,8 @@ async function stickyNonRecouverts(page) {
         .filter(Boolean);
       return {
         top,
+        // Position réelle : égale au `top` calculé SSI le plan est collé.
+        posee: plan.getBoundingClientRect().top,
         items: items.length,
         invisibles: recouvertes.length,
         detail: `${recouvertes.join(" ; ")} (scrollY=${Math.round(scrollY)}, vue=${innerWidth}×${innerHeight})`,
@@ -480,6 +485,12 @@ async function stickyNonRecouverts(page) {
 
     // Le plan ne commence pas sous l'en-tête…
     expect(sonde.top, `${w}×${h} : top du plan`).toBeGreaterThanOrEqual(attendu - 1);
+    // …il est effectivement COLLÉ (sinon la sonde mesure un plan encore sous
+    // le pli et ne prouve rien)…
+    expect(
+      Math.abs(sonde.posee - sonde.top),
+      `${w}×${h} : plan non collé (posé à ${sonde.posee}, attendu ${sonde.top}) — ${sonde.detail}`,
+    ).toBeLessThanOrEqual(1);
     // …et toutes ses entrées sauf celles sorties par le haut sont cliquables.
     expect(sonde.invisibles, `${w}×${h} : ${sonde.invisibles} entrée(s) recouverte(s) — ${sonde.detail}`).toBe(0);
     expect(sonde.items, `${w}×${h} : le plan est vide, la mesure ne prouve rien`).toBeGreaterThan(
