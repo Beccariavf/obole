@@ -104,8 +104,10 @@ dans un étage dédié).
 
 ## 5. Critères d'acceptation
 
-- [x] Sur LVMH, la carte montre la ligne de statut, le couloir, le scénario central à 638 €,
-      le prix juste 422 € sur « aujourd'hui » et les bâtons de dividende (2026 creux).
+- [x] Sur LVMH, la carte montre la ligne de statut, le couloir, le scénario central, le
+      prix juste posé sur « aujourd'hui » et les bâtons de dividende (année en cours
+      creuse) — montants courants dans la note §8 (ceux de la maquette datent d'un autre
+      consensus).
 - [x] Sur Ubisoft : « valorisation non calculable », courbe arrêtée au dernier exercice
       positif, pas d'étage dividende.
 - [x] Sur Kering : « sur-évalué (cours ×14,5) », pastille « ↑ 8 353 », pas d'éventail, note
@@ -135,11 +137,17 @@ dans un étage dédié).
   par `/api/meta`, helpers purs exportés et testés (`web-tests/valuation-chart.test.js`),
   e2e valorisation mis à jour, `design.md`. Preuve sur base jetable (`OBOLE_CACHE_DB`,
   port ≠ 8000) : **MC.PA** — statut « sous-évalué de 25,58 % », couloir, scénario central
-  356,86, prix juste 235,04 posé sur « aujourd'hui », 11 bâtons de dividende dont 2026
+  356,86, prix juste 235,04 posé sur « aujourd'hui », 10 bâtons de dividende dont 2026
   creux ; **UBI.PA** — « valorisation non calculable », courbe arrêtée au dernier exercice
-  positif, pas d'étage dividende ; **KER.PA** — « sur-évalué (cours ×14,51) », pastille
-  « ↑ 8 353,44 », éventail absent même couche allumée, note hors cadre ; **EV/EBITDA**
-  (MC.PA) — ni valorisation, ni couloir, ni statut. Aucune erreur console. Les montants
-  638 €/422 € de la maquette datent d'un consensus antérieur : la structure est identique,
-  les valeurs suivent les saisies courantes de la calculatrice.
-- Reste : revue indépendante, puis PR draft (hors périmètre de cette session).
+  positif, pas d'étage dividende, pied « Dividende — » ; **KER.PA** — « sur-évalué
+  (cours ×14,51) », pastilles « ↑ 8 353,44 » et « ↑ Prix juste 5 109,72 », ni éventail ni
+  bascule Scénarios (central hors cadre), note hors cadre ; **EV/EBITDA** (MC.PA) — ni
+  valorisation, ni couloir, ni statut, pied « EBITDA — » ; **multiple saisi 3** — la
+  bascule Scénarios disparaît (borne pessimiste ≤ 0) et aucune pastille grise orpheline
+  n'apparaît. Aucune erreur console. Les montants 638 €/422 € de la maquette datent d'un
+  consensus antérieur : la structure est identique, les valeurs suivent les saisies
+  courantes de la calculatrice.
+- Revue indépendante : corrigée (éventail et bascule conditionnés aux deux bornes, échelle
+  bornée à la fenêtre visible, pied toujours à trois lignes avec « — », métrique
+  négative/absente distinguée, cache du modèle complété, marge droite de l'axe effective).
+- Reste : PR draft (hors périmètre de cette session).
