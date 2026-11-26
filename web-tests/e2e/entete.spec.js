@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { attendreDefilementStable, attendreMiseEnPageStable, defiler } from "./defilement.js";
 
 // En-tête de l'espace Analyse (recherche collante + onglets collés dessous) et
 // grille de cartes sans colonne orpheline.
@@ -55,6 +56,28 @@ export const mesurerVide = (page) =>
     return out;
   });
 
+// Thèse jetable pour les tests qui mesurent le plan et les ancres. La CI part
+// d'une base neuve où AUCUNE thèse n'existe (règle testing.md : un e2e ne
+// présuppose jamais une base existante). Il faut ≥ 3 titres (le plan doit en
+// lister plus de 2), assez de texte pour défiler, et du texte ENTRE chaque
+// titre : deux titres collés font passer le précédent sous l'en-tête quand on
+// vise le suivant, ce qui fausserait la mesure des ancres. Renvoie la restauration.
+async function semerThese(request) {
+  const remplissage = "Paragraphe de remplissage pour rendre le document long. ";
+  const MEMO =
+    "# Thèse\n\n" + remplissage.repeat(40) + "\n\n## Pitch\n\n" + remplissage.repeat(40) +
+    "\n\n## Bull case\n\n" + remplissage.repeat(40) +
+    "\n\n## Bear case\n\n" + remplissage.repeat(40) + "\n";
+  const avant = await request.get("/api/thesis/RI.PA");
+  const precedent = avant.ok() ? (await avant.json()).content : null;
+  const ecrit = await request.put("/api/thesis/RI.PA", { data: { content: MEMO } });
+  expect(ecrit.ok(), "fixture de thèse non enregistrée").toBe(true);
+  return async () => {
+    if (precedent !== null) await request.put("/api/thesis/RI.PA", { data: { content: precedent } });
+    else await request.delete("/api/thesis/RI.PA");
+  };
+}
+
 test("en-tête : la recherche et les onglets collent, l'identité défile", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/#RI.PA/quantitatif");
@@ -70,8 +93,8 @@ test("en-tête : la recherche et les onglets collent, l'identité défile", asyn
 
   // On défile assez pour que l'identité du titre ET les onglets aient quitté le
   // haut de page si rien ne collait.
-  await page.mouse.wheel(0, 900);
-  await page.waitForTimeout(250);
+  // Défilement déterministe, attente sur condition (voir defilement.js).
+  await defiler(page, 900);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 
   const pos = await page.evaluate(() => {
@@ -367,7 +390,26 @@ test("grille : paliers responsives sans débordement horizontal", async ({ page 
   }
 });
 
-test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", async ({ page }) => {
+test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", async ({
+  page,
+  request,
+}) => {
+  const restaurer = await semerThese(request);
+  try {
+    await stickyNonRecouverts(page);
+  } finally {
+    await restaurer();
+  }
+});
+
+async function stickyNonRecouverts(page) {
+  // Préférence « plan ouvert » posée avant tout script de la page, à chaque
+  // chargement de document : l'état de départ ne dépend plus d'un clic.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem("obole.thesis.planOpen", "1");
+    } catch {}
+  });
   // Cette famille de régressions (plan de thèse, barre markdown) est passée
   // parce qu'aucun test ne regardait les AUTRES `sticky` de la fiche. On les
   // sonde tous : un élément collé est « atteignable » si `elementFromPoint` à son
@@ -398,50 +440,78 @@ test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", as
     );
     expect(declare, "— --head-h doit être un calc() des tokens").toMatch(/calc\(/);
 
-    // Le plan de thèse est masqué par défaut : on le déplie pour le mesurer.
+    // La poignée du plan, elle, est toujours là : sa géométrie suit l'en-tête.
     const pin = page.locator(".thesis-pin");
     await expect(pin).toHaveCount(1);
     const topPin = await pin.evaluate((e) => parseFloat(getComputedStyle(e).top));
     expect(topPin, `${w}×${h} : poignée sous l'en-tête (${attendu} px)`).toBe(attendu);
 
-    // Le plan de thèse peut être déjà déplié : son état est persisté
-    // (localStorage). La poignée BASCULE, donc on ne clique que s'il est masqué
-    // — sinon on le refermerait, et WebKit tombait ici sur un plan caché.
+    // Plan déplié par sa préférence persistée (posée avant chargement, voir
+    // `addInitScript` plus haut), JAMAIS par la poignée : elle BASCULE, et un
+    // clic décidé sur `isVisible()` pendant que la thèse se charge encore
+    // refermait un plan déjà ouvert (CI WebKit : plan à 0 px). Le clic de la
+    // poignée a son propre test (sections.spec.js, #21.2).
     const plan = page.locator("#thesis-plan");
-    if (!(await plan.isVisible())) {
-      await page.locator(".thesis-edge").hover({ force: true });
-      await pin.click({ force: true });
-    }
     await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
-    await page.mouse.wheel(0, 600);
-    await page.waitForTimeout(400);
+    // Défilement déterministe (voir defilement.js) : on teste la position
+    // COLLÉE, pas la molette.
+    await defiler(page, 900);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");
       const top = parseFloat(getComputedStyle(plan).top);
       const items = [...plan.querySelectorAll(".thesis-plan-item")];
-      const invisibles = items.filter((a) => {
-        const r = a.getBoundingClientRect();
-        if (r.width < 1 || r.top < 0) return false;
-        const at = document.elementFromPoint(r.x + 6, r.top + r.height / 2);
-        return !(at === a || a.contains(at));
-      }).length;
-      return { top, items: items.length, invisibles };
+      // Pour chaque entrée recouverte, on garde CE qui la recouvre et où elle
+      // est : sans cela, un échec propre à un runner (WebKit CI) est muet.
+      const decrire = (e) =>
+        e ? `${e.tagName.toLowerCase()}${e.id ? "#" + e.id : ""}.${[...e.classList].join(".")}` : "rien";
+      const recouvertes = items
+        .map((a) => {
+          const r = a.getBoundingClientRect();
+          if (r.width < 1 || r.top < 0) return null;
+          const at = document.elementFromPoint(r.x + 6, r.top + r.height / 2);
+          if (at === a || a.contains(at)) return null;
+          return `x=${Math.round(r.x)} y=${Math.round(r.top)} sous ${decrire(at)}`;
+        })
+        .filter(Boolean);
+      return {
+        top,
+        // Position réelle : égale au `top` calculé SSI le plan est collé.
+        posee: plan.getBoundingClientRect().top,
+        items: items.length,
+        invisibles: recouvertes.length,
+        detail: `${recouvertes.join(" ; ")} (scrollY=${Math.round(scrollY)}, vue=${innerWidth}×${innerHeight})`,
+      };
     });
 
     // Le plan ne commence pas sous l'en-tête…
     expect(sonde.top, `${w}×${h} : top du plan`).toBeGreaterThanOrEqual(attendu - 1);
+    // …il est effectivement COLLÉ (sinon la sonde mesure un plan encore sous
+    // le pli et ne prouve rien)…
+    expect(
+      Math.abs(sonde.posee - sonde.top),
+      `${w}×${h} : plan non collé (posé à ${sonde.posee}, attendu ${sonde.top}) — ${sonde.detail}`,
+    ).toBeLessThanOrEqual(1);
     // …et toutes ses entrées sauf celles sorties par le haut sont cliquables.
-    expect(sonde.invisibles, `${w}×${h} : ${sonde.invisibles} entrée(s) recouverte(s)`).toBe(0);
+    expect(sonde.invisibles, `${w}×${h} : ${sonde.invisibles} entrée(s) recouverte(s) — ${sonde.detail}`).toBe(0);
     expect(sonde.items, `${w}×${h} : le plan est vide, la mesure ne prouve rien`).toBeGreaterThan(
       2,
     );
   }
+}
+
+test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ page, request }) => {
+  const restaurer = await semerThese(request);
+  try {
+    await ancresSousEntete(page);
+  } finally {
+    await restaurer();
+  }
 });
 
-test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ page }) => {
+async function ancresSousEntete(page) {
   // `scrollIntoView({block:'start'})` plaquait le titre à 0 : recouvert par les
   // deux rangs (mesuré : 36 px sur « Synthèse », −107 px sur « Fondement »). Le
   // `scroll-margin-top` doit égaler la hauteur de l'en-tête.
@@ -463,10 +533,20 @@ test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ p
   expect(margin, "scroll-margin-top absent").toBe(entete);
 
   // Clic sur une ancre réelle du sommaire, puis mesure de l'atterrissage.
+  // La fixture sème plusieurs titres : le sommaire DOIT offrir une 2e ancre
+  // (sans elle, la mesure d'atterrissage ne prouverait rien).
   const lien = page.locator(".md-toc-item").nth(1);
-  if (await lien.count()) {
+  await expect(lien).toHaveCount(1);
+  {
+    // La fiche finit de se remplir (graphes, polices) : un clic d'ancre lancé
+    // avant viserait une position qui bouge ensuite.
+    await attendreMiseEnPageStable(page);
+    const yAvant = await page.evaluate(() => window.scrollY);
     await lien.click();
-    await page.waitForTimeout(900);
+    // Défilement doux : on attend qu'il ait BOUGÉ puis qu'il soit STABLE (deux
+    // lectures identiques à 200 ms), jamais un délai fixe.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(yAvant);
+    await attendreDefilementStable(page);
     const tops = await page.evaluate(() =>
       [...document.querySelectorAll(".md-body h1, .md-body h2")].map((h) =>
         Math.round(h.getBoundingClientRect().top),
@@ -474,9 +554,12 @@ test("ancres de la thèse : le titre visé atterrit SOUS l'en-tête", async ({ p
     );
     // Aucun titre visible ne doit être coincé SOUS l'en-tête (0 < top < entete).
     const coinces = tops.filter((t) => t > 0 && t < entete - 1);
-    expect(coinces, `titre(s) coincé(s) sous l'en-tête : ${coinces}`).toEqual([]);
+    expect(
+      coinces,
+      `titre(s) coincé(s) sous l'en-tête (${entete} px) : ${coinces} — tous : ${tops}`,
+    ).toEqual([]);
   }
-});
+}
 
 test("le champ de recherche ne descend pas sous sa largeur de saisie", async ({ page }) => {
   // Un libellé de retour long écrasait le champ jusqu'à 203 px (mesuré) : sous
