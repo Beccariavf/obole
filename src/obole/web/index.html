@@ -772,23 +772,32 @@
                         @click="riskPreset(p)" x-text="riskPresetLabel(p)"></button>
               </template>
             </div>
+            <span class="info-btn" role="button" tabindex="0"
+                  @click.stop="toggleInfo('risque-lecture')"
+                  @keydown.enter.prevent="toggleInfo('risque-lecture')"
+                  @keydown.space.prevent="toggleInfo('risque-lecture')"
+                  :aria-expanded="showInfo['risque-lecture'] ? 'true' : 'false'"
+                  aria-label="Comment lire ce graphique"
+                  x-text="showInfo['risque-lecture'] ? '✕' : 'ⓘ'"></span>
+          </div>
+          <div class="info-panel" x-show="showInfo['risque-lecture']">
+            <div class="risk-lines">
+              <p class="risk-line" x-text="riskDrawdownText()"></p>
+              <p class="risk-line">
+                <template x-for="(part, i) in riskVolParts()" :key="part.key">
+                  <span :class="{ bad: part.bad }" :title="part.title || null"
+                        x-text="(i ? ' · ' : '') + part.text"></span>
+                </template>
+              </p>
+              <p class="risk-line">
+                <template x-for="(part, i) in riskMomentumParts()" :key="part.key">
+                  <span :class="{ bad: part.bad }" :title="part.title || null"
+                        x-text="(i ? ' · ' : '') + part.text"></span>
+                </template>
+              </p>
+            </div>
           </div>
           <div class="risk-chart" id="risk-chart"></div>
-          <div class="risk-lines">
-            <p class="risk-line" x-text="riskDrawdownText()"></p>
-            <p class="risk-line">
-              <template x-for="(part, i) in riskVolParts()" :key="part.key">
-                <span :class="{ bad: part.bad }" :title="part.title || null"
-                      x-text="(i ? ' · ' : '') + part.text"></span>
-              </template>
-            </p>
-            <p class="risk-line">
-              <template x-for="(part, i) in riskMomentumParts()" :key="part.key">
-                <span :class="{ bad: part.bad }" :title="part.title || null"
-                      x-text="(i ? ' · ' : '') + part.text"></span>
-              </template>
-            </p>
-          </div>
         </div>
       </div>
 
