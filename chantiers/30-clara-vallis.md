@@ -1,5 +1,7 @@
 # #30 — La Clara Vallis : le régime de foule dans la fiche
 
+> **Retiré au #33** — remplacé par « Risque & dynamique » ; la table Markovitz rejoint Valorisation.
+
 > **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/clara-vallis` (créée) · **Taille :** 3-4 sessions
 

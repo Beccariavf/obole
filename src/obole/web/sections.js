@@ -48,11 +48,9 @@ export const SECTIONS = [
     svg: icon('<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>'),
   },
   {
-    id: "momentum",
-    label: "Momentum",
-    // Jauge : le régime de foule, entre le monde de Markovitz et celui de
-    // Mandelbrot (Clara Vallis, #30).
-    svg: icon('<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4.5-4.5"/><circle cx="12" cy="17" r="1.4"/>'),
+    id: "risque",
+    label: "Risque & dynamique",
+    svg: icon('<path d="M3 12h4l2.5-7 5 14 2.5-7H21"/>'),
   },
 ];
 
@@ -144,8 +142,6 @@ export const sectionsMixin = {
   // — CAGR, KPI dividende — n'en ont pas). Source unique : `NON_CHART_TYPES`
   // est importée de `charts.js` (même règle que `isChartCard`, pas de dérive).
   expectedMiniIds() {
-    // Momentum : deux tracés dédiés (un an + historique), hors taxonomie.
-    if (this.activeSection === "momentum") return ["mom-year", "mom-history"];
     // La section Valorisation rend ses cartes par un template DÉDIÉ (calculatrice
     // + courbes) : `sectionGroups()` ne les expose pas. On lit donc directement
     // `valuationGroups()` pour que `scheduleRedraw` attende les bons conteneurs.
@@ -193,9 +189,10 @@ export const sectionsMixin = {
     if (typeof this._loadThesisIfNeeded === "function") this._loadThesisIfNeeded();
   },
 
-  // Redessine ce qui est visible : le graphe héro (section Résumé) et les
-  // mini-charts de la section active. Indispensable car un graphe masqué par
-  // `x-show` a une taille nulle et Plotly ne peut pas le tracer.
+  // Redessine ce qui est visible : le graphe héro (section Résumé), le graphe
+  // de risque (section Risque & dynamique) et les mini-charts de la section
+  // active. Indispensable car un graphe masqué par `x-show` a une taille nulle
+  // et Plotly ne peut pas le tracer.
   redrawActiveSection() {
     if (this.activeSection === "resume") {
       try {
@@ -204,19 +201,27 @@ export const sectionsMixin = {
         console.error("drawChart error:", e);
       }
     }
+    if (this.activeSection === "risque" && typeof this.drawRiskChart === "function") {
+      try {
+        this.drawRiskChart();
+      } catch (e) {
+        console.error("drawRiskChart error:", e);
+      }
+    }
     try {
       this.drawMinis();
     } catch (e) {
       console.error("drawMinis error:", e);
     }
-    // Momentum : deux tracés dédiés, hors du routage générique des cartes.
-    if (this.activeSection === "momentum" && typeof this.drawMomentum === "function") {
-      try {
-        this.drawMomentum();
-      } catch (e) {
-        console.error("drawMomentum error:", e);
-      }
-    }
+  },
+
+  // Le conteneur du graphe de risque est statique dans `index.html` : il existe
+  // toujours, mais `x-show` peut ne pas avoir encore flushé son affichage (une
+  // largeur nulle empêcherait Plotly de tracer).
+  _riskChartReady() {
+    if (typeof document === "undefined") return true;
+    const node = document.getElementById("risk-chart");
+    return !!node && node.getBoundingClientRect().width > 0;
   },
 
   // Attend que les conteneurs des mini-charts de la section active existent
@@ -226,7 +231,9 @@ export const sectionsMixin = {
   // itérerait alors l'ancien DOM et laisserait la nouvelle section vide. On
   // réessaie donc sur quelques frames, puis on trace quoi qu'il arrive.
   scheduleRedraw(attempt = 0) {
-    const ready = this.expectedMiniIds().every((id) => document.getElementById(id));
+    const ready =
+      this.expectedMiniIds().every((id) => document.getElementById(id)) &&
+      (this.activeSection !== "risque" || this._riskChartReady());
     if (!ready && attempt < 12) {
       const raf =
         typeof requestAnimationFrame === "function"

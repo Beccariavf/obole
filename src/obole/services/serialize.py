@@ -2,8 +2,10 @@
 
 Module de **présentation partagé** : il transforme les objets métier en payload JSON
 consommé par le front via l'API HTTP **et** par les outils MCP (`services/` est le
-point d'entrée commun, cf. `web → api → services → engine → data`). Aucune logique
-métier ici : pas de formule, pas de seuil, pas d'appel réseau.
+point d'entrée commun, cf. `web → api → services → engine → data`). Aucune formule
+métier n'est réimplémentée ici : les mesures proviennent de `engine/` (y compris
+les séries de risque), et les prix d'un benchmark sont lus via `data/` par le cas
+d'usage (`services/analysis`), jamais par ce module.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import pandas as pd
 from obole import config
 from obole.data import cache
 from obole.data import events as events_data
+from obole.engine import risk as risk_engine
 from obole.models import (
     BasketAnalysis,
     CompanyKind,
@@ -26,7 +29,6 @@ from obole.models import (
     StockAnalysis,
     SummaryCard,
 )
-from obole.services.momentum import momentum_payload
 from obole.services.values import to_values as _vals
 
 if TYPE_CHECKING:
@@ -145,7 +147,55 @@ def _downsample(series: pd.Series, max_points: int = 1200) -> pd.Series:
     return out
 
 
-def chart_payload(prices: PriceSeries, fundamentals=None) -> dict:
+def _risk_payload(
+    adj: pd.Series,
+    raw: pd.Series,
+    grid: pd.Index,
+    benchmark: PriceSeries | None,
+) -> dict:
+    """Séries et instantané de la section « Risque & dynamique » (#33).
+
+    Les mesures sont calculées par `engine/risk.py` sur la **pleine résolution**
+    (chute et volatilité sur l'ajustée, 12-1 sur la brute), PUIS réindexées sur
+    la grille décimée du cours : comme les moyennes mobiles, un calcul mené sur
+    la grille décimée fausserait les fenêtres (60 séances, 252 séances).
+
+    `benchmark` est lu une seule fois par le cas d'usage (`services/analysis`) :
+    absent ou illisible, ses deux champs valent `None` — jamais d'exception.
+    """
+    snapshot = risk_engine.risk_snapshot(adj, raw)
+    drawdown = risk_engine.drawdown_series(adj)
+    vol = risk_engine.realized_vol_series(adj)
+
+    bench_vol = None
+    bench_mom = None
+    if benchmark is not None:
+        bench_snapshot = risk_engine.risk_snapshot(benchmark.adjusted, benchmark.raw)
+        bench_vol = bench_snapshot["vol_pct"]
+        bench_mom = bench_snapshot["mom_12_1_pct"]
+
+    return {
+        # Même longueur et même ordre que `chart.dates` (grille du cours décimé).
+        "drawdown_pct": _vals(drawdown.reindex(grid)),
+        "vol_pct": _vals(vol.reindex(grid)),
+        "vol_threshold_pct": snapshot["vol_threshold_pct"],
+        "now": {
+            "drawdown_pct": snapshot["drawdown_pct"],
+            "peak_date": snapshot["peak_date"],
+            "vol_pct": snapshot["vol_pct"],
+            "vol_percentile": snapshot["vol_percentile"],
+            "bench_vol_pct": bench_vol,
+            "mom_12_1_pct": snapshot["mom_12_1_pct"],
+            "bench_mom_12_1_pct": bench_mom,
+        },
+    }
+
+
+def chart_payload(
+    prices: PriceSeries,
+    fundamentals=None,
+    benchmark: PriceSeries | None = None,
+) -> dict:
     """Séries brutes (cours + cours dividendes réinvestis) alignées sur les dates.
 
     La régression et les bandes ±σ sont (re)calculées CÔTÉ CLIENT en JS (cela évite
@@ -157,6 +207,10 @@ def chart_payload(prices: PriceSeries, fundamentals=None) -> dict:
     Les rendements continus (`div_yield`/`sh_yield`, depuis `fundamentals`) suivent
     le MÊME principe : dérivés du cours en pleine résolution, décimés avec le même
     pas -> alignés 1:1 sur `dates`. Le front n'en garde que la stat de fenêtre.
+
+    `risk` (#33) suit encore ce principe : chute, volatilité et 12-1 sont mesurés
+    en pleine résolution par `engine/risk.py`, puis alignés sur `dates`. Le
+    benchmark (`^FCHI`) est fourni par le cas d'usage, jamais lu ici.
     """
     raw = _downsample(prices.raw)
     adj = prices.adjusted.reindex(raw.index)
@@ -174,6 +228,7 @@ def chart_payload(prices: PriceSeries, fundamentals=None) -> dict:
         "ma_long_raw": _vals(ma_long_raw.reindex(raw.index)),
         "ma_short_adj": _vals(ma_short_adj.reindex(raw.index)),
         "ma_long_adj": _vals(ma_long_adj.reindex(raw.index)),
+        "risk": _risk_payload(prices.adjusted, prices.raw, raw.index, benchmark),
     }
     # Rendements continus : décimés sur le MÊME index que le cours (alignement).
     if fundamentals is not None:
@@ -307,11 +362,21 @@ def summarize_index_to_dict(entry: dict) -> dict:
     }
 
 
-def basket_chart_payload(series: pd.Series) -> dict:
+def basket_chart_payload(
+    series: pd.Series,
+    benchmark: PriceSeries | None = None,
+    raw_series: pd.Series | None = None,
+) -> dict:
     """Série d'un indice personnalisé pour le tracé (raw = adj = série de l'indice).
 
     Même format que chart_payload : le front réutilise drawChart tel quel. Pas de
     series_a/series_b : un indice n'a pas de β (pas d'actif de référence).
+
+    `risk` (#33) mesure chute et volatilité sur la série de l'indice (chaînée en
+    total return), puis le 12-1 sur `raw_series` — le même panier chaîné sur les
+    cours **bruts**, sans dividendes. Absente (payload ancien), la série
+    principale tient lieu de repli ; le 12-1 reste alors honnêtement celui de la
+    série affichée. Le 12-1 du benchmark se mesure sur ses cours bruts.
     """
     s = _downsample(series)
     settings = cache.get_settings()
@@ -325,10 +390,18 @@ def basket_chart_payload(series: pd.Series) -> dict:
         "price_adj": vals,
         "ma_short": _vals(ma_short.reindex(s.index)),
         "ma_long": _vals(ma_long.reindex(s.index)),
+        "risk": _risk_payload(
+            series, raw_series if raw_series is not None else series, s.index, benchmark
+        ),
     }
 
 
-def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: bool = True) -> dict:
+def basket_to_dict(
+    analysis: BasketAnalysis,
+    series: pd.Series,
+    include_chart: bool = True,
+    benchmark: PriceSeries | None = None,
+) -> dict:
     """Payload d'une fiche indice personnalisé.
 
     `include_chart=False` écarte la série de prix (le graphe) : le dict `chart` n'est
@@ -376,12 +449,7 @@ def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: b
         "warnings": analysis.warnings,
     }
     if include_chart:
-        chart = basket_chart_payload(series)
-        # Un indice synthétique est déjà en total-return : `raw == adj`, pas de
-        # bascule possible côté front.
-        chart["momentum"] = momentum_payload(
-            f"INDEX:{analysis.index_id}", series, None, _downsample(series).index
-        )
+        chart = basket_chart_payload(series, benchmark=benchmark, raw_series=analysis.raw_series)
         out["chart"] = chart
     return out
 
@@ -825,13 +893,19 @@ def _events_payload(kind: str, ref: str | int) -> list[dict]:
 
 
 def analysis_to_dict(
-    analysis: StockAnalysis, prices: PriceSeries, include_chart: bool = True
+    analysis: StockAnalysis,
+    prices: PriceSeries,
+    include_chart: bool = True,
+    benchmark: PriceSeries | None = None,
 ) -> dict:
     """Payload d'une fiche action.
 
     `include_chart=False` écarte la série de prix (le graphe) — qui pèse ~90 % du
     payload — pour les consommateurs qui ne tracent rien (outils MCP, prompt de
-    thèse). Le dict `chart` n'est alors PAS construit (aucun calcul inutile).
+    thèse). Le dict `chart` (dont `chart.risk`, #33) n'est alors PAS construit.
+
+    `benchmark` = prix du CAC 40 lus par le cas d'usage (`services/analysis`) ;
+    absent, `chart.risk.now.bench_*` vaut `None`.
     """
     ind = analysis.indicators
     ident = analysis.identity
@@ -878,14 +952,6 @@ def analysis_to_dict(
         "warnings": analysis.warnings,
     }
     if include_chart:
-        chart = chart_payload(prices, analysis.fundamentals)
-        # Momentum (Clara Vallis) : séries alignées sur la grille du graphe.
-        # La grille est recalculée depuis les prix, jamais lue du dict `chart` :
-        # le tracé et le momentum partagent la même décimation déterministe.
-        # Absent quand `include_chart=False` (MCP, prompt de thèse) : rien à
-        # tracer, donc rien à calculer.
-        chart["momentum"] = momentum_payload(
-            ident.ticker, prices.raw, prices.adjusted, _downsample(prices.raw).index
-        )
+        chart = chart_payload(prices, analysis.fundamentals, benchmark=benchmark)
         out["chart"] = chart
     return out

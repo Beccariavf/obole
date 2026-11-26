@@ -64,26 +64,19 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   0-100, aperçu « valeur / 100 ») et **une seule paire** Enregistrer / Rétablir pour tous
   les groupes (`.settings-actions`). À 390 px, la colonne Rang et le nom long s'effacent
   pour que le tableau tienne dans la largeur.
-- **Momentum — La Clara Vallis** (#30, #31) : onglet frère de Valorisation. Une **jauge
-  horizontale** (« satisfaite » à gauche, « frustrée » à droite) dont l'aiguille vaut
-  `(1 − score)` ; les zones suivent les bornes calibrées, pas un 50/50. Le score et les
-  bandes sont **bleu = satisfaite, rouge = frustrée** — la sémantique habituelle, appliquée
-  à un état de foule. L'historique colore le **fond** par intervalles contigus (un rectangle
-  par régime, jamais un par séance) : une ligne bicolore se lirait mal sur vingt ans. Sa
-  plage est propre (`momStart`/`momEnd`) et ne touche pas celle du héro ; un chip « Réf. »
-  précède 1A mais le défaut reste 10 ans.
-  Sous l'historique, la carte **« Fiabilité de l'indicateur »** est un tableau à **trois
-  colonnes de valeurs** — `Buy & hold`, `in`, `out` — et **sept lignes** : CAGR, volatilité,
-  Sharpe, Sortino, max drawdown, Calmar, part des séances. Nombres alignés à droite, `—`
-  (avec infobulle) pour une mesure non calculable, légende d'en-tête qui dit la **série**
-  (brute/ajustée), la **durée** et les **frais par ordre**, puis un **pied** `N trades ·
-  stratégie X %/an` et la phrase qui rappelle que le drawdown des paniers est
-  **conditionnel**. **Polarité** : bleu = bien, rouge = mal, mais la colonne `out` l'**inverse
-  localement** (un CAGR ou un Sharpe positif dehors est rouge : gagner quand on n'est pas
-  investi est un mauvais signe) ; volatilité, max drawdown et part des séances restent
-  neutres. Le CSS ne décide d'aucune couleur sémantique : il ne fait que rendre la classe
-  `good`/`bad` posée par le JS. Sous 640 px, le tableau défile dans la carte, le pied et la
-  légende passent sur deux lignes.
+- **Monde de Markovitz** (#33) : table de six mesures (σ de bande, z, pente, MM
+  court/long, confiance `1 − R²`) en bas de la section **Valorisation**, dans une
+  carte `wide`. Fenêtres `Réf.`, `1A`, `5A`, `10A`, `20A`, `MAX` (source
+  `/api/meta`) et bascule brut/ajusté ; recalcul client, comme le graphe héro.
+- **Risque & dynamique** (#33) : deux étages empilés à axe X partagé — chute
+  depuis le plus haut (aire neutre gris/ardoise) et volatilité `RISK_VOL_WINDOW`
+  (ligne d'accent). Le seuil d'anomalie est une pointillée neutre ; **seuls** les
+  passages de volatilité au-dessus et le percentile en anomalie sont rouges.
+  Plage propre (`riskStart`/`riskEnd`), puces `1A`/`5A`/`10A`/`20A`/`MAX`,
+  **10 ans par défaut** : elle est indépendante de la plage du héro. Sous le
+  graphique, trois lignes factuelles (chute et date du plus haut, volatilité et
+  percentile avec le CAC 40, 12-1 hors dividendes avec le CAC 40). **Aucun
+  verdict, aucune flèche d'achat ou de vente, aucun vert.**
 
 ## Navigation (coquille)
 
@@ -91,7 +84,7 @@ Le langage visuel : charte, jetons et conventions de graphiques.
   Screener, Portefeuille, Watchlist, puis **Paramètres en pied** (séparé par un filet — ce
   n'est pas un espace de consultation). Les **onglets horizontaux** au-dessus du contenu
   changent de section DANS la fiche : Résumé, Quantitatif, Dividende, Finance,
-  Thèse & Société, Valorisation, Momentum.
+  Thèse & Société, Valorisation, Risque & dynamique.
 - **Un espace est une PAGE, pas une couche.** Les cinq espaces sont des vues **sœurs** de
   l'analyse dans `.app-main` (`.app-view.view-<espace>`), sur lesquelles `x-show` bascule :
   le rail reste donc visible ET cliquable en permanence, et passer d'un espace à l'autre

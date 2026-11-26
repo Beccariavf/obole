@@ -1,5 +1,7 @@
 # #31 — Fiabilité de la Clara Vallis
 
+> **Retiré au #33** — remplacé par « Risque & dynamique » ; la table Markovitz rejoint Valorisation.
+
 > **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/clara-vallis-fiabilite` (depuis `feat/clara-vallis`, tant que #30 n'est pas fusionné) · **Taille :** 2-3 sessions
 

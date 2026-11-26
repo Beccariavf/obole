@@ -566,9 +566,6 @@ export const chartsMixin = {
     // l'ordre voulu (calculatrice puis mini-charts). On ne les expose donc PAS
     // via `sectionGroups()` (sinon doublon et ordre inversé).
     if (section === "valorisation") return [];
-    // Section Momentum (Clara Vallis) : template dédié (table + trois blocs),
-    // aucun groupe de cartes génériques à exposer.
-    if (section === "momentum") return [];
     const groups = this.fundamentalGroups();
     if (!groups.length) return groups;
     return groups
@@ -596,12 +593,10 @@ export const chartsMixin = {
       if (typeof this.valuationAvailable === "function" && this.valuationAvailable()) return true;
       return typeof this.valuationGroups === "function" && this.valuationGroups().length > 0;
     }
-    // Momentum : actions et indices, jamais un ratio, et seulement si le
-    // payload porte assez de séances pour calculer la table.
-    if (id === "momentum") {
-      const kind = this.data.kind_payload;
-      if (kind !== "stock" && kind !== "basket") return false;
-      return typeof this.momAvailable === "function" && this.momAvailable();
+    // Risque & dynamique : le payload porte ses séries précalculées (une action
+    // ou un panier ; un ratio n'en a pas).
+    if (id === "risque") {
+      return typeof this.riskAvailable === "function" && this.riskAvailable();
     }
     return this._groupsFor(id).length > 0;
   },

@@ -22,7 +22,7 @@ test("fiche RI.PA : les onglets pilotent la section affichée", async ({ page })
     "finance",
     "these",
     "valorisation",
-    "momentum",
+    "risque",
   ]);
 
   // À l'ouverture, c'est « Résumé » qui est actif : le graphe héro est là.
@@ -69,6 +69,17 @@ test("fiche RI.PA : le deep-link ouvre directement la bonne section", async ({ p
       timeout: 30_000,
     })
     .toBeGreaterThan(0);
+});
+
+test("un ancien lien #TICKER/momentum retombe sur Résumé, sans erreur (#33)", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/momentum");
+  await expect(page.locator(".header")).toBeVisible();
+  // L'onglet n'existe plus : le hash est normalisé sur la section par défaut.
+  await expect(page.locator(".section-tab.active")).toHaveAttribute("data-section", "resume");
+  await expect(page).toHaveURL(/#RI\.PA\/resume$/);
+  expect(errors).toEqual([]);
 });
 
 test("fiche RI.PA : le rafraîchissement ne quitte pas la section courante", async ({ page }) => {
@@ -137,7 +148,7 @@ test("un ratio désactive les sections sans comptes", async ({ page }) => {
 
   // Un ratio n'a ni comptes ni dividendes : seul « Résumé » reste disponible.
   await expect(page.locator(".section-tab[data-section='resume']")).toBeEnabled();
-  for (const id of ["quantitatif", "dividende", "finance", "these", "valorisation", "momentum"]) {
+  for (const id of ["quantitatif", "dividende", "finance", "these", "valorisation", "risque"]) {
     await expect(page.locator(`.section-tab[data-section='${id}']`)).toBeDisabled();
   }
 });

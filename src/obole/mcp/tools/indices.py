@@ -16,6 +16,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from obole.data import yahoo
 from obole.mcp.tools._shared import chart_enabled
+from obole.services import analysis as analysis_service
 from obole.services import indices as indices_service
 from obole.services import serialize
 from obole.services.indices import IndexNotFound
@@ -62,7 +63,13 @@ def get_index_analysis(index_id: int, view: Literal["summary", "full"] = "summar
         raise ToolError(f"Ticker introuvable : {exc}") from None
     except ValueError as exc:
         raise ToolError(str(exc)) from None
-    return serialize.basket_to_dict(analysis, series, include_chart=chart_enabled(view))
+    include_chart = chart_enabled(view)
+    return serialize.basket_to_dict(
+        analysis,
+        series,
+        include_chart=include_chart,
+        benchmark=analysis_service.benchmark_prices() if include_chart else None,
+    )
 
 
 def create_index_category(name: str) -> dict:

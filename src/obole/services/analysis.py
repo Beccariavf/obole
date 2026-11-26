@@ -319,6 +319,20 @@ def _valuation_calc_payload(fundamentals, prices: PriceSeries, ticker: str) -> d
     }
 
 
+def benchmark_prices() -> PriceSeries | None:
+    """Prix du benchmark de la section Risque (#33), lus via `data/` (cache TTL).
+
+    Lecture UNE fois par requête, jamais depuis `engine/` ni depuis le front :
+    `data/yahoo.fetch_prices` porte le cache et la fragilité de la source. Une
+    indisponibilité du benchmark (réseau, ticker inconnu) n'est jamais fatale :
+    elle rend `None`, et les champs `bench_*` du payload valent `None`.
+    """
+    try:
+        return yahoo.fetch_prices(config.RISK_BENCHMARK)
+    except (yahoo.TickerNotFound, ValueError):
+        return None
+
+
 def analyze_ticker(ticker: str) -> tuple[StockAnalysis, PriceSeries]:
     """Analyse complète d'une valeur à partir de son ticker (fetch + analyse).
 
@@ -567,11 +581,14 @@ def analyze_basket(
     Mêmes indicateurs prix que pour une action/ratio ; pas de fondamentaux ni de
     β/ρ (un indice n'a pas d'actif de référence). La tendance MM est calculée
     sur la série synthétique (visible dans le résumé et les KPI).
-    Renvoie (analysis, series).
+    Renvoie (analysis, series). `analysis.raw_series` porte le même panier chaîné
+    sur les cours **bruts** (sans dividendes), pour le 12-1 de la section Risque.
     """
     adjusted = {ticker: prices.adjusted for ticker, prices in members.items()}
     frame = basket_mod.aligned_frame(adjusted)
     series = _basket_series(index_id, frame)
+    raw_frame = basket_mod.aligned_frame({ticker: prices.raw for ticker, prices in members.items()})
+    raw_series = _basket_series(index_id, raw_frame, kind="basket_raw")
 
     last_value = float(series.iloc[-1])
     regression = reg.fit_log_regression(series)
@@ -631,6 +648,7 @@ def analyze_basket(
             indicators=indicators,
             regression=regression,
             warnings=warnings,
+            raw_series=raw_series,
         ),
         series,
     )
@@ -665,15 +683,17 @@ def summarize_indices(definitions: list[dict]) -> list[dict]:
     return [summarize_index(d) for d in definitions]
 
 
-def _basket_series(index_id: int, frame: pd.DataFrame) -> pd.Series:
-    """Série de l'indice, mise en cache TTL prix (clé `INDEX:<id>/basket`).
+def _basket_series(index_id: int, frame: pd.DataFrame, kind: str = "basket") -> pd.Series:
+    """Série de l'indice, mise en cache TTL prix (clé `INDEX:<id>/<kind>`).
 
     La série chaînée est coûteuse à reconstruire (alignement + chaînage) mais
     stable : on la cache pour servir les affichages suivants sans recalcul.
+    `kind` distingue la série principale (total return) de sa jumelle brute
+    (`basket_raw`, sans dividendes) qui porte le 12-1 de la section Risque.
     """
-    cached = cache.get(f"INDEX:{index_id}", "basket", config.TTL_PRICES)
+    cached = cache.get(f"INDEX:{index_id}", kind, config.TTL_PRICES)
     if cached is not None:
         return cached
     series = basket_mod.build_series(frame)
-    cache.put(f"INDEX:{index_id}", "basket", series)
+    cache.put(f"INDEX:{index_id}", kind, series)
     return series

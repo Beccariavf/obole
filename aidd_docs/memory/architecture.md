@@ -56,25 +56,17 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
 - La régression est recalculée à trois endroits (serveur + deux calculs client) : toute
   modification de formule doit toucher les trois (détail dans `CLAUDE.md` §Invariants).
 - Les moyennes mobiles sont précalculées serveur sur la série pleine, puis décimées.
-- Le **walk-forward Clara Vallis** est précalculé par `services/momentum.py` et caché par
-  référence (`kind` `momentum`, TTL des prix, purgé par `cache.invalidate`). Calculé sur la
-  série PLEINE puis réindexé sur la grille décimée — sur la série déjà décimée, 250 points
-  ne couvriraient pas 250 séances. Le moteur (`engine/clara_vallis.py`) est vectorisé par
-  `sliding_window_view` et découpé en blocs de 2 000 dates pour borner la mémoire.
-- Le **backtest de fiabilité Clara Vallis** vit dans `engine/momentum_backtest.py` (pur) : il
-  reçoit les cours et la série de satisfaction, applique l'hystérésis (`LOW`/`HIGH`) avec un
-  signal décalé d'un jour et des frais PAR ORDRE, et réutilise Sharpe, Sortino et drawdown de
-  `engine/portfolio.py`. Depuis #32 il ne rend pas une courbe de stratégie mais le **marché
-  pendant les séances in et out** : chaque séance de rendement va dans le panier de la
-  position décidée la veille (les deux paniers partitionnent la fenêtre), chaque panier
-  compose sa courbe conditionnelle, et le **CAGR est annualisé sur les séances du panier**
-  (`n/252`), pas sur le calendrier — le buy & hold suit la même règle. `trades` et
-  `strategy_cagr_pct` sortent au premier niveau ; `equity`, `strategy_equity` et `positions`
-  restent internes au moteur. `services/momentum.momentum_backtest` calcule la satisfaction
-  sur la série PLEINE puis tranche la fenêtre visible — jamais sur la grille décimée — et ne
-  transporte que les clés `buy_hold`, `in`, `out`, `window`, `trades` et
-  `strategy_cagr_pct` (sept mesures par colonne, rien de plus). Aucun cache : le coût à froid mesuré (~35 ms sur 30 ans) reste sous
-  le seuil de 100 ms du plan.
+- Les **séries de risque** (#33 : chute, volatilité) suivent le même patron :
+  calculées par `engine/risk.py` sur la **pleine résolution ajustée**, puis
+  réindexées sur la grille décimée du cours. Le 12-1 se mesure sur les cours
+  **bruts** des deux côtés (titre et CAC 40) ; un panier porte donc une seconde
+  série chaînée sur les cours bruts de ses membres. Le benchmark `^FCHI` est lu
+  une fois par requête via `data/` (cache TTL) ; indisponible, ses champs valent
+  `None` et la fiche reste servie.
+- La table **« monde de Markovitz »** est recalculée CÔTÉ CLIENT dans la section
+  **Valorisation** (#33) : σ de bande, z, pente, MM court/long et confiance `1 − R²`
+  sur la fenêtre choisie. Seules les fenêtres du sélecteur viennent du serveur
+  (`config.MARKOWITZ_TABLE_WINDOWS`, exposé sous `markowitz` dans `/api/meta`).
 - Le screener écrit en base depuis plusieurs threads : SQLite en WAL avec `busy_timeout`.
 - `spikes/` contient des scripts de calibration jetables, exclus du lint et du format.
 - Les assets statiques sont servis avec un hash de contenu (`/static/x.js?v=<hash>`),

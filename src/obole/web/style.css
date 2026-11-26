@@ -835,14 +835,12 @@ select.pf-ctl {
    /api/meta et lues par le layout Plotly). Les conteneurs CSS doivent coïncider
    avec le layout, sinon Plotly laisse du blanc (conteneur plus haut que le tracé)
    ou déborde. On les fige en variables, alignées sur config.py :
-   hero 440 / mini 200 / dividend_hero 300 / detail 420. */
+   hero 440 / mini 200 / dividend_hero 300 / detail 420 / risk 420. */
 :root {
   --chart-h-hero: 440px;
   --chart-h-mini: 200px;
   --chart-h-dividend-hero: 300px;
   --chart-h-val-hero: 560px;
-  --chart-h-mom-year: 240px;
-  --chart-h-mom-history: 380px;
   --chart-h-pf-resume: 360px;
   --chart-h-pf-donut: 320px;
   --chart-h-pf-drawdown: 300px;
@@ -853,6 +851,7 @@ select.pf-ctl {
   --chart-h-pf-dividends: 300px;
   --chart-h-pf-div-conc: 300px;
   --chart-h-detail: 420px;
+  --chart-h-risk: 420px;
   /* Hauteur max du menu flottant des points d'entrée/sortie (modale détail) :
      au-delà, la liste défile — elle ne grandit jamais au-delà du graphe. */
   --pf-entry-menu-h: 260px;
@@ -960,95 +959,44 @@ select.pf-ctl {
 .period-chip.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 .period-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* --- Section Momentum (Clara Vallis, #30) --- */
-.mom-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.mom-eyebrow { font-size: 12px; color: var(--text-soft); letter-spacing: .02em; }
-.mom-card { padding: 14px 16px; }
-.mom-toolbar {
+/* --- Table « monde de Markovitz » (#33, section Valorisation) --- */
+.mkw-card { padding: 14px 16px; }
+.mkw-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
 }
-.mom-series { display: flex; gap: 14px; font-size: 12px; color: var(--text-soft); }
-.mom-series label { display: inline-flex; align-items: center; gap: 5px; }
-.mom-series label.disabled { opacity: .45; }
-.mom-table-wrap { overflow-x: auto; }
-.mom-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.mom-table th, .mom-table td {
+.mkw-series { display: flex; gap: 14px; font-size: 12px; color: var(--text-soft); }
+.mkw-series label { display: inline-flex; align-items: center; gap: 5px; }
+.mkw-series label.disabled { opacity: .45; }
+.mkw-table-wrap { overflow-x: auto; }
+.mkw-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mkw-table th, .mkw-table td {
   padding: 8px 10px; text-align: left; border-top: 1px solid var(--border);
 }
-.mom-table thead th {
+.mkw-table thead th {
   border-top: 0; font-size: 11px; color: var(--text-soft); font-weight: 600;
   text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
 }
-.mom-table tbody td { font-variant-numeric: tabular-nums; }
-.mom-group-head { margin-top: 22px; }
-.mom-blocks { display: flex; flex-direction: column; gap: 14px; }
-.mom-gauge-card, .mom-year-card, .mom-history-card, .mom-backtest-card { padding: 14px 16px; }
-.mom-gauge-head {
-  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
-}
-.mom-gauge-title { font-size: 13px; color: var(--text-soft); }
-.mom-gauge-value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.mom-gauge { width: 100%; }
-.mom-zone { height: 100%; }
-.mom-zone-good { background: #BFDBFE; }
-.mom-zone-neutral { background: #F3F4F6; }
-.mom-zone-bad { background: #FECACA; }
-.mom-year-card h3, .mom-history-card h3 { margin-bottom: 10px; }
-.mom-short { font-size: 10px; margin-left: 4px; }
-/* Rang du score dans l'histoire du titre : sous l'échelle de la jauge, discret,
-   chiffres tabulaires pour que la ligne ne danse pas quand le rang change. */
-.mom-percentile {
-  margin: 6px 0 0; font-size: 11px; color: var(--text-soft);
-  font-variant-numeric: tabular-nums;
-}
-/* Backtest de fiabilité (#31 puis #32) : la carte annonce la série et la durée,
-   le tableau aligne les nombres à droite (mesures lisibles, comparaison
-   directe) et les trois colonnes portent la polarité de leur lecture. */
-.mom-backtest-head {
-  display: flex; justify-content: space-between; align-items: baseline;
-  gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
-}
-.mom-backtest-head h3 { margin: 0; }
-.mom-backtest-legend { font-size: 12px; color: var(--text-soft); }
-.mom-backtest-table th[scope="row"] { text-align: left; font-weight: 500; }
-.mom-backtest-table thead th:not(:first-child), .mom-backtest-table td { text-align: right; }
-/* Polarité globale bleu = bien, rouge = mal. La colonne `out` reçoit son `good`
-   INVERSÉ du JS (gagner dehors est mauvais signe) : la classe, elle, reste la
-   même, donc aucune couleur n'est décidée ici. */
-.mom-backtest-table td.good { color: var(--accent); }
-.mom-backtest-table td.bad { color: var(--bad); }
-.mom-backtest-error { color: var(--bad); }
-/* Pied : le rendement réel de la stratégie (hors colonnes) puis la légende de
-   lecture, qui dit que le drawdown des paniers est conditionnel. */
-.mom-backtest-foot {
-  display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap;
-  margin-top: 10px;
-}
-.mom-backtest-trades { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.mom-backtest-note { font-size: 12px; color: var(--text-soft); line-height: 1.4; }
-/* Sous 640 px, la légende passe sur deux lignes et le tableau défile DANS la
-   carte : le conteneur `.mom-table-wrap` porte l'overflow, la carte garde sa
-   largeur. Un min-width rend le défilement effectif au lieu d'écraser les
-   colonnes. */
+.mkw-table tbody td { font-variant-numeric: tabular-nums; }
+/* Sous 640 px, la table défile DANS sa carte (le conteneur porte l'overflow) au
+   lieu d'imposer sa largeur max-content à toute la page. */
 @media (max-width: 640px) {
-  /* La fiche est en flex-colonne `align-items:start` : une carte large impose sa
-     largeur max-content à toute la page. On plafonne donc CETTE carte à la
-     fenêtre pour que le tableau défile DANS elle au lieu d'élargir la page. */
-  .mom-backtest-card { width: calc(100vw - 32px); max-width: 100%; }
-  .mom-backtest-head { flex-direction: column; align-items: flex-start; gap: 4px; }
-  .mom-backtest-legend { line-height: 1.4; }
-  .mom-backtest-foot { flex-direction: column; gap: 4px; }
-  .mom-backtest-table { min-width: 680px; }
+  .mkw-card { width: calc(100vw - 32px); max-width: 100%; }
+  .mkw-table { min-width: 560px; }
 }
-/* Les conteneurs coïncident avec le layout Plotly (CHART_HEIGHTS.momentum_*) :
-   sans hauteur fixe, Plotly pilote le div et la règle « conteneur = layout » de
-   design.md n'était pas tenue. */
-.mom-year-card .mini-chart { height: var(--chart-h-mom-year); }
-.mom-history-card .mini-chart { height: var(--chart-h-mom-history); }
-@media (prefers-reduced-motion: reduce) {
-  .mom-zone, .mom-gauge .gauge-needle { transition: none; }
+
+/* --- Section « Risque & dynamique » (#33) --- */
+.risk-card { padding: 14px 16px; }
+.risk-toolbar {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
 }
+/* Conteneur = hauteur du layout Plotly (source unique config.CHART_HEIGHT_RISK). */
+.risk-chart { width: 100%; height: var(--chart-h-risk); }
+.risk-lines { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.risk-line { margin: 0; font-size: 13px; color: var(--text); }
+/* Rouge réservé à l'anomalie de volatilité (percentile au-dessus du seuil). */
+.risk-line .bad { color: var(--bad); font-weight: 600; }
 .detail-range { font-size: 12px; color: var(--text-soft); }
 .detail-toolbar-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .detail-cagr {

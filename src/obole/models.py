@@ -159,21 +159,6 @@ class RegressionResult:
 
 
 @dataclass(frozen=True)
-class SatisfactionResult:
-    """Satisfaction de la foule (Clara Vallis) sur une fenêtre glissante.
-
-    `value` dans [0, 1] : près de 1, la foule est satisfaite (le cours est près
-    des plus hauts parcourus) ; près de 0, elle est frustrée. `short_history`
-    signale une série plus courte que la fenêtre demandée — le score reste
-    calculé sur les entrées disponibles, jamais inventé.
-    """
-
-    value: float | None
-    n_used: int
-    short_history: bool
-
-
-@dataclass(frozen=True)
 class ScoredValue:
     """Une valeur numérique + son label calibré + sa polarité (pour la couleur)."""
 
@@ -329,6 +314,10 @@ class BasketAnalysis:
     [{ticker, name, distance_sigma, pente, trend} : ScoredValue] pour l'affichage,
     le refresh et la navigation. La tendance MM est calculée sur la série
     synthétique (résumé + KPI).
+
+    `raw_series` est le panier chaîné sur les cours **bruts** (dividendes non
+    réinvestis), même méthode que la série ajustée. Il porte le momentum 12-1 de
+    la section Risque (#33) : la série principale reste en total return.
     """
 
     index_id: int
@@ -339,6 +328,7 @@ class BasketAnalysis:
     indicators: Indicators  # seuls les champs prix sont peuplés
     regression: RegressionResult
     warnings: list[str] = field(default_factory=list)
+    raw_series: pd.Series | None = None
 
 
 # --- Watchlist (#25) ---------------------------------------------------------

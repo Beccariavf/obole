@@ -149,9 +149,9 @@ describe("espaces — mise en page d'une vue", () => {
     expect(wrap, "règle .screen-table-wrap introuvable").toBeTruthy();
     // Commentaires retirés : ils citent justement `auto`/`clip` pour expliquer
     // pourquoi ces valeurs sont écartées.
-    const declarations = wrap.replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(declarations).toMatch(/overflow:\s*visible/);
-    expect(declarations).not.toMatch(/overflow(-y)?:\s*(auto|scroll|clip|hidden)/);
+    const rules = wrap.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(rules).toMatch(/overflow:\s*visible/);
+    expect(rules).not.toMatch(/overflow(-y)?:\s*(auto|scroll|clip|hidden)/);
   });
 
   it("plus aucun sélecteur ne scope une règle à une « modale » d'espace", () => {

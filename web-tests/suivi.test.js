@@ -16,6 +16,14 @@ const reply = (status, body) => ({
   json: async () => body,
 });
 
+// Échéance RELATIVE à aujourd'hui : une date fixe (« 2026-11-26 ») devenait
+// « aujourd'hui » le jour même et faisait échouer le compte à rebours.
+function isoInDays(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function ctx(over = {}) {
   const c = {
     ...checkpointsMixin,
@@ -25,9 +33,9 @@ function ctx(over = {}) {
       kind_payload: "stock",
       identity: { ticker: "RI.PA", name: "Pernod Ricard" },
       profile: {
-        next_earnings: "2026-11-26",
+        next_earnings: isoInDays(30),
         next_earnings_estimated: false,
-        ex_dividend: "2027-11-25",
+        ex_dividend: isoInDays(365),
       },
     },
   };
@@ -42,7 +50,7 @@ describe("échéance (CA-B1, CA-B2)", () => {
   it("donne la date absolue et le compte à rebours", () => {
     const c = ctx();
     const e = c.cpEarnings();
-    expect(e.date).toContain("2026");
+    expect(e.date).toContain(isoInDays(30).slice(0, 4));
     expect(e.relative).toMatch(/dans \d+ j/);
     expect(e.estimated).toBe(false);
     expect(e.after).toBe("");

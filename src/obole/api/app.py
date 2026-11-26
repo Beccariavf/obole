@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -24,12 +24,16 @@ from obole.data import thesis_assets, yahoo
 from obole.services import checkpoints as checkpoints_service
 from obole.services import imports as imports_service
 from obole.services import indices as indices_service
-from obole.services import momentum as momentum_service
 from obole.services import portfolio as portfolio_service
 from obole.services import screener as screener_service
 from obole.services import thesis as thesis_service
 from obole.services import watchlist as watchlist_service
-from obole.services.analysis import analyze_ratio_tickers, analyze_ticker, summarize_indices
+from obole.services.analysis import (
+    analyze_ratio_tickers,
+    analyze_ticker,
+    benchmark_prices,
+    summarize_indices,
+)
 from obole.services.checkpoints import CheckpointNotFound
 from obole.services.indices import IndexNotFound
 from obole.services.serialize import (
@@ -133,7 +137,7 @@ def get_stock(ticker: str) -> dict:
     except ValueError as exc:  # historique trop court, etc.
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    payload = analysis_to_dict(analysis, prices)
+    payload = analysis_to_dict(analysis, prices, benchmark=benchmark_prices())
     # État watchlist (#25) ajouté ICI, jamais dans `analyze()` : c'est de l'état
     # utilisateur, pas de l'analyse (le payload MCP de la thèse reste propre).
     return watchlist_service.decorate_stock_payload(payload, analysis.identity.ticker, prices)
@@ -186,7 +190,7 @@ def get_index(index_id: int) -> dict:
     except ValueError as exc:  # panier trop court, membre sans prix…
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
-    return basket_to_dict(analysis, series)
+    return basket_to_dict(analysis, series, benchmark=benchmark_prices())
 
 
 @app.post("/api/index/{index_id}/refresh")
@@ -197,64 +201,6 @@ def post_index_refresh(index_id: int) -> dict:
     except IndexNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
     return {"status": "ok", "index_id": index_id}
-
-
-# --- Fiabilité de la Clara Vallis (#31) -------------------------------------
-
-
-def _validate_backtest_window(start: str, end: str, series: str) -> None:
-    """Valide la fenêtre et la série d'un backtest. 422 sinon.
-
-    Première barrière avant `pandas` (query hostile). Le service revalide de son
-    côté : il est appelable seul (MCP, tests, script), et sa validation est le
-    vrai contrat métier ; celle-ci n'est que la traduction HTTP anticipée.
-    """
-    try:
-        start_day = date.fromisoformat(start)
-        end_day = date.fromisoformat(end)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="dates ISO requises (AAAA-MM-JJ)") from None
-    if start_day >= end_day:
-        raise HTTPException(status_code=422, detail="start doit précéder end")
-    if series not in {"raw", "adj"}:
-        raise HTTPException(status_code=422, detail="series doit valoir 'raw' ou 'adj'")
-
-
-@app.get("/api/stock/{ticker}/momentum-backtest")
-def get_stock_momentum_backtest(ticker: str, start: str, end: str, series: str = "raw") -> dict:
-    """Marché pendant les séances in/out de la stratégie, sur la fenêtre demandée.
-
-    Réponse : `{buy_hold, in, out, window, trades, strategy_cagr_pct}`. Chaque
-    colonne porte les sept mêmes mesures (CAGR, volatilité, Sharpe, Sortino, max
-    drawdown, Calmar, part des séances) ; `trades` et le CAGR de la stratégie
-    (cash compris) sortent une fois, en premier niveau. Ni `equity`, ni
-    `positions`, ni bloc `strategy` ne sont transportés.
-    """
-    _validate_backtest_window(start, end, series)
-    try:
-        return momentum_service.momentum_backtest("stock", ticker, start, end, series)
-    except yahoo.TickerNotFound:
-        raise HTTPException(status_code=404, detail=f"Ticker introuvable : {ticker}") from None
-    except ValueError as exc:  # fenêtre trop courte, dates inversées…
-        raise HTTPException(status_code=422, detail=str(exc)) from None
-
-
-@app.get("/api/index/{index_id}/momentum-backtest")
-def get_index_momentum_backtest(index_id: int, start: str, end: str, series: str = "raw") -> dict:
-    """Marché in/out d'un indice personnalisé (série synthétique total-return).
-
-    Même contrat que la route d'une valeur : `{buy_hold, in, out, window,
-    trades, strategy_cagr_pct}`.
-    """
-    _validate_backtest_window(start, end, series)
-    try:
-        return momentum_service.momentum_backtest("basket", index_id, start, end, series)
-    except IndexNotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from None
-    except yahoo.TickerNotFound as exc:
-        raise HTTPException(status_code=404, detail=f"Ticker introuvable : {exc}") from None
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from None
 
 
 def _flat_index_definitions() -> list[dict]:
@@ -772,17 +718,21 @@ def get_meta() -> dict:
         "beta_min_points": config.BETA_MIN_POINTS,
         "corr_min_points": config.CORR_MIN_POINTS,
         "potential_horizons": list(config.POTENTIAL_HORIZONS),
-        # Clara Vallis (#30) : fenêtre de la foule, bornes de satisfaction
-        # calibrées et fenêtres du sélecteur. Aucune valeur côté JS.
-        "momentum": {
-            "window": config.MOMENTUM_WINDOW,
-            "low": config.MOMENTUM_SATISFACTION_LOW,
-            "high": config.MOMENTUM_SATISFACTION_HIGH,
-            "table_windows": list(config.MOMENTUM_TABLE_WINDOWS),
-            # Backtest de fiabilité (#31) : la légende affiche les frais PAR
-            # ORDRE, sans les recopier côté JS. Le taux sans risque n'est pas
-            # exposé : le service le lit dans `config.py`, personne ne l'affiche.
-            "fee_pct": config.MOMENTUM_FEE_PCT,
+        # Table « monde de Markovitz » (#33) : fenêtres du sélecteur, seule
+        # constante serveur d'un calcul entièrement client.
+        "markowitz": {
+            "table_windows": list(config.MARKOWITZ_TABLE_WINDOWS),
+        },
+        # Section « Risque & dynamique » (#33) : fenêtres, centile d'anomalie et
+        # benchmark sont lus par le front. Aucun seuil littéral dans risk.js.
+        "risk": {
+            "vol_window": config.RISK_VOL_WINDOW,
+            "vol_anomaly_pctile": config.RISK_VOL_ANOMALY_PCTILE,
+            "vol_min_points": config.RISK_VOL_MIN_POINTS,
+            "mom_lookback": config.RISK_MOM_LOOKBACK,
+            "mom_skip": config.RISK_MOM_SKIP,
+            "benchmark": config.RISK_BENCHMARK,
+            "default_years": config.RISK_DEFAULT_YEARS,
         },
         "quant_groups": config.QUANT_GROUPS,
         "dividend_groups": config.DIVIDEND_GROUPS,
@@ -807,8 +757,6 @@ def get_meta() -> dict:
             "mini": config.CHART_HEIGHT_MINI,
             "dividend_hero": config.CHART_HEIGHT_DIVIDEND_HERO,
             "valuation_hero": config.CHART_HEIGHT_VALUATION_HERO,
-            "momentum_year": config.CHART_HEIGHT_MOMENTUM_YEAR,
-            "momentum_history": config.CHART_HEIGHT_MOMENTUM_HISTORY,
             "portfolio_resume": config.CHART_HEIGHT_PORTFOLIO_RESUME,
             "portfolio_donut": config.CHART_HEIGHT_PORTFOLIO_DONUT,
             "portfolio_drawdown": config.CHART_HEIGHT_PORTFOLIO_DRAWDOWN,
@@ -821,6 +769,7 @@ def get_meta() -> dict:
             "portfolio_div_conc_row": config.CHART_HEIGHT_PORTFOLIO_DIV_CONC_ROW,
             "portfolio_div_conc_pad": config.CHART_HEIGHT_PORTFOLIO_DIV_CONC_PAD,
             "detail": config.CHART_HEIGHT_DETAIL,
+            "risk": config.CHART_HEIGHT_RISK,
         },
         "metric_units": {**config.METRIC_UNITS, **config.DIVIDEND_METRIC_UNITS},
         # Taxonomie des comptes (document financier CSV) : {nom, rôle}. Union des

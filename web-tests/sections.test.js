@@ -42,7 +42,7 @@ describe("registre des sections", () => {
       "finance",
       "these",
       "valorisation",
-      "momentum",
+      "risque",
     ]);
   });
 
@@ -218,7 +218,7 @@ describe("applySectionsAfterLoad — section à l'ouverture d'une fiche", () => 
 
 describe("sections planifiées (« à venir ») — toutes livrées", () => {
   it("aucune section n'est « à venir » : la thèse est livrée (#21)", () => {
-    for (const id of ["resume", "quantitatif", "dividende", "finance", "these", "valorisation"]) {
+    for (const id of ["resume", "quantitatif", "dividende", "finance", "these", "valorisation", "risque"]) {
       expect(sectionPlanned(id), `${id} ne doit pas être « à venir »`).toBe(false);
     }
   });

@@ -18,11 +18,11 @@ import { portfolioMixin } from "../src/obole/web/portfolio.js";
 import { portfolioDividendsMixin } from "../src/obole/web/portfolio-dividends.js";
 import { dividendMixin } from "../src/obole/web/dividend.js";
 import { valorisationMixin } from "../src/obole/web/valorisation.js";
+import { riskMixin } from "../src/obole/web/risk.js";
 import { thesisMixin } from "../src/obole/web/thesis.js";
 import { checkpointsMixin } from "../src/obole/web/suivi.js";
 import { watchlistMixin } from "../src/obole/web/watchlist.js";
 import { convictionMixin } from "../src/obole/web/conviction-mixin.js";
-import { momentumMixin } from "../src/obole/web/momentum.js";
 import { obole } from "../src/obole/web/app.js";
 
 // #04 : découpage du front en modules ES natifs. Ce test verrouille la
@@ -47,11 +47,11 @@ const MIXINS = {
   "portfolio-dividends.js": portfolioDividendsMixin,
   "dividend.js": dividendMixin,
   "valorisation.js": valorisationMixin,
+  "risk.js": riskMixin,
   "thesis.js": thesisMixin,
   "suivi.js": checkpointsMixin,
   "watchlist.js": watchlistMixin,
   "conviction-mixin.js": convictionMixin,
-  "momentum.js": momentumMixin,
 };
 
 describe("découpage du front (modules ES)", () => {

@@ -117,7 +117,7 @@ describe("rang de recherche — actions à droite", () => {
 
   it("aucun tabindex positif ne réordonne la page", () => {
     // L'ordre de tabulation réel (champ → actions → rail → onglets) se mesure en
-    // e2e : c'est un comportement, pas une déclaration. Ici on garantit seulement
+    // e2e : c'est un comportement, pas un contrat. Ici on garantit seulement
     // qu'aucun `tabindex` positif ne subsiste — un indice positif est un
     // anti-pattern WCAG 2.4.3 et sautait par-dessus le rail puis y revenait :
     // mesuré, `↻` n'était atteint qu'APRÈS les six entrées du rail. L'ordre

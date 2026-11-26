@@ -117,7 +117,7 @@ REST dans `api.md` ; le pipeline de données dans `data.md`.
 `.app-rail`) porte les *espaces* : Analyse, Mes indices, Screener, Portefeuille, Watchlist,
 puis Paramètres en pied. Les **onglets horizontaux** (`.section-tabs`, alimentés par
 `sections.js::SECTIONS`) portent les *sections de la fiche* : Résumé, Quantitatif,
-Dividende, Finance, Thèse & Société, Valorisation. Ne jamais mélanger les deux : une entrée
+Dividende, Finance, Thèse & Société, Valorisation, Risque & dynamique. Ne jamais mélanger les deux : une entrée
 d'espace n'est pas une section (elle bascule sur une **vue sœur** dans `.app-main`), et une
 section ne sort pas de la fiche. Le clic sur un onglet écrit toujours `#<ticker>/<section>`.
 **Un espace est une PAGE, pas une couche** : `.app-view.view-<espace>` avec `x-show`, donc
