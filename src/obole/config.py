@@ -1228,6 +1228,24 @@ EXCHANGE_PRIORITY = ["PAR", "NMS", "NYQ", "NGM", "LSE", "GER", "AMS", "MIL", "MC
 # --- Détection type d'entreprise (schéma de comptes) -------------------------
 FINANCIAL_SECTORS = {"Financial Services", "Banques", "Banks", "Insurance", "Assurance"}
 
+# --- Risque & dynamique (#33) ------------------------------------------------
+# Volatilité sur 60 séances (~3 mois) : réagit au régime courant sans mesurer
+# le bruit d'une seule séance.
+RISK_VOL_WINDOW = 60
+# Un pic de volatilité n'est « anormal » qu'au-dessus du 90e centile de son
+# propre historique : le seuil est relatif au titre, jamais absolu.
+RISK_VOL_ANOMALY_PCTILE = 90
+# ~2 ans de séances : sous ce minimum, un centile n'a pas de sens statistique.
+RISK_VOL_MIN_POINTS = 504
+# Momentum 12-1 : la tendance d'un an, en sautant le dernier mois pour écarter
+# le retournement de court terme.
+RISK_MOM_LOOKBACK = 252
+RISK_MOM_SKIP = 21
+# CAC 40 : référence de marché pour situer la volatilité et le 12-1 du titre.
+RISK_BENCHMARK = "^FCHI"
+# Plage affichée par défaut du graphique de l'onglet Risque (puces 1A…Max).
+RISK_DEFAULT_YEARS = 10
+
 # --- Screener : univers français (J1) ---------------------------------------
 # Univers FR de CONFIANCE (CAC 40 + grandes valeurs Euronext Paris, tickers
 # .PA validés) : sert de base sûre et de fallback quand Yahoo casse. Éditable.
