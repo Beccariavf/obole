@@ -789,6 +789,15 @@ def get_meta() -> dict:
             "multiple_step": config.VALUATION_MATRIX_MULTIPLE_STEP,
         },
         "valuation_color_ratios": list(config.VALUATION_COLOR_RATIOS),
+        # Graphe « Prix et valorisation » (#34) : fenêtre, éventail, plafond
+        # d'échelle et seuil de statut — aucune valeur littérale dans le JS.
+        "valuation_chart": {
+            "years": config.VALUATION_CHART_YEARS,
+            "fan_growth_span": config.VALUATION_FAN_GROWTH_SPAN,
+            "fan_multiple_span": config.VALUATION_FAN_MULTIPLE_SPAN,
+            "y_cap": config.VALUATION_CHART_Y_CAP,
+            "gap_ratio_limit": config.VALUATION_GAP_RATIO_LIMIT,
+        },
         # Bornes des libellés de points de contrôle suivis (#21) : le champ de
         # saisie du front lit `maxlength` ici, jamais une constante en dur.
         "checkpoint_label_max": config.CHECKPOINT_LABEL_MAX,

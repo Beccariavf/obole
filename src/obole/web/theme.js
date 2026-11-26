@@ -22,6 +22,21 @@ export const C = {
   // Aire neutre de la section Risque & dynamique (#33) : la chute n'est ni
   // « bonne » ni « mauvaise », elle se lit en gris/ardoise.
   neutralFill: "rgba(107,114,128,.08)",
+  // Graphe « Prix et valorisation » (#34) : trois familles de couleurs
+  // seulement. Bleu = cours et prix juste (C.accent), ambre = valorisation,
+  // projection et éventail, vert = dividende (C.teal). `valo` est l'ambre
+  // propre à ce graphe (distinct du `ma1` des moyennes mobiles).
+  valo: "#D97706",
+  // Aire de l'éventail (couche Scénarios) : même ambre, très dilué.
+  valoFill: "rgba(217,119,6,.08)",
+  // Zone « future » du graphe (après aujourd'hui) et filet des repères : des
+  // gris de structure, pas des couleurs de série.
+  valoZone: "#FAFAFB",
+  axis: "#D1D5DB",
+  // Pastilles grises de l'éventail (bornes pessimiste/optimiste).
+  mutedPill: "#9CA3AF",
+  // Fond blanc du tracé (le graphe est posé sur une carte blanche).
+  surface: "#FFFFFF",
 };
 
 // Échelle SÉQUENTIELLE monochrome de la matrice de corrélation (section Risque

@@ -1062,6 +1062,18 @@ VALUATION_TARGET_YIELD_DEFAULT = 12.0
 VALUATION_PERIODS = (5, 10, 15, 20)
 VALUATION_PERIOD_DEFAULT = 10
 
+# Graphe « Prix et valorisation » (#34) : fenêtre affichée (années d'historique
+# + horizon de projection), ouverture de l'éventail (croissance en points de
+# %/an, multiple en points), plafond d'échelle relatif au plus haut cours visible
+# et seuil d'écart cours/valorisation au-delà duquel le statut s'écrit en
+# multiple (« cours ×N ») plutôt qu'en pourcentage. Source unique servie par
+# /api/meta : le front ne code aucune de ces valeurs en dur.
+VALUATION_CHART_YEARS = 10
+VALUATION_FAN_GROWTH_SPAN = 3.0
+VALUATION_FAN_MULTIPLE_SPAN = 4.0
+VALUATION_CHART_Y_CAP = 2.2
+VALUATION_GAP_RATIO_LIMIT = 100.0
+
 
 # Bases de valorisation de la calculatrice. Chaque entrée :
 #   key      : identifiant stable (front + persistance)

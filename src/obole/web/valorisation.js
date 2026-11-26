@@ -17,6 +17,7 @@ import {
   VALUATION_PERIOD_DEFAULT,
   VALUATION_MATRIX,
   VALUATION_COLOR_RATIOS,
+  VALUATION_CHART,
   CHART_HEIGHTS,
   MARKOWITZ,
   REG_YEARS_DEFAULT,
@@ -31,9 +32,273 @@ function round2(v) {
   return v == null || isNaN(v) ? null : Math.round(Number(v) * 100) / 100;
 }
 
-// Fond doré TRÈS pâle sous la courbe de valorisation et sa projection (rendu
-// Baggr) : opacité faible pour rester un repère, pas un aplat.
-const VALO_FILL = "rgba(245,158,11,.08)";
+// --- Graphe « Prix et valorisation » (#34) ----------------------------------
+//
+// Helpers PURS (aucun accès à `this`, aucune lecture Plotly) : la carte à
+// couches est décrite par des données calculées ici, puis rendue par
+// `drawValuationChart`. Les tests Vitest les verrouillent un par un.
+
+// Statut de l'en-tête : cours vs valorisation courante. La valorisation n'est
+// lue que si la métrique courante est strictement positive (`latestOk`) ; un
+// multiple d'entreprise n'en produit aucune. Au-delà de `gapRatioLimit` points
+// d'écart, le statut s'écrit en multiple (« cours ×N ») plutôt qu'en pourcentage.
+export function valuationStatus({
+  price, valoNow, latestOk, isEnterprise, label, gapRatioLimit,
+}) {
+  const base = { valoNow: null, gapPct: null, ratio: null, big: false, good: null, reason: null, label };
+  if (isEnterprise) return { ...base, reason: "enterprise" };
+  if (!latestOk) return { ...base, reason: "negative" };
+  if (valoNow == null || !(valoNow > 0) || price == null || !(price > 0)) {
+    return { ...base, reason: "none" };
+  }
+  const ratio = price / valoNow;
+  const gapPct = (ratio - 1) * 100;
+  const limit = Number(gapRatioLimit);
+  return {
+    valoNow,
+    gapPct,
+    ratio,
+    big: Number.isFinite(limit) && Math.abs(gapPct) > limit,
+    good: gapPct < 0,
+    reason: null,
+    label,
+  };
+}
+
+// Série de valorisation = métrique/action × multiple de la COURBE (médiane de
+// la période), tracée en escalier (`shape: "hv"`). Seuls les exercices
+// strictement positifs portent un point ; quand la métrique courante est ≤ 0,
+// la courbe s'arrête au dernier exercice positif puis tient un palier plat
+// jusqu'au premier exercice non positif (la rupture se lit sans point aberrant).
+export function valuationSeries(dates, series, multiple, latestOk) {
+  const empty = { x: [], y: [] };
+  if (!dates || !series || multiple == null || !(multiple > 0)) return empty;
+  const n = Math.min(dates.length, series.length);
+  const x = [];
+  const y = [];
+  let prev = null;
+  let lastPositive = -1;
+  for (let i = 0; i < n; i++) {
+    const v = series[i];
+    if (v == null || !(v > 0)) continue;
+    lastPositive = i;
+    const value = v * multiple;
+    if (prev === null || Math.abs(value - prev) > 1e-9 || i === n - 1) {
+      x.push(dates[i]);
+      y.push(value);
+      prev = value;
+    }
+  }
+  if (!x.length) return empty;
+  if (!latestOk && lastPositive >= 0) {
+    const cut = dates[lastPositive];
+    while (x.length && x[x.length - 1] > cut) {
+      x.pop();
+      y.pop();
+    }
+    for (let i = lastPositive + 1; i < n; i++) {
+      if (series[i] != null && series[i] <= 0) {
+        x.push(dates[i]);
+        y.push(y[y.length - 1]);
+        break;
+      }
+    }
+  }
+  return { x, y };
+}
+
+// Scénarios à l'horizon : central = hypothèses saisies ; éventail = croissance
+// et multiple décalés de `growthSpan` / `multipleSpan`. Les formules sont
+// celles de la calculatrice (`projectedValue`), jamais réécrites ici.
+export function valuationFan({
+  latest, growth, multiple, horizon, netDebt = null, growthSpan, multipleSpan,
+}) {
+  return {
+    central: projectedValue(latest, growth, multiple, horizon, netDebt),
+    pessimistic: projectedValue(latest, growth - growthSpan, multiple - multipleSpan, horizon, netDebt),
+    optimistic: projectedValue(latest, growth + growthSpan, multiple + multipleSpan, horizon, netDebt),
+  };
+}
+
+// Échelle verticale : de 0 à 1,12 × le plus haut repère visible (cours,
+// valorisation, prix juste, scénario central), plafonnée à `yCap` × le plus
+// haut cours visible. Un repère hors cadre est signalé par une pastille
+// collée en haut (« ↑ »), jamais tracé hors échelle.
+export function valuationScale({ prices, valuationY, fair, central, yCap }) {
+  const visible = (prices || []).filter((v) => v != null && Number.isFinite(v));
+  if (!visible.length) return { yMax: null, highest: null };
+  const highest = visible.reduce((a, b) => (b > a ? b : a), visible[0]);
+  const candidates = [...visible];
+  for (const v of valuationY || []) if (v != null && Number.isFinite(v)) candidates.push(v);
+  if (fair != null && Number.isFinite(fair)) candidates.push(fair);
+  if (central != null && Number.isFinite(central)) candidates.push(central);
+  const peak = Math.max(0, ...candidates);
+  let yMax = peak * 1.12;
+  const cap = highest * (Number(yCap) > 0 ? Number(yCap) : 1);
+  if (yMax > cap) yMax = cap;
+  return { yMax, highest };
+}
+
+// Couloir sous/sur-évalué : sur la seule plage où la valorisation existe, les
+// bornes basse et haute de l'écart au cours. Le rendu remplit entre la
+// valorisation et la borne basse (bleu) puis entre la valorisation et la borne
+// haute (rouge) — aucune couleur de jugement n'est choisie ici.
+export function valuationCorridor({ dates, price, valo, latestOk }) {
+  const vx = valo?.x || [];
+  const vy = valo?.y || [];
+  if (!vx.length || !dates || !price) return null;
+  const i0 = dates.findIndex((d) => d >= vx[0]);
+  if (i0 < 0) return null;
+  let i1 = dates.length;
+  if (!latestOk) {
+    const stop = dates.findIndex((d) => d > vx[vx.length - 1]);
+    i1 = stop < 0 ? dates.length : stop;
+  }
+  const x = dates.slice(i0, i1);
+  if (!x.length) return null;
+  const p = price.slice(i0, i1);
+  const valoAt = [];
+  let k = 0;
+  for (let i = 0; i < x.length; i++) {
+    while (k + 1 < vx.length && vx[k + 1] <= x[i]) k++;
+    valoAt.push(vx[k] <= x[i] ? vy[k] : null);
+  }
+  return {
+    x,
+    valo: valoAt,
+    lower: p.map((v, i) => (v == null || valoAt[i] == null ? null : Math.min(v, valoAt[i]))),
+    upper: p.map((v, i) => (v == null || valoAt[i] == null ? null : Math.max(v, valoAt[i]))),
+  };
+}
+
+// Espace vertical des pastilles d'une même colonne : au moins `minGapPx` entre
+// deux, en poussant vers le bas celles qui se chevauchent. `yMax` et
+// `heightPx` donnent l'échelle pixels ↔ unités de l'axe (y = 0 en bas).
+export function spreadPills(items, { yMax, heightPx, minGapPx = 16 }) {
+  if (!items || !items.length) return [];
+  const span = Number(yMax) > 0 ? Number(yMax) : 1;
+  const height = Number(heightPx) > 0 ? Number(heightPx) : 1;
+  const toPx = (v) => (Number(v) / span) * height;
+  const toY = (p) => (p / height) * span;
+  let prev = null;
+  return items
+    .slice()
+    .sort((a, b) => b.y - a.y)
+    .map((item) => {
+      let px = toPx(item.y);
+      if (prev != null && px > prev - minGapPx) px = prev - minGapPx;
+      px = Math.max(0, Math.min(height, px));
+      prev = px;
+      return { ...item, y: toY(px) };
+    });
+}
+
+// Pastilles de la colonne de droite : scénario central (ambre) et, si la couche
+// Scénarios est allumée et que l'éventail tient dans le cadre, ses deux bornes
+// (grises). Une valeur au-delà de `yMax` est collée sous le plafond ; son texte
+// porte le préfixe « ↑ » (construit par l'appelant).
+export function valuationPillItems({
+  central, optimistic, pessimistic, showFan, fanFits, yMax, heightPx, minGapPx = 16,
+}) {
+  const raw = [];
+  const clip = (v) => (yMax != null ? Math.min(v, yMax * 0.97) : v);
+  if (central != null) raw.push({ key: "central", value: central, y: clip(central) });
+  if (showFan && fanFits) {
+    if (optimistic != null) raw.push({ key: "optimistic", value: optimistic, y: clip(optimistic) });
+    if (pessimistic != null) raw.push({ key: "pessimistic", value: pessimistic, y: clip(pessimistic) });
+  }
+  return spreadPills(raw, { yMax, heightPx, minGapPx });
+}
+
+// Bâtons du dividende/action : une barre par année civile de la fenêtre. La
+// année civile EN COURS (divide versé partiellement) est un bâton CREUX — fond
+// blanc, bord vert — pour ne pas la comparer aux exercices complets.
+export function dividendBars(perShare, { years, currentYear }) {
+  const empty = { has: false, x: [], y: [], current: [] };
+  const entries = Object.entries(perShare || {})
+    .map(([year, value]) => [Number(year), Number(value)])
+    .filter(([year, value]) => (
+      Number.isFinite(year) &&
+      Number.isFinite(value) &&
+      value > 0 &&
+      year <= currentYear &&
+      year >= currentYear - years
+    ))
+    .sort((a, b) => a[0] - b[0]);
+  if (!entries.length) return empty;
+  return {
+    has: true,
+    x: entries.map(([year]) => `${year}-07-01`),
+    y: entries.map(([, value]) => value),
+    current: entries.map(([year]) => year === currentYear),
+  };
+}
+
+// Pied de carte : CAGR du cours sur la fenêtre, de la métrique depuis son
+// premier exercice, du dividende sur ses années COMPLÈTES (l'année en cours est
+// exclue). `cagr == null` = non calculable, affiché « — » par l'appelant.
+export function valuationCagrRows({
+  dates, priceSeries, metricSeries, dividendPerShare, fromIndex, windowYears,
+  currentYear, isEnterprise, metricLabel,
+}) {
+  if (!dates || !dates.length) return [];
+  const i0 = Math.max(0, Math.min(Number(fromIndex) || 0, dates.length - 1));
+  const rows = [{
+    key: "price",
+    label: "Cours",
+    cagr: cagrFromSeries(dates.slice(i0), (priceSeries || []).slice(i0)),
+    span: `sur ${windowYears} ans`,
+  }];
+  if (!isEnterprise) {
+    let first = null;
+    for (let i = 0; i < (metricSeries || []).length; i++) {
+      if (metricSeries[i] != null && metricSeries[i] > 0) { first = dates[i]; break; }
+    }
+    rows.push({
+      key: "metric",
+      label: metricLabel,
+      cagr: cagrFromSeries(dates, metricSeries),
+      span: first ? `depuis ${String(first).slice(0, 4)}` : "",
+    });
+  }
+  const completeYears = Object.keys(dividendPerShare || {})
+    .map(Number)
+    .filter((year) => (
+      Number.isFinite(year) &&
+      year < currentYear &&
+      year >= currentYear - windowYears &&
+      dividendPerShare[year] != null
+    ))
+    .sort((a, b) => a - b);
+  if (completeYears.length) {
+    const byYear = {};
+    for (const year of completeYears) byYear[year] = dividendPerShare[year];
+    rows.push({
+      key: "dividend",
+      label: "Dividende",
+      cagr: cagrFromYearMap(byYear),
+      span: completeYears.length > 1
+        ? `sur ${completeYears[completeYears.length - 1] - completeYears[0]} ans`
+        : "",
+    });
+  }
+  return rows;
+}
+
+// Notes factuelles sous le graphe (texte discret) : métrique négative, multiple
+// d'entreprise, projection hors cadre, étage dividende absent.
+export function valuationNotes({
+  isEnterprise, latestOk, hasValo, central, yMax, hasDividends, years,
+}) {
+  const notes = [];
+  if (!latestOk && hasValo) notes.push({ key: "negative" });
+  if (!hasValo) notes.push({ key: isEnterprise ? "enterprise" : "empty" });
+  if (central != null && yMax != null && central > yMax) {
+    notes.push({ key: "out-of-frame", value: central });
+  }
+  if (!hasDividends) notes.push({ key: "no-dividend", years });
+  return notes;
+}
 
 // --- Miroir de engine/valuation_calc.py (parité verrouillée par un test) ------
 
@@ -145,6 +410,10 @@ export const valorisationMixin = {
   valMultiple: null,      // multiple de sortie estimé
   valTarget: null,        // rendement cible %/an (benchmark)
   valIncludeDividends: true,
+  // Couches du graphe « Prix et valorisation » (#34) : état du composant,
+  // remis au défaut à chaque rechargement (pas de persistance). Scénarios
+  // éteints par défaut ; couloir et dividende allumés.
+  valLayers: { couloir: true, scenarios: false, dividendes: true },
   valSaving: false,
   valError: "",
 
@@ -471,13 +740,208 @@ export const valorisationMixin = {
 
   // --- Rendu : Graphique (partie 1) ---------------------------------------
 
-  drawValuationChart(retry = 0) {
+  // Modèle du graphe : tout ce que la carte affiche (statut, pastilles, pied,
+  // notes, tracés) vient d'ici — aucune formule n'est réécrite à l'écran.
+  // Mémoïsé sur ses entrées : le template l'appelle plusieurs fois par rendu et
+  // un changement de couche ne doit PAS le recalculer (seul le dessin change).
+  _valChartCache: null,
+  _valChartKey: null,
+
+  valChartModel() {
     const calc = this.valuationCalc();
     const chart = this.data?.chart;
-    if (!calc || !chart) return;
+    const def = this.valMetricDef();
+    if (!calc || !chart || !def || !Array.isArray(chart.dates) || !chart.dates.length) {
+      return null;
+    }
+    const key = [
+      this.data?.identity?.ticker, def.key, def.latest, this.valPeriod, this.valGrowth,
+      this.valMultiple, this.valTarget, this.valIncludeDividends,
+      chart.dates.length, chart.dates[chart.dates.length - 1],
+      Object.keys(calc.dividend_per_share || {}).length,
+    ].join("|");
+    if (this._valChartKey === key && this._valChartCache) return this._valChartCache;
+
+    const cfg = VALUATION_CHART || {};
+    const dates = chart.dates;
+    const priceSeries = chart.price_raw || [];
+    const price = this.valPrice();
+    const median = this.valMedian();
+    const isEnterprise = !!def.enterprise;
+    const metric = chart[this._seriesKeyFor(def)] || null;
+    const windowYears = Number(cfg.years) || 10;
+    const horizonYears = Number(VALUATION_HORIZON_YEARS) || 5;
+    const lastDate = dates[dates.length - 1];
+    const horizonDate = this._addYears(lastDate, horizonYears);
+    const startDate = this._addYears(lastDate, -windowYears);
+    let fromIndex = dates.findIndex((d) => d >= startDate);
+    if (fromIndex < 0) fromIndex = 0;
+    // Une métrique courante ≤ 0 (ou absente) interdit valorisation ET prix juste.
+    const latestOk = def.latest != null && def.latest > 0;
+    const valo = isEnterprise
+      ? { x: [], y: [] }
+      : valuationSeries(dates, metric, median, latestOk);
+    const hasValo = valo.y.length > 0;
+    const valoNow = hasValo && latestOk ? valo.y[valo.y.length - 1] : null;
+    const fair = this.valFairPrice();
+    const growth = Number(this.valGrowth) || 0;
+    const multiple = Number(this.valMultiple);
+    const fan = valuationFan({
+      latest: def.latest,
+      growth,
+      multiple,
+      horizon: horizonYears,
+      netDebt: this.valNetDebtPerShare(),
+      growthSpan: cfg.fan_growth_span,
+      multipleSpan: cfg.fan_multiple_span,
+    });
+    const scale = valuationScale({
+      prices: priceSeries.slice(fromIndex),
+      valuationY: hasValo ? valo.y : [],
+      fair,
+      central: fan.central,
+      yCap: cfg.y_cap,
+    });
+    const yMax = scale.yMax || 1;
+    const fanFits = !!(fan.optimistic != null && fan.central != null && fan.central <= yMax);
+    const corridor = hasValo
+      ? valuationCorridor({ dates, price: priceSeries, valo, latestOk })
+      : null;
+    const currentYear = new Date(lastDate).getFullYear();
+    const dividends = dividendBars(calc.dividend_per_share, { years: windowYears, currentYear });
+    const height = Number(CHART_HEIGHTS.valuation_hero) || Number(CHART_HEIGHTS.hero) || 560;
+    const margin = { l: 50, r: 70, t: 22, b: 26 };
+    const cagr = valuationCagrRows({
+      dates,
+      priceSeries,
+      metricSeries: metric,
+      dividendPerShare: calc.dividend_per_share,
+      fromIndex,
+      windowYears,
+      currentYear,
+      isEnterprise,
+      metricLabel: def.label,
+    });
+    const notes = valuationNotes({
+      isEnterprise,
+      latestOk,
+      hasValo,
+      central: fan.central,
+      yMax,
+      hasDividends: dividends.has,
+      years: windowYears,
+    });
+    const status = valuationStatus({
+      price,
+      valoNow,
+      latestOk,
+      isEnterprise,
+      label: def.label,
+      gapRatioLimit: cfg.gap_ratio_limit,
+    });
+    const model = {
+      dates, priceSeries, price, median, def, metric, latestOk, isEnterprise,
+      windowYears, horizonYears, lastDate, horizonDate, fromIndex, valo, hasValo,
+      valoNow, fair, growth, multiple, fan, yMax, fanFits, corridor, dividends,
+      height, margin, cagr, notes, status,
+    };
+    this._valChartKey = key;
+    this._valChartCache = model;
+    return model;
+  },
+
+  // En-tête de carte : « Cours X · valorisation Y · sous-évalué de Z % ».
+  // Le verdict est porté par un fragment coloré (bleu sous-évalué, rouge
+  // sur-évalué) ; sans valorisation calculable, le texte le dit explicitement.
+  valChartStatus() {
+    const m = this.valChartModel();
+    if (!m) return { lead: "", text: "", kind: "" };
+    const currency = this.data?.identity?.currency || "";
+    const priceText = m.price == null ? "—" : `${this.fmt(m.price)} ${currency}`.trim();
+    const st = m.status;
+    if (st.reason === "negative") {
+      return {
+        lead: `Cours ${priceText}`,
+        text: ` · valorisation non calculable (${m.def.label} négatif)`,
+        kind: "",
+      };
+    }
+    if (st.gapPct == null) return { lead: `Cours ${priceText}`, text: "", kind: "" };
+    const direction = st.gapPct < 0 ? "sous" : "sur";
+    const text = st.big
+      ? `${direction}-évalué (cours ×${this.fmt(st.ratio)})`
+      : `${direction}-évalué de ${this.fmt(Math.abs(st.gapPct))} %`;
+    return {
+      lead: `Cours ${priceText} · valorisation ${this.fmt(st.valoNow)}`,
+      text: ` · ${text}`,
+      kind: st.good ? "good" : "bad",
+    };
+  },
+
+  // Pastilles fixes et bascules disponibles : une pastille n'existe que si sa
+  // couche existe (pas de couloir sans valorisation, pas de dividende sans
+  // versement sur la fenêtre).
+  valChartLegend() {
+    const m = this.valChartModel();
+    if (!m) return { valo: "", scenarios: false, dividends: false };
+    return {
+      valo: m.hasValo
+        ? `Valorisation · ${m.def.label} × ${m.def.multiple} ${this.fmt(m.median)}`
+        : "",
+      scenarios: m.fan.central != null,
+      dividends: m.dividends.has,
+    };
+  },
+
+  // Pied de carte : trois CAGR (cours, métrique, dividende complet). Le chiffre
+  // est bleu si ≥ 0, rouge sinon, « — » quand il n'est pas calculable.
+  valChartFooter() {
+    const m = this.valChartModel();
+    if (!m) return [];
+    return m.cagr.map((row) => ({
+      ...row,
+      text: row.cagr == null ? "—" : `${row.cagr >= 0 ? "+" : ""}${this.fmt(row.cagr)} %/an`,
+      kind: row.cagr == null ? "neutral" : row.cagr >= 0 ? "good" : "bad",
+    }));
+  },
+
+  valChartNotes() {
+    const m = this.valChartModel();
+    if (!m) return [];
+    return m.notes
+      .map((note) => {
+        if (note.key === "negative") {
+          return `${m.def.label} négatif : valorisation et prix juste non calculables ; la courbe s'arrête au dernier exercice positif.`;
+        }
+        if (note.key === "enterprise") {
+          return "EV/EBITDA est un multiple d'entreprise : pas de courbe de valorisation ni de couloir.";
+        }
+        if (note.key === "empty") return "Métrique négative ou absente : pas de valorisation tracée.";
+        if (note.key === "out-of-frame") {
+          return `Projection hors cadre (${this.fmt(note.value)}) : croissance retenue ${this.fmt(m.growth)} %/an.`;
+        }
+        if (note.key === "no-dividend") {
+          return `Aucun dividende sur ${m.windowYears} ans : étage masqué.`;
+        }
+        return "";
+      })
+      .filter(Boolean);
+  },
+
+  // Bascule d'une couche : redessine le graphe depuis le modèle en cache, sans
+  // aucune requête réseau.
+  valToggleLayer(key) {
+    if (!(key in this.valLayers)) return;
+    this.valLayers = { ...this.valLayers, [key]: !this.valLayers[key] };
+    this.drawValuationChart();
+  },
+
+  drawValuationChart(retry = 0) {
     const el = "val-chart";
     const node = document.getElementById(el);
     if (!node) return;
+    const m = this.valChartModel();
+    if (!m) return;
     // Plotly dimensionne sur la largeur du conteneur : si la section est encore
     // masquée (`x-show`, largeur 0), il retombe sur sa largeur par défaut
     // (700px) et le graphe n'occupe plus qu'une partie de la carte. On diffère
@@ -488,86 +952,154 @@ export const valorisationMixin = {
       raf(() => this.drawValuationChart(retry + 1));
       return;
     }
-    const dates = chart.dates;
-    const def = this.valMetricDef();
-    // Cours brut (bleu vif) + valorisation théorique (métrique × multiple médian,
-    // or) + dividende/action (brun) + projection pointillée.
-    const priceSeries = chart.price_raw;
-    const metric = def ? chart[this._seriesKeyFor(def)] : null;
-    const median = this.valMedian();
-    // La ligne « valorisation théorique = métrique × multiple » n'a de sens que
-    // pour un multiple de capitalisation ; EV/EBITDA est un multiple d'entreprise
-    // (numérateur ≠ cours) -> on ne la trace pas pour lui.
-    const isEnterprise = !!def && def.enterprise;
-    const valoSeries = metric && median != null && !isEnterprise
-      ? metric.map((v) => (v == null ? null : v * median)) : [];
-    const traces = [
-      { x: dates, y: priceSeries, name: "Prix", mode: "lines", line: { color: C.accent, width: 1.6 } },
-    ];
-    if (valoSeries.length) {
-      // Courbe de valorisation : OR (C.ma1, repris de l'exemple Baggr) et LISSÉE
-      // (spline à tension douce) — la métrique par action évolue par paliers
-      // annuels ; on trace ses COINS pour que le lissage arrondisse les
-      // transitions sans faire onduler la courbe. Marqueurs annuels discrets +
-      // FOND doré très pâle sous la courbe : on lit d'un coup si le cours (bleu)
-      // est sous (sous-évalué) ou au-dessus de la valorisation.
-      const corners = this._stepCorners(dates, valoSeries) || { x: dates, y: valoSeries };
-      traces.push({ x: corners.x, y: corners.y, name: `Valorisation (${def.label} × ${this.fmt(median)})`,
-        mode: "lines+markers", line: { color: C.ma1, width: 2.4, shape: "spline", smoothing: 0.3 },
-        marker: { size: 5, color: C.ma1 }, fill: "tozeroy", fillcolor: VALO_FILL });
+    const layers = this.valLayers || { couloir: true, scenarios: false, dividendes: true };
+    const hasDiv = m.dividends.has && layers.dividendes;
+    const price = m.price;
+    const traces = [];
+
+    // 1. Couloir sous/sur-évalué : deux aires entre le cours et la valorisation,
+    // sur la seule plage où la valorisation existe. Le bleu marque le cours
+    // SOUS la valorisation, le rouge au-dessus.
+    if (m.hasValo && layers.couloir && m.corridor) {
+      const c = m.corridor;
+      traces.push(
+        { x: c.x, y: c.valo, mode: "lines", line: { width: 0, shape: "hv" }, hoverinfo: "skip" },
+        { x: c.x, y: c.lower, mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: C.goodFill, hoverinfo: "skip" },
+        { x: c.x, y: c.valo, mode: "lines", line: { width: 0, shape: "hv" }, hoverinfo: "skip" },
+        { x: c.x, y: c.upper, mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: C.badFill, hoverinfo: "skip" },
+      );
     }
-    const divPs = this._dividendPsSeries(dates, calc.dividend_per_share);
-    if (divPs) {
-      traces.push({ x: dates, y: divPs, name: "Dividende/Action",
-        mode: "lines+markers", line: { color: C.brown, width: 1.8 }, marker: { size: 5 } });
+
+    // 2. Éventail (couche Scénarios) : bornes pessimiste/optimiste autour du
+    // cours actuel, remplissage ambre très pâle. Une valeur hors cadre ne trace
+    // pas d'éventail (sa pastille et une note le signalent).
+    if (layers.scenarios && m.fanFits && price != null && m.fan.pessimistic != null) {
+      traces.push(
+        { x: [m.lastDate, m.horizonDate], y: [price, m.fan.pessimistic], mode: "lines", line: { color: C.valo, width: 1, dash: "dot" }, hoverinfo: "skip" },
+        { x: [m.lastDate, m.horizonDate], y: [price, m.fan.optimistic], mode: "lines", line: { color: C.valo, width: 1, dash: "dot" }, fill: "tonexty", fillcolor: C.valoFill, hoverinfo: "skip" },
+      );
     }
-    const fair = this.valFairPrice();
-    const shapes = [];
-    if (fair != null) {
-      shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: fair, y1: fair,
-        line: { color: C.accent, width: 1, dash: "dot" } });
-    }
-    // Projection pointillée : du cours actuel vers le prix projeté à l'horizon.
-    const price = this.valPrice();
-    const projected = projectedValue(
-      this.valLatestMetric(), Number(this.valGrowth) || 0, Number(this.valMultiple),
-      VALUATION_HORIZON_YEARS, this.valNetDebtPerShare(),
-    );
-    const annotations = [];
-    const lastDate = dates[dates.length - 1];
-    const projDate = this._addYears(lastDate, VALUATION_HORIZON_YEARS);
-    if (projected != null && price != null) {
-      // Prolongement doré (Baggr) : la projection vers l'horizon devient une
-      // ligne POINTILLÉE DORÉE, et le fond doré se poursuit dessous jusqu'à la
-      // date de projection — une seule ligne rejoint la cible projetée.
+
+    // 3. Cours (bleu), valorisation (ambre, escalier), scénario central.
+    traces.push({
+      x: m.dates, y: m.priceSeries, name: "Cours", mode: "lines",
+      line: { color: C.accent, width: 1.5 }, hovertemplate: "%{y:.2f}",
+    });
+    if (m.hasValo) {
       traces.push({
-        x: [lastDate, projDate], y: [price, projected],
-        name: "Projection", mode: "lines+markers",
-        line: { color: C.ma1, width: 2, dash: "dot" },
-        marker: { size: 7, color: C.ma1 },
-        fill: "tozeroy", fillcolor: VALO_FILL,
+        x: m.valo.x, y: m.valo.y, name: "Valorisation", mode: "lines",
+        line: { color: C.valo, width: 2.2, shape: "hv" }, hovertemplate: "%{y:.2f}",
       });
     }
-    // Badges : prix juste (ligne pointillée) et prix projeté (fin de projection).
-    if (fair != null) {
-      annotations.push({ x: 0.99, y: fair, xref: "paper", yref: "y", text: this.fmt(fair),
-        showarrow: false, xanchor: "right", yanchor: "bottom",
-        bgcolor: C.accent, font: { color: "#fff", size: 11 }, borderpad: 3 });
+    if (m.fan.central != null && m.fan.central <= m.yMax && price != null) {
+      traces.push({
+        x: [m.lastDate, m.horizonDate], y: [price, m.fan.central],
+        name: "Central", mode: "lines+markers",
+        line: { color: C.valo, width: 1.8, dash: "dot" },
+        marker: { size: [0, 7], color: C.valo }, hovertemplate: "%{y:.2f}",
+      });
     }
-    if (projected != null) {
-      annotations.push({ x: projDate, y: projected, text: this.fmt(projected),
-        showarrow: false, xanchor: "left", yanchor: "middle",
-        bgcolor: C.accent, font: { color: "#fff", size: 11 }, borderpad: 3 });
+
+    // 4. Prix juste : un rond creux POSÉ SUR « aujourd'hui » — c'est un prix
+    // d'achat actuel, jamais une ligne tracée dans le passé.
+    if (m.fair != null) {
+      traces.push({
+        x: [m.lastDate], y: [m.fair], name: "Prix juste", mode: "markers",
+        marker: { size: 9, color: C.surface, line: { color: C.accent, width: 2 } },
+        hovertemplate: "%{y:.2f}",
+      });
     }
+
+    // 5. Dividende/action : bâtons verts dans un étage dédié (axe y2) ; l'année
+    // civile en cours est un bâton CREUX (fond blanc, bord vert).
+    if (hasDiv) {
+      traces.push({
+        x: m.dividends.x, y: m.dividends.y, type: "bar", yaxis: "y2",
+        width: 1000 * 3600 * 24 * 230, name: "Dividende",
+        marker: {
+          color: m.dividends.current.map((cur) => (cur ? C.surface : C.teal)),
+          line: {
+            color: C.teal,
+            width: m.dividends.current.map((cur) => (cur ? 1.2 : 0)),
+          },
+        },
+        customdata: m.dividends.current.map((cur) => (cur ? " (année en cours)" : "")),
+        hovertemplate: "%{y:.2f}%{customdata}",
+      });
+    }
+
+    // Pastilles : repères du haut (« aujourd'hui », « horizon N ans »), valeurs
+    // de la colonne de droite (au moins 16 px d'écart) et prix juste à gauche.
+    const annotations = [
+      { x: m.lastDate, y: 1, yref: "paper", text: "aujourd’hui", showarrow: false, xanchor: "right", yanchor: "bottom", xshift: -4, font: { size: 10, color: C.text } },
+      { x: m.horizonDate, y: 1, yref: "paper", text: `horizon ${m.horizonYears} ans`, showarrow: false, xanchor: "left", yanchor: "bottom", xshift: 4, font: { size: 10, color: C.text } },
+    ];
+    const pill = (x, y, text, color, xanchor = "left") => ({
+      x, y, text, showarrow: false, xanchor, yanchor: "middle",
+      xshift: xanchor === "left" ? 6 : -6,
+      bgcolor: C.surface, bordercolor: color, borderwidth: 1, borderpad: 2,
+      font: { color, size: 11 },
+    });
+    const plotHeight = Math.max(1, m.height - m.margin.t - m.margin.b);
+    const priceHeight = Math.max(1, plotHeight * (hasDiv ? 0.7 : 1));
+    const rightPills = valuationPillItems({
+      central: m.fan.central,
+      optimistic: m.fan.optimistic,
+      pessimistic: m.fan.pessimistic,
+      showFan: layers.scenarios,
+      fanFits: m.fanFits,
+      yMax: m.yMax,
+      heightPx: priceHeight,
+      minGapPx: 16,
+    });
+    for (const item of rightPills) {
+      const color = item.key === "central" ? C.valo : C.mutedPill;
+      const text = (item.value > m.yMax ? "↑ " : "") + this.fmt(item.value);
+      annotations.push(pill(m.horizonDate, item.y, text, color));
+    }
+    if (m.fair != null) {
+      // Un prix juste hors cadre garde sa pastille, collée sous le plafond et
+      // préfixée « ↑ » — jamais un point hors échelle.
+      const fairY = Math.min(m.fair, m.yMax * 0.97);
+      const fairText = (m.fair > m.yMax ? "↑ " : "") + "Prix juste " + this.fmt(m.fair);
+      annotations.push(pill(m.lastDate, fairY, fairText, C.accent, "right"));
+    }
+    if (hasDiv) {
+      annotations.push({ x: m.dates[m.fromIndex], y: 0.215, yref: "paper", xanchor: "left", yanchor: "bottom", text: "Dividende / action", showarrow: false, font: { size: 11, color: C.text } });
+    }
+
+    const shapes = [
+      // Zone future très légèrement teintée, puis trait « aujourd'hui ».
+      { type: "rect", x0: m.lastDate, x1: m.horizonDate, yref: "paper", y0: 0, y1: 1, fillcolor: C.valoZone, line: { width: 0 }, layer: "below" },
+      { type: "line", x0: m.lastDate, x1: m.lastDate, yref: "paper", y0: 0, y1: 1, line: { color: C.axis, width: 1 } },
+    ];
+
     Plotly.react(el, traces, {
-      margin: { l: 52, r: 48, t: 16, b: 34 },
-      height: CHART_HEIGHTS.valuation_hero || CHART_HEIGHTS.hero,
-      paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+      margin: m.margin,
+      height: m.height,
+      paper_bgcolor: C.surface,
+      plot_bgcolor: C.surface,
       font: { family: "Inter, sans-serif", size: 11, color: C.text },
-      xaxis: { gridcolor: C.grid, type: "date", nticks: 8 },
-      yaxis: { gridcolor: C.grid },
-      showlegend: true, legend: { orientation: "h", y: -0.18, font: { size: 10 } },
-      shapes, annotations,
+      showlegend: false,
+      hovermode: "x unified",
+      // Axe X ancré SOUS l'étage dividende quand il existe (sinon sous le prix).
+      xaxis: {
+        type: "date", anchor: hasDiv ? "y2" : "y",
+        range: [m.dates[m.fromIndex], this._addYears(m.horizonDate, 0.6)],
+        showgrid: false, linecolor: C.axis, ticks: "outside", tickcolor: C.axis,
+        ticklen: 4, color: C.text,
+      },
+      // Prix + valorisation sur ≈ 70 % de la hauteur ; dividende sur ≈ 20 %.
+      yaxis: {
+        domain: hasDiv ? [0.3, 1] : [0, 1], range: [0, m.yMax],
+        gridcolor: C.grid, zeroline: false, nticks: 6, color: C.text,
+      },
+      yaxis2: {
+        domain: [0, 0.2], gridcolor: C.grid, zeroline: false, nticks: 3,
+        visible: hasDiv, rangemode: "tozero", color: C.text,
+      },
+      shapes,
+      annotations,
     }, { displayModeBar: false, responsive: true }).then(() => {
       // Filet : si Plotly a tracé à une largeur différente du conteneur (layout
       // figé pendant un masquage), on force une remise à l'échelle.
@@ -576,6 +1108,33 @@ export const valorisationMixin = {
         Plotly.Plots.resize(gd);
       }
     });
+    this._valObserve(node);
+  },
+
+  // Le graphe suit la largeur RÉELLE de son conteneur : `responsive: true`
+  // n'écoute que `window.resize`, pas une bascule de mise en page (même patron
+  // que `risk.js::_riskObserve`). Un seul observateur, rebranché si le nœud change.
+  _valObserve(node) {
+    if (typeof ResizeObserver === "undefined" || !node) return;
+    if (this._valObs && this._valObsNode === node) return;
+    if (this._valObs) this._valObs.disconnect();
+    let lastW = node.clientWidth;
+    this._valObs = new ResizeObserver((entries) => {
+      const w = entries?.[0]?.target?.clientWidth || 0;
+      if (!w || Math.abs(w - lastW) < 1) return; // anti-boucle
+      lastW = w;
+      const run = () => {
+        try {
+          Plotly.Plots.resize(node);
+        } catch {
+          /* tracé purgé entre-temps */
+        }
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+      else run();
+    });
+    this._valObsNode = node;
+    this._valObs.observe(node);
   },
 
   // Ajoute `years` années à une date ISO (fin de l'axe de projection).
@@ -583,40 +1142,6 @@ export const valorisationMixin = {
     const d = new Date(iso);
     d.setFullYear(d.getFullYear() + years);
     return d.toISOString().slice(0, 10);
-  },
-
-  // Légende de la partie 1 : CAGR (croissance annualisée) des trois séries —
-  // EPS/action, dividende/action et prix — affichés sous le graphe.
-  valuationCagrLegend() {
-    const chart = this.data?.chart;
-    const def = this.valMetricDef();
-    if (!chart || !def) return [];
-    const out = [];
-    const metric = chart[this._seriesKeyFor(def)];
-    const metricCagr = cagrFromSeries(chart.dates, metric);
-    // Pour un multiple d'entreprise (EV/EBITDA), la série suivie est le MULTIPLE
-    // (pas une métrique par action) : on l'étiquette comme tel pour ne pas laisser
-    // croire à un CAGR d'EBITDA/action.
-    if (metricCagr != null) out.push({ label: def.enterprise ? def.multiple : def.label, cagr: metricCagr });
-    const divCagr = cagrFromYearMap(this.valuationCalc()?.dividend_per_share);
-    if (divCagr != null) out.push({ label: "Dividende/Action", cagr: divCagr });
-    const priceCagr = cagrFromSeries(chart.dates, chart.price_raw);
-    if (priceCagr != null) out.push({ label: "Prix", cagr: priceCagr });
-    return out;
-  },
-
-  // Série du dividende par action, alignée sur les dates du cours (report par
-  // palier) : la ligne suit les exercices connus.
-  _dividendPsSeries(dates, perShare) {
-    const byYear = perShare || {};
-    const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
-    if (!years.length) return null;
-    return dates.map((iso) => {
-      const y = new Date(iso).getFullYear();
-      let val = null;
-      for (const yy of years) { if (yy <= y) val = byYear[yy]; }
-      return val;
-    });
   },
 
   _seriesKeyFor(def) {
