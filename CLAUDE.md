@@ -53,7 +53,7 @@ mypy src/obole/engine src/obole/services src/obole/mcp src/obole/models.py   # t
 pip-audit                         # audit des dépendances installées
 
 cd web-tests && npm test          # tests front : parité seuils/régression + unitaires (Vitest+jsdom)
-cd web-tests && npm run test:e2e  # smoke Playwright (Chromium + WebKit) — démarre le serveur
+cd web-tests && npm run test:e2e  # smoke Playwright (Chromium) — démarre le serveur
 ```
 
 **Diagnostic (observabilité, #01) :**

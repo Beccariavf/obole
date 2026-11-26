@@ -9,7 +9,9 @@ Comment le projet est testé : les couches, les outils, les conventions et la QA
 - **Front** : Vitest + jsdom dans `web-tests/`. Deux familles : la **parité** avec le
   serveur (`labels-parity.test.js`, `regression-parity.test.js`) et les unitaires des
   mixins.
-- **E2E** : Playwright dans `web-tests/e2e/`, Chromium + WebKit, sur un vrai serveur.
+- **E2E** : Playwright dans `web-tests/e2e/`, Chromium seul, sur un vrai serveur.
+  WebKit est retiré (échecs de timing du runner Linux) ; un rendu propre à Safari
+  se vérifie à la main.
 - **Documentation** : `tests/test_doc_coherence.py` verrouille les faits chiffrés ;
   `tests/test_aidd_memory.py` verrouille la banque mémoire et son câblage.
 

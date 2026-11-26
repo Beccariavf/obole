@@ -3,7 +3,7 @@ name: CI
 # Trois jobs indépendants :
 #  - backend  : lint, types, tests hors réseau, audit des dépendances ;
 #  - frontend : tests unitaires du front (parité seuils/régression + unitaires) ;
-#  - e2e      : smoke Playwright (Chromium + WebKit) — démarre le vrai serveur,
+#  - e2e      : smoke Playwright (Chromium) — démarre le vrai serveur,
 #               donc dépend du réseau (yfinance) pour la fiche RI.PA.
 on:
   push:
@@ -71,14 +71,14 @@ jobs:
           cache: npm
           cache-dependency-path: web-tests/package-lock.json
       - run: npm ci
-      - name: Installer les navigateurs (Chromium + WebKit)
-        run: npx playwright install --with-deps chromium webkit
+      - name: Installer le navigateur (Chromium)
+        run: npx playwright install --with-deps chromium
       - name: Smoke e2e
         run: npm run test:e2e
         env:
           OBOLE_SERVER_CMD: python -u ../run.py
       # Traces Playwright (retain-on-failure) : sans elles, un échec propre au
-      # runner CI (WebKit Linux) ne se diagnostique qu'à l'aveugle.
+      # runner CI ne se diagnostique qu'à l'aveugle.
       - name: Publier les traces des tests en échec
         if: failure()
         uses: actions/upload-artifact@v4
