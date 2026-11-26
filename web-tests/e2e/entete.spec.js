@@ -403,6 +403,13 @@ test("en-tête collant : AUCUN élément sticky de la fiche n'est recouvert", as
 });
 
 async function stickyNonRecouverts(page) {
+  // Préférence « plan ouvert » posée avant tout script de la page, à chaque
+  // chargement de document : l'état de départ ne dépend plus d'un clic.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem("obole.thesis.planOpen", "1");
+    } catch {}
+  });
   // Cette famille de régressions (plan de thèse, barre markdown) est passée
   // parce qu'aucun test ne regardait les AUTRES `sticky` de la fiche. On les
   // sonde tous : un élément collé est « atteignable » si `elementFromPoint` à son
@@ -433,20 +440,18 @@ async function stickyNonRecouverts(page) {
     );
     expect(declare, "— --head-h doit être un calc() des tokens").toMatch(/calc\(/);
 
-    // Le plan de thèse est masqué par défaut : on le déplie pour le mesurer.
+    // La poignée du plan, elle, est toujours là : sa géométrie suit l'en-tête.
     const pin = page.locator(".thesis-pin");
     await expect(pin).toHaveCount(1);
     const topPin = await pin.evaluate((e) => parseFloat(getComputedStyle(e).top));
     expect(topPin, `${w}×${h} : poignée sous l'en-tête (${attendu} px)`).toBe(attendu);
 
-    // Le plan de thèse peut être déjà déplié : son état est persisté
-    // (localStorage). La poignée BASCULE, donc on ne clique que s'il est masqué
-    // — sinon on le refermerait, et WebKit tombait ici sur un plan caché.
+    // Plan déplié par sa préférence persistée (posée avant chargement, voir
+    // `addInitScript` plus haut), JAMAIS par la poignée : elle BASCULE, et un
+    // clic décidé sur `isVisible()` pendant que la thèse se charge encore
+    // refermait un plan déjà ouvert (CI WebKit : plan à 0 px). Le clic de la
+    // poignée a son propre test (sections.spec.js, #21.2).
     const plan = page.locator("#thesis-plan");
-    if (!(await plan.isVisible())) {
-      await page.locator(".thesis-edge").hover({ force: true });
-      await pin.click({ force: true });
-    }
     await expect(plan).toBeVisible();
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
