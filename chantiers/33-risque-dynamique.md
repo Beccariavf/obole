@@ -1,6 +1,6 @@
 # #33 — Risque & dynamique (remplace la Clara Vallis)
 
-> **Statut :** en cours · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
+> **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/risque-dynamique` · **Taille :** ~2 sessions
 
 > **Convention de traçabilité.** La branche est un **repère de travail**, pas une preuve : elle
