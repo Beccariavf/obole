@@ -11,10 +11,10 @@ test("fiche RI.PA : les onglets pilotent la section affichée", async ({ page })
   await search.press("Enter");
   await expect(page.locator(".header")).toBeVisible();
 
-  // Le ruban expose les 6 sections dans l’ordre validé (identifiants stables,
+  // Le ruban expose les 7 sections dans l’ordre validé (identifiants stables,
   // indépendants du libellé d'infobulle qui peut être enrichi).
   const rail = page.locator(".section-tabs .section-tab");
-  await expect(rail).toHaveCount(6);
+  await expect(rail).toHaveCount(7);
   expect(await rail.evaluateAll((els) => els.map((e) => e.dataset.section))).toEqual([
     "resume",
     "quantitatif",
@@ -22,6 +22,7 @@ test("fiche RI.PA : les onglets pilotent la section affichée", async ({ page })
     "finance",
     "these",
     "valorisation",
+    "risque",
   ]);
 
   // À l'ouverture, c'est « Résumé » qui est actif : le graphe héro est là.
@@ -116,7 +117,7 @@ test("fiche RI.PA : les onglets sont un ruban horizontal de libellés lisibles",
     .evaluateAll((els) =>
       els.map((e) => ({ text: e.textContent.trim(), w: e.getBoundingClientRect().width })),
     );
-  expect(labels).toHaveLength(6);
+  expect(labels).toHaveLength(7);
   for (const l of labels) {
     expect(l.text, "libellé vide").not.toBe("");
     expect(l.w, `libellé « ${l.text} » non rendu`).toBeGreaterThan(0);
@@ -147,7 +148,7 @@ test("un ratio désactive les sections sans comptes", async ({ page }) => {
 
   // Un ratio n'a ni comptes ni dividendes : seul « Résumé » reste disponible.
   await expect(page.locator(".section-tab[data-section='resume']")).toBeEnabled();
-  for (const id of ["quantitatif", "dividende", "finance", "these", "valorisation"]) {
+  for (const id of ["quantitatif", "dividende", "finance", "these", "valorisation", "risque"]) {
     await expect(page.locator(`.section-tab[data-section='${id}']`)).toBeDisabled();
   }
 });

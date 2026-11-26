@@ -68,7 +68,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
       "dividend_groups", "dividend_min_window_years", "fundamental_metrics",
       "label_polarity", "labels", "markowitz", "metric_units", "portfolio_corr_annotate_max",
       "portfolio_corr_min_obs", "portfolio_tag_max", "potential_horizons", "quant_groups",
-      "ratio_thresholds", "reg_years_default", "reg_years_financial",
+      "ratio_thresholds", "reg_years_default", "reg_years_financial", "risk",
       "valuation_color_ratios", "valuation_groups", "valuation_horizon_years",
       "valuation_matrix", "valuation_metrics", "valuation_period_default",
       "valuation_periods", "valuation_target_default", "watch",
@@ -142,6 +142,17 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
     expect(app.PORTFOLIO_CORR_ANNOTATE_MAX).toBe(meta.portfolio_corr_annotate_max);
   });
 
+  it("les seuils de la section Risque viennent de config.py (source unique)", () => {
+    const app = loadApp();
+    app.applyMeta(meta);
+    // Fenêtres, centile d'anomalie, benchmark et plage par défaut : risk.js les
+    // lit depuis /api/meta, jamais d'un littéral local.
+    expect(app.RISK).toEqual(meta.risk);
+    expect(app.RISK.vol_window).toBe(60);
+    expect(app.RISK.vol_anomaly_pctile).toBe(90);
+    expect(app.RISK.benchmark).toBe("^FCHI");
+  });
+
   it("le CSS des hauteurs coïncide avec config.py (conteneur = layout Plotly)", () => {
     const css = readStyleSource();
     // Les variables CSS des hauteurs doivent valoir les constantes config.py :
@@ -159,6 +170,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
     expect(css).toContain(`--chart-h-pf-monthly: ${h.portfolio_monthly}px`);
     expect(css).toContain(`--chart-h-pf-contrib: ${h.portfolio_contrib}px`);
     expect(css).toContain(`--chart-h-detail: ${h.detail}px`);
+    expect(css).toContain(`--chart-h-risk: ${h.risk}px`);
     // Le conteneur des mini-charts et la modale lisent ces variables (pas de px en dur).
     expect(css).toMatch(/\.mini \.mini-chart[^}]*height: var\(--chart-h-mini\)/);
     expect(css).toMatch(/\.mini\.wide \.mini-chart[^}]*height: var\(--chart-h-dividend-hero\)/);
@@ -166,6 +178,7 @@ describe("source unique des seuils (/api/meta -> app.js)", () => {
     expect(css).toMatch(/\.card\.mini \.pf-donut[^}]*height: var\(--chart-h-pf-donut\)/);
     expect(css).toMatch(/\.detail-chart[^}]*height: var\(--chart-h-detail\)/);
     expect(css).toMatch(/\.mini \.pf-corr-test-chart[^}]*height: var\(--chart-h-pf-corr-test\)/);
+    expect(css).toMatch(/\.risk-chart[^}]*height: var\(--chart-h-risk\)/);
     // L'ancienne hauteur « mini wide » ne doit plus subsister (retirée).
     expect(css).not.toContain("mini-wide");
   });

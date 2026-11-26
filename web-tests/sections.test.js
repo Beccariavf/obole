@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe("registre des sections", () => {
-  it("expose les 6 sections dans l'ordre validé", () => {
+  it("expose les 7 sections dans l'ordre validé", () => {
     expect(SECTIONS.map((s) => s.id)).toEqual([
       "resume",
       "quantitatif",
@@ -42,6 +42,7 @@ describe("registre des sections", () => {
       "finance",
       "these",
       "valorisation",
+      "risque",
     ]);
   });
 
@@ -217,7 +218,7 @@ describe("applySectionsAfterLoad — section à l'ouverture d'une fiche", () => 
 
 describe("sections planifiées (« à venir ») — toutes livrées", () => {
   it("aucune section n'est « à venir » : la thèse est livrée (#21)", () => {
-    for (const id of ["resume", "quantitatif", "dividende", "finance", "these", "valorisation"]) {
+    for (const id of ["resume", "quantitatif", "dividende", "finance", "these", "valorisation", "risque"]) {
       expect(sectionPlanned(id), `${id} ne doit pas être « à venir »`).toBe(false);
     }
   });
