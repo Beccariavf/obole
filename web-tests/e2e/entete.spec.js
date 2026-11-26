@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { attendreDefilementStable, molette } from "./defilement.js";
 
 // En-tête de l'espace Analyse (recherche collante + onglets collés dessous) et
 // grille de cartes sans colonne orpheline.
@@ -55,19 +56,6 @@ export const mesurerVide = (page) =>
     return out;
   });
 
-// Défilement fini : deux lectures de `scrollY` identiques à 200 ms d'écart.
-// `scrollY > 0` ne suffit pas — WebKit en CI mesurait en plein défilement, quand
-// un élément sticky n'avait pas encore rejoint sa position collée.
-async function attendreDefilementStable(page) {
-  await expect
-    .poll(async () => {
-      const a = await page.evaluate(() => window.scrollY);
-      await new Promise((r) => setTimeout(r, 200));
-      return a === (await page.evaluate(() => window.scrollY));
-    })
-    .toBe(true);
-}
-
 // Thèse jetable pour les tests qui mesurent le plan et les ancres. La CI part
 // d'une base neuve où AUCUNE thèse n'existe (règle testing.md : un e2e ne
 // présuppose jamais une base existante). Il faut ≥ 3 titres (le plan doit en
@@ -105,15 +93,9 @@ test("en-tête : la recherche et les onglets collent, l'identité défile", asyn
 
   // On défile assez pour que l'identité du titre ET les onglets aient quitté le
   // haut de page si rien ne collait.
-  // La molette part du CONTENU (centre de la zone principale) : laissée en
-  // (0, 0), elle tombe sur le rail, qui défile sur lui-même, et WebKit ne fait
-  // alors pas défiler le document. Le défilement est asynchrone : on attend la
-  // condition plutôt qu'un délai fixe.
-  const main = await page.locator(".app-main").boundingBox();
-  await page.mouse.move(main.x + main.width / 2, 450);
-  await page.mouse.wheel(0, 900);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
-  await attendreDefilementStable(page);
+  // Molette depuis le contenu, attente sur condition (voir defilement.js).
+  await molette(page, 900);
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 
   const pos = await page.evaluate(() => {
     const b = (s) => document.querySelector(s).getBoundingClientRect();
@@ -469,11 +451,7 @@ async function stickyNonRecouverts(page) {
 
     // Défilement franc : sans marge, le plan passerait sous les deux rangs.
     // Molette depuis le contenu (pas le rail), puis attente sur condition.
-    const main = await page.locator(".app-main").boundingBox();
-    await page.mouse.move(main.x + main.width / 2, h / 2);
-    await page.mouse.wheel(0, 600);
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    await attendreDefilementStable(page);
+    await molette(page, 600);
 
     const sonde = await page.evaluate(() => {
       const plan = document.querySelector("#thesis-plan");

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { molette } from "./defilement.js";
 
 // Espace Portefeuille (#17.0/#17.1) : le bouton ouvre la modale, les onglets
 // horizontaux pilotent les sections, la saisie recalcule une position brute, et
@@ -167,12 +168,12 @@ test("portefeuille : le bandeau de contexte reste visible pendant le défilement
   // `.pf-main` à hauteur imposée). Le bandeau se décolle de sa position de flux
   // puis s'accroche à `--head-top` : il ne bouge plus d'un pixel ensuite, sinon
   // le contexte se perd en bas d'un long tableau.
-  await page.mouse.wheel(0, 700);
-  await page.waitForTimeout(200);
+  // Molette depuis le contenu et attente sur condition (voir defilement.js) :
+  // en CI WebKit, 200 ms fixes ne suffisaient pas.
+  await molette(page, 700);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   const colle = await context.boundingBox();
-  await page.mouse.wheel(0, 400);
-  await page.waitForTimeout(200);
+  await molette(page, 400);
   const encore = await context.boundingBox();
   await expect(context).toBeVisible();
   expect(Math.round(encore.y), "bandeau accroché au défilement").toBe(Math.round(colle.y));
