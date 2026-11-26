@@ -59,8 +59,9 @@ Les dépendances vont dans **un seul sens** : `web → api → services → engi
 - Les **séries de risque** (#33 : chute, volatilité) suivent le même patron :
   calculées par `engine/risk.py` sur la **pleine résolution ajustée**, puis
   réindexées sur la grille décimée du cours. Le 12-1 se mesure sur les cours
-  **bruts** des deux côtés (titre et CAC 40). Le benchmark `^FCHI` est lu une
-  fois par requête via `data/` (cache TTL) ; indisponible, ses champs valent
+  **bruts** des deux côtés (titre et CAC 40) ; un panier porte donc une seconde
+  série chaînée sur les cours bruts de ses membres. Le benchmark `^FCHI` est lu
+  une fois par requête via `data/` (cache TTL) ; indisponible, ses champs valent
   `None` et la fiche reste servie.
 - La table **« monde de Markovitz »** est recalculée CÔTÉ CLIENT dans la section
   **Valorisation** (#33) : σ de bande, z, pente, MM court/long et confiance `1 − R²`

@@ -125,9 +125,43 @@ class TestRiskChartPayload:
 
     def test_basket_payload_carries_its_risk_block(self):
         prices = _synthetic_prices()
-        payload = serialize.basket_chart_payload(prices.adjusted, benchmark=_synthetic_benchmark())
+        raw = pd.Series(100.0, index=prices.adjusted.index)
+        # 12-1 brut connu (+20 %), distinct de la série ajustée total-return.
+        raw.iloc[-1 - 21] = 120.0
+        raw.iloc[-1 - 252] = 100.0
+        payload = serialize.basket_chart_payload(
+            prices.adjusted, benchmark=_synthetic_benchmark(), raw_series=raw
+        )
         assert len(payload["risk"]["drawdown_pct"]) == len(payload["dates"])
         assert payload["risk"]["now"]["bench_vol_pct"] is not None
+        assert payload["risk"]["now"]["mom_12_1_pct"] == pytest.approx(20.0, abs=0.01)
+
+    def test_basket_momentum_uses_the_raw_chain_not_total_return(self):
+        idx = pd.bdate_range("2015-01-05", periods=800)
+        members = {
+            "A": _price_series(
+                pd.Series(np.linspace(100.0, 120.0, 800), index=idx),
+                pd.Series(np.linspace(100.0, 150.0, 800), index=idx),
+            ),
+            "B": _price_series(
+                pd.Series(np.linspace(50.0, 55.0, 800), index=idx),
+                pd.Series(np.linspace(50.0, 70.0, 800), index=idx),
+            ),
+        }
+        with (
+            patch("obole.services.analysis.yahoo.fetch_identity", side_effect=_fake_identity),
+            patch("obole.services.analysis.cache.get", return_value=None),
+            patch("obole.services.analysis.cache.put"),
+        ):
+            analysis, series = analysis_service.analyze_basket(1, "Panier", "Test", members)
+
+        assert analysis.raw_series is not None
+        payload = serialize.basket_to_dict(analysis, series)
+        now = payload["chart"]["risk"]["now"]
+        expected_raw = round(float(risk.momentum_12_1(analysis.raw_series)), 2)
+        expected_total_return = round(float(risk.momentum_12_1(series)), 2)
+        assert now["mom_12_1_pct"] == pytest.approx(expected_raw)
+        assert now["mom_12_1_pct"] != pytest.approx(expected_total_return)
 
     def test_absent_when_chart_is_excluded(self):
         prices = _make_prices()

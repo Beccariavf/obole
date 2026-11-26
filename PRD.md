@@ -338,7 +338,7 @@ Onglet factuel qui remplace l'ancien Momentum, sans verdict ni prédiction :
 
 - **Chute depuis le plus haut** : `P_t / max(P_0..P_t) − 1`, en % sur la série ajustée complète ; la date du plus haut courant est affichée.
 - **Volatilité** : écart-type glissant (`ddof=1`) des rendements log quotidiens sur `RISK_VOL_WINDOW = 60` séances, annualisé `× √252`, en %. Son **percentile** est la part des valeurs passées de la série de vol qui lui sont inférieures (0–100) ; le **seuil d'anomalie** est le quantile `RISK_VOL_ANOMALY_PCTILE = 90` de cette même série. Sous `RISK_VOL_MIN_POINTS = 504` valeurs, ni percentile ni seuil : mention « historique trop court pour situer ».
-- **12-1** : `P_{t−21} / P_{t−252} − 1`, en %, sur les cours **bruts** (hors dividendes) ; « — » avec infobulle sous 13 mois d'historique.
+- **12-1** : `P_{t−21} / P_{t−252} − 1`, en %, sur les cours **bruts** (hors dividendes) ; « — » avec infobulle sous 13 mois d'historique. Un panier est chaîné une seconde fois sur les cours bruts de ses membres.
 - Repères de marché : volatilité et 12-1 du **CAC 40** (`^FCHI`), lus via la couche `data/` ; indisponibles, ils valent `None`.
 - Tracé Plotly à deux étages (chute en haut, volatilité en bas) sur une **plage propre** de 10 ans par défaut. Couleurs neutres ; le rouge ne marque que les passages de volatilité au-dessus du seuil et le percentile en anomalie.
 

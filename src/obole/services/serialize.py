@@ -362,15 +362,21 @@ def summarize_index_to_dict(entry: dict) -> dict:
     }
 
 
-def basket_chart_payload(series: pd.Series, benchmark: PriceSeries | None = None) -> dict:
+def basket_chart_payload(
+    series: pd.Series,
+    benchmark: PriceSeries | None = None,
+    raw_series: pd.Series | None = None,
+) -> dict:
     """Série d'un indice personnalisé pour le tracé (raw = adj = série de l'indice).
 
     Même format que chart_payload : le front réutilise drawChart tel quel. Pas de
     series_a/series_b : un indice n'a pas de β (pas d'actif de référence).
 
-    `risk` (#33) porte sur la série de l'indice (chaînée en total return) : elle
-    tient lieu de série ajustée ET de série brute, faute de cours brut distinct.
-    Le 12-1 du benchmark reste mesuré sur ses cours bruts.
+    `risk` (#33) mesure chute et volatilité sur la série de l'indice (chaînée en
+    total return), puis le 12-1 sur `raw_series` — le même panier chaîné sur les
+    cours **bruts**, sans dividendes. Absente (payload ancien), la série
+    principale tient lieu de repli ; le 12-1 reste alors honnêtement celui de la
+    série affichée. Le 12-1 du benchmark se mesure sur ses cours bruts.
     """
     s = _downsample(series)
     settings = cache.get_settings()
@@ -384,7 +390,9 @@ def basket_chart_payload(series: pd.Series, benchmark: PriceSeries | None = None
         "price_adj": vals,
         "ma_short": _vals(ma_short.reindex(s.index)),
         "ma_long": _vals(ma_long.reindex(s.index)),
-        "risk": _risk_payload(series, series, s.index, benchmark),
+        "risk": _risk_payload(
+            series, raw_series if raw_series is not None else series, s.index, benchmark
+        ),
     }
 
 
@@ -441,7 +449,7 @@ def basket_to_dict(
         "warnings": analysis.warnings,
     }
     if include_chart:
-        chart = basket_chart_payload(series, benchmark=benchmark)
+        chart = basket_chart_payload(series, benchmark=benchmark, raw_series=analysis.raw_series)
         out["chart"] = chart
     return out
 

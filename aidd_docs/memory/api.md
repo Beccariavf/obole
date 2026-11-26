@@ -56,8 +56,10 @@ La surface HTTP : son style, ses ressources et ses contrats.
   (sept scalaires : `drawdown_pct`, `peak_date`, `vol_pct`, `vol_percentile`,
   `bench_vol_pct`, `mom_12_1_pct`, `bench_mom_12_1_pct`). Les séries sont
   calculées sur la pleine résolution ajustée (série du panier pour un indice),
-  puis décimées. Le benchmark est `^FCHI`, lu via `data/` (cache TTL) ; un
-  benchmark indisponible laisse ses deux champs à `None`, sans erreur.
+  puis décimées ; le 12-1 est mesuré sur les cours bruts (pour un panier, une
+  seconde série chaînée sur les cours bruts des membres). Le benchmark est
+  `^FCHI`, lu via `data/` (cache TTL) ; un benchmark indisponible laisse ses
+  deux champs à `None`, sans erreur.
   `chart.risk` est absent quand `include_chart=False` (outils MCP en `summary`).
   `/api/meta` expose le bloc `risk` (`vol_window`, `vol_anomaly_pctile`,
   `vol_min_points`, `mom_lookback`, `mom_skip`, `benchmark`, `default_years`) et
