@@ -835,7 +835,7 @@ select.pf-ctl {
    /api/meta et lues par le layout Plotly). Les conteneurs CSS doivent coïncider
    avec le layout, sinon Plotly laisse du blanc (conteneur plus haut que le tracé)
    ou déborde. On les fige en variables, alignées sur config.py :
-   hero 440 / mini 200 / dividend_hero 300 / detail 420. */
+   hero 440 / mini 200 / dividend_hero 300 / detail 420 / risk 420. */
 :root {
   --chart-h-hero: 440px;
   --chart-h-mini: 200px;

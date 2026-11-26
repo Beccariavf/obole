@@ -111,6 +111,23 @@ describe("historique court", () => {
     expect(short.text).toBe("historique trop court pour situer");
     expect(short.bad).toBe(false);
   });
+
+  it("volatilité absente : « — » expliqué, mention d'historique court", () => {
+    const app = makeApp({ vol_pct: null, vol_percentile: null });
+    const parts = app.riskVolParts();
+    const vol = parts.find((p) => p.key === "vol");
+    expect(vol.text).toContain("Volatilité 40 j : —");
+    expect(vol.title).toMatch(/moins de 40 séances/);
+    expect(parts.find((p) => p.key === "short").text).toBe("historique trop court pour situer");
+  });
+
+  it("le percentile affiché garde sa décimale, comme la décision de rougeur", () => {
+    applyMeta({ ...META, risk: { ...META.risk, vol_anomaly_pctile: 90 } });
+    const app = makeApp({ vol_percentile: 89.6 });
+    const pctile = app.riskVolParts().find((p) => p.key === "pctile");
+    expect(pctile.text).toContain("89,6 %");
+    expect(app.riskPercentileAnomaly()).toBe(false);
+  });
 });
 
 describe("lignes factuelles", () => {

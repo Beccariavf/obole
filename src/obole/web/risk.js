@@ -30,7 +30,12 @@ export const riskMixin = {
   riskAvailable() {
     const r = this.riskData();
     const dates = this.data?.chart?.dates || [];
-    return !!r && dates.length >= 2 && Array.isArray(r.drawdown_pct);
+    return (
+      !!r &&
+      dates.length >= 2 &&
+      Array.isArray(r.drawdown_pct) &&
+      r.drawdown_pct.length >= 2
+    );
   },
 
   // La plage est un INDEX : elle ne survit pas à une autre série. Changer de
@@ -176,6 +181,14 @@ export const riskMixin = {
     });
   },
 
+  // Libellé du benchmark : le CAC 40 est le nom du ^FCHI. Un autre ticker
+  // configuré s'affiche tel quel plutôt que sous un nom devenu faux.
+  riskBenchmarkLabel() {
+    const ticker = String(RISK.benchmark || "");
+    if (ticker === "^FCHI") return "CAC 40";
+    return ticker || "Benchmark";
+  },
+
   // Deuxième ligne : volatilité, percentile (rouge si anomalie) et benchmark.
   // « historique trop court pour situer » remplace le percentile absent.
   riskVolParts() {
@@ -186,28 +199,34 @@ export const riskMixin = {
       {
         key: "vol",
         text: `Volatilité${window == null ? "" : " " + window + " j"} : ${this._riskLevel(vol)}`,
+        title:
+          vol == null
+            ? `Historique trop court (moins de ${window == null ? 60 : window} séances)`
+            : "",
         bad: false,
       },
     ];
-    if (vol != null) {
-      const pctile = now ? now.vol_percentile : null;
-      if (pctile == null) {
-        parts.push({
-          key: "short",
-          text: "historique trop court pour situer",
-          bad: false,
-        });
-      } else {
-        parts.push({
-          key: "pctile",
-          text: `plus haute que ${Math.round(Number(pctile))} % de son historique`,
-          bad: this.riskPercentileAnomaly(),
-        });
-      }
+    const pctile = now ? now.vol_percentile : null;
+    if (pctile == null) {
+      parts.push({
+        key: "short",
+        text: "historique trop court pour situer",
+        title: "",
+        bad: false,
+      });
+    } else {
+      parts.push({
+        key: "pctile",
+        text: `plus haute que ${this._riskNum(pctile)} % de son historique`,
+        title: "",
+        bad: this.riskPercentileAnomaly(),
+      });
     }
+    const bench = now ? now.bench_vol_pct : null;
     parts.push({
       key: "bench",
-      text: `CAC 40 : ${this._riskLevel(now ? now.bench_vol_pct : null)}`,
+      text: `${this.riskBenchmarkLabel()} : ${this._riskLevel(bench)}`,
+      title: bench == null ? "Benchmark indisponible" : "",
       bad: false,
     });
     return parts;
@@ -218,6 +237,8 @@ export const riskMixin = {
   riskMomentumParts() {
     const now = this.riskNow();
     const mom = now ? now.mom_12_1_pct : null;
+    const bench = now ? now.bench_mom_12_1_pct : null;
+    const label = this.riskBenchmarkLabel();
     return [
       {
         key: "mom",
@@ -227,8 +248,8 @@ export const riskMixin = {
       },
       {
         key: "bench",
-        text: `CAC 40 : ${this._riskPct(now ? now.bench_mom_12_1_pct : null)}`,
-        title: "",
+        text: `${label} : ${this._riskPct(bench)}`,
+        title: bench == null ? "Benchmark indisponible" : "",
         bad: false,
       },
     ];
