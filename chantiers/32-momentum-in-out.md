@@ -1,5 +1,7 @@
 # #32 — Fiabilité, seconde lecture : in contre out
 
+> **Retiré au #33** — remplacé par « Risque & dynamique » ; la table Markovitz rejoint Valorisation.
+
 > **Statut :** fait · **Priorité :** 🟡 Q2 · **Impact Pernod :** 🟢
 > **Branche proposée :** `feat/momentum-in-out` · **Taille :** ~1 session
 

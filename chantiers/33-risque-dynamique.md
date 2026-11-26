@@ -125,5 +125,8 @@ sans jamais suggérer un achat ou une vente. La table Markovitz rejoint Valorisa
 
 ## 8. Note de reprise
 
+- **J1 livré** : Clara Vallis retirée, table Markovitz déplacée dans Valorisation.
+- **J2 à suivre** sur la même branche : moteur `risk.py`, `chart.risk`, onglet
+  « Risque & dynamique ».
 - Plan d'exécution : délégué à OpenCode, un plan par jalon (hors dépôt).
 - Branche : `feat/risque-dynamique`.

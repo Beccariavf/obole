@@ -26,7 +26,8 @@ La surface HTTP : son style, ses ressources et ses contrats.
 ## Contracts
 
 - `/api/meta` sérialise les seuils de `config.py` : **source unique** consommée par le
-  front au démarrage. Aucun seuil littéral côté JS.
+  front au démarrage. Aucun seuil littéral côté JS. La table Markovitz y lit ses
+  fenêtres (`markowitz.table_windows`).
 - `/api/health` renvoie 503 si SQLite ou le cache est hors service.
 - Les erreurs remontent en `HTTPException` avec un message lisible ; les erreurs métier
   typées (`IndexNotFound`, `ThesisNotFound`) sont traduites en 404.

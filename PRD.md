@@ -328,53 +328,10 @@ Visuel non extractible des PDF. Vraisemblablement dérivé du potentiel 5/10 ans
 ### 5.10 Cohérence pente ↔ fondamentaux (thèse de référence)
 Indicateur de **cohérence** : comparer `b` (pente boursière annualisée) à la croissance des bénéfices et au ROE. Affiché comme un check visuel (« le cours suit-il les bénéfices ? »).
 
-### 5.11 La Clara Vallis — régime de foule (momentum) ✅ calibré
-L'onglet « Momentum » lit l'état de la foule qui porte le cours, d'après la « stratégie du maçon » de Didier Darcet (*Psychologie des marchés*, Grand Angle). Indépendant de la valorisation : il ne dit pas combien vaut l'entreprise, mais si la foule est satisfaite ou frustrée.
+### 5.11 Table « monde de Markovitz » (section Valorisation)
+L'ancien onglet Momentum (score de foule, jauge, historique, carte de fiabilité) a été **retiré au #33** — voir `chantiers/33-risque-dynamique.md`. Sa table « monde de Markovitz », qui parle de la droite et non du momentum, a rejoint la section **Valorisation**.
 
-**Score de satisfaction** (250 entrées glissantes) :
-- Pour chaque séance `i` des 250 dernières, un « maçon » entre au cours `P_i`. Son creux et son sommet sont pris sur `[i, t]` ; sa bulle vaut `(P_t − min_i) / (max_i − min_i)`, ou `0,5` si `max_i = min_i` (l'entrée du jour n'a aucun parcours).
-- Le score est la moyenne des 250 bulles, dans `[0, 1]` : près de 1, la foule est satisfaite (le cours est près des plus hauts) ; près de 0, elle est frustrée.
-- Le walk-forward ne lit jamais une séance postérieure à `t` : à chaque date, la fenêtre est fermée à droite sur `t`.
-
-**Bornes** : `MOMENTUM_SATISFACTION_LOW = 0,35` et `HIGH = 0,60` (`config.py`), calibrées sur une série CAC 40 figée (2000 → 2023, `tests/fixtures/cac40_daily.csv`) :
-
-| Fenêtre | Moyenne | Verdict |
-|---|---:|---|
-| 2008-09 → 2009-03 | 0,174 | crise |
-| 2011-07 → 2011-10 | 0,239 | crise |
-| 2020-02 → 2020-04 | 0,255 | crise |
-| 2002-06 → 2002-10 | 0,174 | crise |
-| 2017 | 0,762 | calme |
-| 2021 | 0,859 | calme |
-| 2023 | 0,704 | calme |
-| 2015-06 → 2015-09 | 0,515 | neutre |
-
-Marge minimale : 0,095 côté crise, 0,104 côté calme. Le test est pur (hors ligne), verrouillé par `tests/test_clara_vallis_calibration.py`.
-
-**Table « monde de Markovitz »** : σ de la bande `(e^sigma − 1) × 100`, z, pente `(e^b − 1) × 100`, MM court/long et confiance `1 − R²`, sur la fenêtre de référence (date persistée, sinon 20 ans, 30 pour les financières). Recalculée côté client, comme le graphe héro.
-
-**Jauge** : aiguille à `(1 − score) × 100` ; gauche = **satisfaite**, droite = **frustrée**. **Historique** : cours + fond coloré par état (rouge sous `LOW`, bleu au-dessus de `HIGH`), en walk-forward ; un chip **« Réf. »** précède 1A et applique la fenêtre de référence, le défaut restant 10 ans.
-
-**Dégradations** : moins de 250 séances → score sur les entrées disponibles + badge « historique court » ; moins d'un an → pas de walk-forward ; indice → série brute = ajustée, bascule désactivée.
-
-### 5.12 Fiabilité de la Clara Vallis — le marché pendant les séances in et out (#31, #32)
-Une jauge dit l'état de la foule, pas si l'indicateur **marche** sur cet actif. Sous l'historique, la carte « Fiabilité de l'indicateur » lit, sur la fenêtre visible, le marché pendant les séances où la stratégie est **dedans** (`in`) et celles où elle est **dehors** (`out`), avec un buy & hold comme repère de la période.
-
-**Pourquoi deux paniers.** La stratégie n'est investie que 60 à 70 % du temps : son rendement total ne dit donc rien de la qualité du signal, qui est de séparer les bons jours des mauvais. Chaque séance de rendement appartient à `in` (position investie cette séance) ou à `out` (hors marché) ; les deux paniers **partitionnent** la fenêtre, la part des séances somme à 100 % entre eux et le buy & hold vaut 100 %. Chaque panier compose sa propre courbe avec les seuls rendements du marché de ses séances : ces courbes ne sont pas dessinées, elles servent aux mesures.
-
-**Règle** : investi quand le score **dépasse** `HIGH` (0,60), hors marché quand il **passe sous** `LOW` (0,35), état conservé entre les deux (hystérésis), départ hors marché. Le score de la séance `t` ne décide que la position de `t+1` : le rendement de `t+1` est `P[t+1]/P[t] − 1`. Le classement d'une séance dans `in` ou `out` suit donc la position décidée la **veille** — aucun regard sur le futur, aucune fuite.
-
-**Frais** : `MOMENTUM_FEE_PCT = 0,1 %` **par ordre** (entrée et sortie, donc 0,2 % l'aller-retour) — exposé par `/api/meta` pour la légende ; taux sans risque `MOMENTUM_RISK_FREE_PCT = 0`, lu par le service dans `config.py` (non exposé, rien ne l'affiche). Ils ne touchent que la courbe de la stratégie et le buy & hold : les paniers mesurent le marché, pas un portefeuille.
-
-**Mesures** (trois colonnes : buy & hold, `in`, `out`) : CAGR **annualisé sur les séances du panier** (`n/252`, pas la durée calendaire — c'est le rythme du signal, pas le temps qui passe ; le buy & hold suit la même règle), volatilité annualisée des rendements quotidiens, Sharpe, Sortino, max drawdown, Calmar = CAGR / |max drawdown|, **part des séances** (%). Sharpe, Sortino et drawdown sont ceux de `engine/portfolio.py` — une seule implémentation.
-
-**Polarité.** Bleu = bien, rouge = mal, sauf la colonne `out` où la convention est **inversée localement** : un CAGR ou un Sharpe **positif** dehors est **rouge**, parce que gagner quand on n'est pas investi est un mauvais signe (le signal n'a rien évité). `in` et buy & hold gardent la polarité standard ; volatilité, max drawdown et part des séances restent neutres. Le drawdown d'un panier est **conditionnel** : c'est la pire série de pertes de ce panier, pas un creux vécu dans le temps réel (ses séances ne sont pas contiguës) — la légende le dit.
-
-**Pied de table** : `N trades · stratégie X %/an`. Le rendement **réel** de la stratégie (cash compris) reste affiché une fois, sous le tableau, jamais dans les colonnes : le lecteur garde ce qu'il a obtenu sans en refaire une lecture d'exposition.
-
-**Calcul et contrat** : côté SERVEUR, sur la série **pleine résolution** (la grille du graphe est décimée : un backtest dessus raterait des croisements), puis la fenêtre visible est tranchée. Deux routes : `GET /api/stock/{ticker}/momentum-backtest` et `GET /api/index/{id}/momentum-backtest` (`start`, `end`, `series=raw|adj` ; 422 sinon, 404 pour une référence inconnue). La réponse est exactement `{buy_hold, in, out, window, trades, strategy_cagr_pct}` : trois colonnes portant les sept mêmes mesures, `equity` et `positions` restant internes au moteur. Le backtest suit la bascule brut/ajusté : en brut les dividendes ne sont pas comptés, la légende le dit.
-
-**Dégradations** : fenêtre de moins de deux séances → message explicite ; panier vide (aucune séance in ou out) → `—` sur ses mesures et part de 0 %, sans crash ; aucune baisse → Sortino `—` avec infobulle ; série plate → Sharpe `—` ; échec réseau → message lisible, tableau masqué.
+**Table « monde de Markovitz »** : σ de la bande `(e^sigma − 1) × 100`, z, pente `(e^b − 1) × 100`, MM court/long et confiance `1 − R²`, sur la fenêtre de référence (date persistée, sinon 20 ans, 30 pour les financières) ou l'une des fenêtres `1A` / `5A` / `10A` / `20A` / `MAX`. Recalculée côté client, comme le graphe héro.
 
 ---
 
