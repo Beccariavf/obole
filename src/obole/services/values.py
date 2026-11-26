@@ -1,8 +1,7 @@
 """Conversion d'une série pandas en liste JSON-compatible.
 
-Partagé par `serialize.py` (payloads) et `momentum.py` : même arrondi, même
-traitement des trous. Module feuille (numpy/pandas seulement) — il évite que
-`serialize` et `momentum` se dupliquent ou s'importent en cycle.
+Utilisé par `serialize.py` (payloads) : même arrondi, même traitement des trous.
+Module feuille (numpy/pandas seulement).
 """
 
 from __future__ import annotations

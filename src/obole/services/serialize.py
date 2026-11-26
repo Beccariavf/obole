@@ -26,7 +26,6 @@ from obole.models import (
     StockAnalysis,
     SummaryCard,
 )
-from obole.services.momentum import momentum_payload
 from obole.services.values import to_values as _vals
 
 if TYPE_CHECKING:
@@ -377,11 +376,6 @@ def basket_to_dict(analysis: BasketAnalysis, series: pd.Series, include_chart: b
     }
     if include_chart:
         chart = basket_chart_payload(series)
-        # Un indice synthétique est déjà en total-return : `raw == adj`, pas de
-        # bascule possible côté front.
-        chart["momentum"] = momentum_payload(
-            f"INDEX:{analysis.index_id}", series, None, _downsample(series).index
-        )
         out["chart"] = chart
     return out
 
@@ -879,13 +873,5 @@ def analysis_to_dict(
     }
     if include_chart:
         chart = chart_payload(prices, analysis.fundamentals)
-        # Momentum (Clara Vallis) : séries alignées sur la grille du graphe.
-        # La grille est recalculée depuis les prix, jamais lue du dict `chart` :
-        # le tracé et le momentum partagent la même décimation déterministe.
-        # Absent quand `include_chart=False` (MCP, prompt de thèse) : rien à
-        # tracer, donc rien à calculer.
-        chart["momentum"] = momentum_payload(
-            ident.ticker, prices.raw, prices.adjusted, _downsample(prices.raw).index
-        )
         out["chart"] = chart
     return out

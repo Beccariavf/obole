@@ -143,31 +143,11 @@ REGRESSION_YEARS_FINANCIAL = 30
 # via `/api/meta` (`watch.min_ref_points`) pour désactiver une action en amont.
 REGRESSION_MIN_POINTS = 30
 
-# --- Clara Vallis (momentum, #30) --------------------------------------------
-# Fenêtre de la foule : 250 séances ≈ un an de bourse. SOURCE UNIQUE du défaut
-# du moteur (`engine/clara_vallis`) et du service — le front ne le redéfinit pas.
-MOMENTUM_WINDOW = 250
-
-# Bornes de satisfaction, CALIBRÉES sur le CAC 40 figé (2000-2023, fixture
-# `tests/fixtures/cac40_daily.csv`). Mesures : crises 0,174 (2008) · 0,239
-# (2011) · 0,255 (2020) · 0,174 (2002) ; calmes 0,762 (2017) · 0,859 (2021) ·
-# 0,704 (2023) ; 2015 (0,515) dans la bande neutre. Marge minimale : 0,095.
-MOMENTUM_SATISFACTION_LOW = 0.35
-MOMENTUM_SATISFACTION_HIGH = 0.60
-
-# Lecture du score (percentile historique) : sous ce nombre de scores calculables,
-# un rang ne dit rien (chaque point vaut plus d'un point et demi de pourcentage).
-# SOURCE UNIQUE : le service le passe au moteur, le front n'en a pas besoin.
-MOMENTUM_PERCENTILE_MIN_POINTS = 60
-
-# Fenêtres du sélecteur de la table « monde de Markovitz » (années ; 0 = maximum).
-MOMENTUM_TABLE_WINDOWS = (1, 5, 10, 20, 0)
-
-# Backtest de fiabilité (#31) : frais de courtage PAR ORDRE (entrée ET sortie),
-# soit 0,2 % l'aller-retour, et taux sans risque en %/an. SOURCE UNIQUE : le
-# service les passe au moteur, `/api/meta` les expose au front (légende).
-MOMENTUM_FEE_PCT = 0.1
-MOMENTUM_RISK_FREE_PCT = 0.0
+# --- Table « monde de Markovitz » (#33) --------------------------------------
+# Fenêtres du sélecteur (années ; 0 = maximum). La table est recalculée côté
+# client depuis le cours : ces fenêtres sont la seule constante serveur,
+# exposée par `/api/meta` sous la clé `markowitz`.
+MARKOWITZ_TABLE_WINDOWS = (1, 5, 10, 20, 0)
 
 # --- Watchlist (#25) ---------------------------------------------------------
 # Trois rangs FIXES : une valeur appartient à un seul tier. Les libellés et les
@@ -1222,8 +1202,6 @@ CHART_HEIGHT_HERO = 440
 CHART_HEIGHT_MINI = 200
 CHART_HEIGHT_DIVIDEND_HERO = 300  # carte Dividend Yield (héro de la section Dividende)
 CHART_HEIGHT_VALUATION_HERO = 560  # graphe de la calculatrice de prix juste (héro de section)
-CHART_HEIGHT_MOMENTUM_YEAR = 240  # courbe du score sur un an (section Momentum)
-CHART_HEIGHT_MOMENTUM_HISTORY = 380  # historique coloré (section Momentum)
 CHART_HEIGHT_PORTFOLIO_RESUME = 360  # courbe TWR du portefeuille (carte Résumé)
 CHART_HEIGHT_PORTFOLIO_DONUT = 320  # donut de répartition des comptes (carte Résumé)
 CHART_HEIGHT_PORTFOLIO_DRAWDOWN = 300  # courbe de drawdown (section Risque)

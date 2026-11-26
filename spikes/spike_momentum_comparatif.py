@@ -31,11 +31,54 @@ import numpy as np
 import pandas as pd
 
 from obole import config
-from obole.engine import clara_vallis as cv
 
 MIN_YEARS = 8
 N_PLACEBO = 200
 rng = np.random.default_rng(0)
+
+# Constantes de l'étude, recopiées localement : le spike reste autonome depuis
+# le retrait de la Clara Vallis du dépôt (#33).
+LOW = 0.35
+HIGH = 0.60
+FEE_PCT = 0.1
+
+
+def _bubble_window(window_prices: np.ndarray) -> np.ndarray:
+    """Bulles de toutes les entrées d'une fenêtre fermée à droite (formule CV)."""
+    last = window_prices[-1]
+    suffix_min = np.minimum.accumulate(window_prices[::-1])[::-1]
+    suffix_max = np.maximum.accumulate(window_prices[::-1])[::-1]
+    span = suffix_max - suffix_min
+    safe = np.where(span > 0, span, 1.0)
+    return np.where(span > 0, (last - suffix_min) / safe, 0.5)
+
+
+def _satisfaction_series(prices: pd.Series, window: int = 250) -> pd.Series:
+    """Copie locale du score de satisfaction, pour que le spike reste exécutable."""
+    s = prices.dropna()
+    s = s[s > 0]
+    out = pd.Series(np.nan, index=s.index, dtype=float)
+    n = len(s)
+    if n < 2:
+        return out
+    p = s.to_numpy(dtype=float)
+    if n < window:
+        out.iloc[-1] = float(np.mean(_bubble_window(p)))
+        return out
+    view = np.lib.stride_tricks.sliding_window_view(p, window)
+    last = p[window - 1 :]
+    scores = np.empty(len(view), dtype=float)
+    for start in range(0, len(view), 2000):
+        stop = min(start + 2000, len(view))
+        block = view[start:stop][:, ::-1]
+        suffix_min = np.minimum.accumulate(block, axis=1)
+        suffix_max = np.maximum.accumulate(block, axis=1)
+        span = suffix_max - suffix_min
+        safe = np.where(span > 0, span, 1.0)
+        bubbles = np.where(span > 0, (last[start:stop, None] - suffix_min) / safe, 0.5)
+        scores[start:stop] = bubbles.mean(axis=1)
+    out.iloc[window - 1 :] = scores
+    return out
 
 
 def _norm(s: pd.Series) -> pd.Series:
@@ -109,7 +152,7 @@ def momentum_universe(series: dict[str, pd.Series], groups: dict[str, str]) -> N
             return a.mean() / (a.std(ddof=1) / np.sqrt(len(a)))
 
         # Frais : chaque titre renouvelé = une vente + un achat à 0,1 % l'ordre.
-        cost = np.mean(turn) * 2 * config.MOMENTUM_FEE_PCT / 100 if turn else 0.0
+        cost = np.mean(turn) * 2 * FEE_PCT / 100 if turn else 0.0
         return {
             "mois": len(ls_a),
             "N médian": float(np.median(ns)) if ns else np.nan,
@@ -176,10 +219,10 @@ def lagged(flag: np.ndarray, valid: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 
 def signals(
-    s: pd.Series, w: int = config.MOMENTUM_WINDOW
+    s: pd.Series, w: int = 250
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     p = s.to_numpy(dtype=float)
-    sat = cv.satisfaction_series(s, window=w).reindex(s.index).to_numpy(dtype=float)
+    sat = _satisfaction_series(s, window=w).reindex(s.index).to_numpy(dtype=float)
     lo = s.rolling(250).min().to_numpy()
     hi = s.rolling(250).max().to_numpy()
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -187,7 +230,7 @@ def signals(
     ma = s.rolling(200).mean().to_numpy()
     mom = s.shift(21).to_numpy() / s.shift(252).to_numpy() - 1.0
 
-    cv_pos = hysteresis(sat, config.MOMENTUM_SATISFACTION_LOW, config.MOMENTUM_SATISFACTION_HIGH)
+    cv_pos = hysteresis(sat, LOW, HIGH)
     cv_ok = np.r_[False, ~np.isnan(sat[:-1])]
     return {
         "CV": (cv_pos, cv_ok),
@@ -214,7 +257,7 @@ def evaluate(r: np.ndarray, pos: np.ndarray, ok: np.ndarray) -> dict[str, float]
     strat = np.where(pv, rv, 0.0)
     strat_net = strat.copy()
     switches = np.r_[pv[0], pv[1:] != pv[:-1]]
-    strat_net[switches] += np.log(1 - config.MOMENTUM_FEE_PCT / 100)
+    strat_net[switches] += np.log(1 - FEE_PCT / 100)
     years = len(rv) / 252
     return {
         "diff_bp": diff * 1e4,
@@ -281,7 +324,7 @@ def sensitivity(series: dict[str, pd.Series]) -> pd.DataFrame:
             for s in series.values():
                 p = s.to_numpy(dtype=float)
                 r = np.r_[np.nan, np.log(p[1:] / p[:-1])]
-                sat = cv.satisfaction_series(s, window=w).reindex(s.index).to_numpy(dtype=float)
+                sat = _satisfaction_series(s, window=w).reindex(s.index).to_numpy(dtype=float)
                 pos = hysteresis(sat, low, high)
                 ok = np.r_[False, ~np.isnan(sat[:-1])] & ~np.isnan(r)
                 pv, rv = pos[ok], r[ok]
@@ -312,7 +355,7 @@ def cross_section(series: dict[str, pd.Series]) -> pd.DataFrame:
     sig["MOM12-1"] = month_end.shift(1) / month_end.shift(12) - 1.0
     daily = {}
     for tk, s in series.items():
-        sat = cv.satisfaction_series(s)
+        sat = _satisfaction_series(s)
         daily[tk] = sat
     sig["CV"] = pd.DataFrame(daily).sort_index().resample("ME").last()
     # Calcul par titre, sur SES séances : sur l'index joint (calendriers mêlés), les

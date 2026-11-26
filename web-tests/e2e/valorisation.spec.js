@@ -251,3 +251,30 @@ test("section Valorisation : zoom plein écran d'une courbe continue (sans requ�
   await page.keyboard.press("Escape");
   await expect(modal).not.toBeVisible();
 });
+
+test("section Valorisation : la table « monde de Markovitz » est en bas de section (#33)", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/#RI.PA/valorisation");
+  await expect(page.locator(".header")).toBeVisible();
+
+  // Six mesures, six en-têtes — la table a quitté l'onglet Momentum (#33).
+  const card = page.locator(".mkw-card");
+  await expect(card).toBeVisible();
+  await expect(card.locator(".mkw-table thead th")).toHaveCount(6);
+  await expect(card.locator(".mkw-table tbody td")).toHaveCount(6);
+  await expect(card.locator(".mkw-table thead th").first()).toHaveText("σ (bande)");
+
+  // La table suit la fenêtre choisie, sans requête réseau.
+  const sigma = () => card.locator(".mkw-table tbody td").first().textContent();
+  const before = await sigma();
+  await card.locator(".period-chip", { hasText: "1A" }).click();
+  await expect.poll(sigma).not.toBe(before);
+
+  // La bascule brut/ajusté reste disponible pour une action.
+  await expect(card.locator('input[name="mkw-series"][value="adj"]')).toBeEnabled();
+
+  expect(errors).toEqual([]);
+});

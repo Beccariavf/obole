@@ -878,7 +878,7 @@ describe("plan de la thèse — afficher / masquer (#21.2)", () => {
 
   it("la largeur de la bande vient du rembourrage de la carte, source unique (CA-PL17, CA-PL19)", () => {
     const css = readFileSync(join(process.cwd(), "..", "src", "obole", "web", "style.css"), "utf8");
-    // Une seule déclaration alimente le rembourrage de la carte ET la largeur de
+    // Une seule règle alimente le rembourrage de la carte ET la largeur de
     // la bande : impossible de dériver l'un de l'autre sans casser la garantie
     // « la fiche ne rétrécit pas ».
     expect(css).toMatch(/\.thesis-card\s*\{[^}]*--thesis-pad-x:\s*22px/);

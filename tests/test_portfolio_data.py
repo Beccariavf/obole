@@ -327,7 +327,7 @@ class TestBackupIntegration:
         declared = {n for names in backup._TABLE_SINCE.values() for n in names}
         assert set(backup._TABLE_COLUMNS) == declared
 
-    def test_registry_guard_detects_missing_declaration(self, monkeypatch):
+    def test_registry_guard_detects_missing_registration(self, monkeypatch):
         """Un oubli dans `_TABLE_SINCE` doit échouer au chargement, pas à la restauration."""
         incomplete = {1: tuple(backup._TABLE_SINCE[1])}  # table portefeuille non déclarée
         monkeypatch.setattr(backup, "_TABLE_SINCE", incomplete)
